@@ -5,7 +5,6 @@ import {
   Pressable,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -16,37 +15,43 @@ export default function HistorialVentasScreen() {
 
   const [ventas, setVentas] = useState<any[]>([]);
   const [detalleVenta, setDetalleVenta] = useState<any>(null);
-  const [cargando, setCargando] = useState(true);
-  const [cargandoDetalle, setCargandoDetalle] = useState(false);
+  const [idVentaSeleccionada, setIdVentaSeleccionada] = useState<number | null>(null);
+  const [cargando, setCargando] = useState(false);
 
   const cargarVentas = async () => {
     try {
-      setCargando(true);
       const respuesta = await api.get('/ventas');
       setVentas(respuesta.data);
     } catch (error) {
       console.log('Error al cargar ventas:', error);
       Alert.alert('Error', 'No se pudieron cargar las ventas');
+    }
+  };
+
+  useEffect(() => {
+    cargarVentas();
+  }, []);
+
+  const verDetalle = async (idVenta: number) => {
+    if (idVentaSeleccionada === idVenta) {
+      setIdVentaSeleccionada(null);
+      setDetalleVenta(null);
+      return;
+    }
+
+    try {
+      setCargando(true);
+
+      const respuesta = await api.get(`/ventas/${idVenta}`);
+
+      setIdVentaSeleccionada(idVenta);
+      setDetalleVenta(respuesta.data);
+    } catch (error) {
+      console.log('Error al obtener detalle de venta:', error);
+      Alert.alert('Error', 'No se pudo cargar el detalle de la venta');
     } finally {
       setCargando(false);
     }
-  };
-
-  const verDetalle = async (idVenta: number) => {
-    try {
-      setCargandoDetalle(true);
-      const respuesta = await api.get(`/ventas/${idVenta}`);
-      setDetalleVenta(respuesta.data);
-    } catch (error) {
-      console.log('Error al cargar detalle:', error);
-      Alert.alert('Error', 'No se pudo cargar el detalle de la venta');
-    } finally {
-      setCargandoDetalle(false);
-    }
-  };
-
-  const cerrarDetalle = () => {
-    setDetalleVenta(null);
   };
 
   const formatearFecha = (fecha: string) => {
@@ -63,117 +68,136 @@ export default function HistorialVentasScreen() {
     });
   };
 
-  const totalGeneral = ventas.reduce(
-    (total, item) => total + Number(item.total || 0),
-    0
-  );
+  const obtenerDetalles = () => {
+    if (!detalleVenta) return [];
 
-  useEffect(() => {
-    cargarVentas();
-  }, []);
+    if (Array.isArray(detalleVenta.detalles)) {
+      return detalleVenta.detalles;
+    }
 
-  if (cargando) {
-    return (
-      <View style={styles.centro}>
-        <ActivityIndicator size="large" />
-        <Text>Cargando ventas...</Text>
-      </View>
-    );
-  }
+    if (Array.isArray(detalleVenta.detalle)) {
+      return detalleVenta.detalle;
+    }
+
+    if (Array.isArray(detalleVenta.productos)) {
+      return detalleVenta.productos;
+    }
+
+    return [];
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Historial de ventas</Text>
-      <Text style={styles.subtitulo}>Facturas internas registradas</Text>
 
-      <View style={styles.resumen}>
-        <View>
-          <Text style={styles.resumenTexto}>Total vendido</Text>
-          <Text style={styles.resumenMonto}>₡{totalGeneral.toFixed(2)}</Text>
-        </View>
-
-        <View style={styles.resumenCantidad}>
-          <Text style={styles.resumenNumero}>{ventas.length}</Text>
-          <Text style={styles.resumenLabel}>ventas</Text>
-        </View>
-      </View>
+      <Text style={styles.subtitulo}>
+        Consulte las ventas registradas y revise el detalle de cada factura.
+      </Text>
 
       {ventas.length === 0 ? (
-        <View style={styles.sinDatos}>
-          <Text style={styles.sinDatosIcono}>🧾</Text>
-          <Text style={styles.sinDatosTitulo}>No hay ventas registradas</Text>
-          <Text style={styles.sinDatosTexto}>
-            Cuando registres una venta, aparecerá en este historial.
-          </Text>
+        <View style={styles.card}>
+          <Text style={styles.textoVacio}>No hay ventas registradas.</Text>
         </View>
       ) : (
-        ventas.map((venta) => (
-          <View key={venta.id_venta} style={styles.cardVenta}>
-            <View style={styles.fila}>
-              <Text style={styles.factura}>{venta.numero_factura}</Text>
-              <Text style={styles.total}>₡{Number(venta.total).toFixed(2)}</Text>
-            </View>
+        ventas.map((venta) => {
+          const estaSeleccionada = idVentaSeleccionada === venta.id_venta;
+          const detalles = estaSeleccionada ? obtenerDetalles() : [];
 
-            <Text style={styles.detalle}>Cliente: {venta.cliente}</Text>
-            <Text style={styles.detalle}>Método de pago: {venta.metodo_pago}</Text>
-            <Text style={styles.detalle}>
-              Fecha: {formatearFecha(venta.fecha_venta)}
-            </Text>
-            <Text style={styles.detalle}>
-              Productos vendidos: {venta.cantidad_productos}
-            </Text>
-
-            <Pressable
-              style={styles.botonDetalle}
-              onPress={() => verDetalle(venta.id_venta)}
-            >
-              <Text style={styles.textoDetalle}>Ver detalle</Text>
-            </Pressable>
-          </View>
-        ))
-      )}
-
-      {detalleVenta && (
-        <View style={styles.detalleBox}>
-          <Text style={styles.detalleTitulo}>Detalle de factura</Text>
-
-          <Text style={styles.detalle}>
-            Factura: {detalleVenta.venta.numero_factura}
-          </Text>
-          <Text style={styles.detalle}>Cliente: {detalleVenta.venta.cliente}</Text>
-          <Text style={styles.detalle}>
-            Total: ₡{Number(detalleVenta.venta.total).toFixed(2)}
-          </Text>
-
-          <View style={styles.linea} />
-
-          {cargandoDetalle ? (
-            <ActivityIndicator size="small" />
-          ) : (
-            detalleVenta.detalles.map((item: any) => (
-              <View key={item.id_detalle} style={styles.productoDetalle}>
-                <Text style={styles.productoNombre}>{item.nombre}</Text>
-                <Text style={styles.detalle}>
-                  Cantidad: {item.cantidad} {item.unidad_medida || 'kg'}
+          return (
+            <View key={venta.id_venta} style={styles.card}>
+              <View style={styles.fila}>
+                <Text style={styles.factura}>
+                  Factura: {venta.numero_factura || `#${venta.id_venta}`}
                 </Text>
-                <Text style={styles.detalle}>
-                  Precio: ₡{Number(item.precio_unitario).toFixed(2)}
-                </Text>
-                <Text style={styles.subtotal}>
-                  Subtotal: ₡{Number(item.subtotal).toFixed(2)}
-                </Text>
+
+                <Text style={styles.estado}>Registrada</Text>
               </View>
-            ))
-          )}
 
-          <Pressable style={styles.botonCerrar} onPress={cerrarDetalle}>
-            <Text style={styles.textoCerrar}>Cerrar detalle</Text>
-          </Pressable>
-        </View>
+              <Text style={styles.detalle}>
+                Fecha: {formatearFecha(venta.fecha_venta)}
+              </Text>
+
+              <Text style={styles.detalle}>
+                Cliente: {venta.cliente || 'Cliente contado'}
+              </Text>
+
+              <Text style={styles.detalle}>
+                Método de pago: {venta.metodo_pago || 'Efectivo'}
+              </Text>
+
+              <Text style={styles.total}>
+                Total: ₡{Number(venta.total || 0).toFixed(2)}
+              </Text>
+
+              <Pressable
+                style={styles.botonDetalle}
+                onPress={() => verDetalle(venta.id_venta)}
+              >
+                <Text style={styles.textoBotonDetalle}>
+                  {estaSeleccionada ? 'Ocultar detalle' : 'Ver detalle'}
+                </Text>
+              </Pressable>
+
+              {estaSeleccionada && (
+                <View style={styles.detalleBox}>
+                  <Text style={styles.detalleTitulo}>Detalle de la venta</Text>
+
+                  {cargando ? (
+                    <Text style={styles.textoVacio}>Cargando detalle...</Text>
+                  ) : detalles.length === 0 ? (
+                    <Text style={styles.textoVacio}>
+                      No hay productos en el detalle.
+                    </Text>
+                  ) : (
+                    detalles.map((item: any, index: number) => {
+                      const nombre =
+                        item.nombre ||
+                        item.producto ||
+                        item.nombre_producto ||
+                        'Producto';
+
+                      const cantidad = Number(item.cantidad || 0);
+                      const precio = Number(
+                        item.precio_unitario ||
+                          item.precio_venta ||
+                          item.precio ||
+                          0
+                      );
+                      const subtotal = Number(
+                        item.subtotal || cantidad * precio
+                      );
+
+                      return (
+                        <View key={index} style={styles.productoDetalle}>
+                          <Text style={styles.productoNombre}>{nombre}</Text>
+
+                          <Text style={styles.productoTexto}>
+                            Cantidad: {cantidad}
+                          </Text>
+
+                          <Text style={styles.productoTexto}>
+                            Precio unitario: ₡{precio.toFixed(2)}
+                          </Text>
+
+                          <Text style={styles.productoSubtotal}>
+                            Subtotal: ₡{subtotal.toFixed(2)}
+                          </Text>
+                        </View>
+                      );
+                    })
+                  )}
+                </View>
+              )}
+            </View>
+          );
+        })
       )}
 
-      <Pressable style={styles.botonVolver} onPress={() => router.push('/home')}>
-        <Text style={styles.textoVolver}>Volver al inicio</Text>
+      <Pressable
+        style={styles.botonVolver}
+        onPress={() => router.push('/home' as any)}
+      >
+        <Text style={styles.textoVolver}>Volver</Text>
       </Pressable>
     </ScrollView>
   );
@@ -185,11 +209,6 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#eef8ef',
   },
-  centro: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   titulo: {
     fontSize: 30,
     fontWeight: 'bold',
@@ -197,79 +216,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   subtitulo: {
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 18,
-  },
-  resumen: {
-    backgroundColor: '#1b5e20',
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 16,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  resumenTexto: {
-    color: '#dcedc8',
-    fontSize: 15,
-  },
-  resumenMonto: {
-    color: '#fff',
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginTop: 5,
-  },
-  resumenCantidad: {
-    backgroundColor: '#2e7d32',
-    padding: 14,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  resumenNumero: {
-    color: '#fff',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  resumenLabel: {
-    color: '#e8f5e9',
-    fontSize: 13,
-  },
-  sinDatos: {
-    backgroundColor: '#fff',
-    padding: 24,
-    borderRadius: 18,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-  },
-  sinDatosIcono: {
-    fontSize: 40,
-    marginBottom: 8,
-  },
-  sinDatosTitulo: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1b5e20',
-  },
-  sinDatosTexto: {
     color: '#555',
     textAlign: 'center',
     marginTop: 6,
+    marginBottom: 18,
   },
-  cardVenta: {
+  card: {
     backgroundColor: '#fff',
     padding: 16,
     borderRadius: 18,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#d7ead8',
-    elevation: 2,
+    marginBottom: 14,
   },
   fila: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
+    alignItems: 'center',
   },
   factura: {
     fontSize: 18,
@@ -277,14 +241,23 @@ const styles = StyleSheet.create({
     color: '#1b5e20',
     flex: 1,
   },
-  total: {
-    fontSize: 18,
+  estado: {
+    backgroundColor: '#e8f5e9',
+    color: '#1b5e20',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 10,
     fontWeight: 'bold',
-    color: '#2e7d32',
   },
   detalle: {
     color: '#555',
-    marginTop: 5,
+    marginTop: 6,
+  },
+  total: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#2e7d32',
+    marginTop: 10,
   },
   botonDetalle: {
     backgroundColor: '#2e7d32',
@@ -293,61 +266,55 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
   },
-  textoDetalle: {
+  textoBotonDetalle: {
     color: '#fff',
     fontWeight: 'bold',
   },
   detalleBox: {
-    backgroundColor: '#fff8e1',
-    padding: 16,
-    borderRadius: 18,
+    backgroundColor: '#f1f8e9',
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#ffe082',
-    marginTop: 10,
-    marginBottom: 14,
+    borderColor: '#c8e6c9',
+    marginTop: 12,
   },
   detalleTitulo: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#ef6c00',
-    marginBottom: 8,
-  },
-  linea: {
-    height: 1,
-    backgroundColor: '#ffe082',
-    marginVertical: 12,
+    color: '#1b5e20',
+    marginBottom: 10,
   },
   productoDetalle: {
     backgroundColor: '#fff',
     padding: 12,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#d7ead8',
     marginBottom: 10,
   },
   productoNombre: {
-    fontSize: 17,
     fontWeight: 'bold',
-    color: '#444',
-  },
-  subtotal: {
-    marginTop: 6,
     color: '#1b5e20',
-    fontWeight: 'bold',
+    fontSize: 16,
   },
-  botonCerrar: {
-    backgroundColor: '#ef6c00',
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 8,
+  productoTexto: {
+    color: '#555',
+    marginTop: 4,
   },
-  textoCerrar: {
-    color: '#fff',
+  productoSubtotal: {
+    color: '#2e7d32',
     fontWeight: 'bold',
+    marginTop: 6,
+  },
+  textoVacio: {
+    color: '#777',
+    textAlign: 'center',
+    marginVertical: 10,
   },
   botonVolver: {
     backgroundColor: '#757575',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 14,
     alignItems: 'center',
     marginTop: 8,
   },

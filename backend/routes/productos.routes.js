@@ -3,25 +3,23 @@ const conexion = require('../db');
 
 const router = express.Router();
 
-// Obtener todos los productos
+// Listar productos
 router.get('/', (req, res) => {
   const sql = `
     SELECT 
       p.id_producto,
       p.nombre,
-      c.nombre AS categoria,
-      pr.nombre AS proveedor,
+      p.cantidad,
       p.precio_compra,
       p.precio_venta,
-      p.cantidad,
       p.stock_minimo,
       p.unidad_medida,
-      p.fecha_vencimiento,
-      p.estado
+      p.estado,
+      p.id_proveedor,
+      pr.nombre AS proveedor
     FROM productos p
-    LEFT JOIN categorias c ON p.id_categoria = c.id_categoria
     LEFT JOIN proveedores pr ON p.id_proveedor = pr.id_proveedor
-    ORDER BY p.nombre
+    ORDER BY p.nombre ASC
   `;
 
   conexion.query(sql, (error, resultados) => {
@@ -36,116 +34,25 @@ router.get('/', (req, res) => {
   });
 });
 
-// Productos con stock bajo o faltantes
-router.get('/stock-bajo', (req, res) => {
-  const sql = `
-    SELECT 
-      id_producto,
-      nombre,
-      precio_venta,
-      cantidad,
-      stock_minimo,
-      unidad_medida,
-      estado
-    FROM productos
-    WHERE cantidad <= stock_minimo
-    ORDER BY cantidad ASC, nombre ASC
-  `;
-
-  conexion.query(sql, (error, resultados) => {
-    if (error) {
-      return res.status(500).json({
-        mensaje: 'Error al obtener productos con stock bajo',
-        error
-      });
-    }
-
-    res.json(resultados);
-  });
-});
-
-// Alertas generales del sistema
-router.get('/alertas', (req, res) => {
-  const sqlStockBajo = `
-    SELECT id_producto, nombre, cantidad, stock_minimo, unidad_medida
-    FROM productos
-    WHERE cantidad <= stock_minimo
-    ORDER BY cantidad ASC
-  `;
-
-  const sqlSinPrecio = `
-    SELECT id_producto, nombre, precio_compra, precio_venta
-    FROM productos
-    WHERE precio_compra = 0 OR precio_venta = 0
-    ORDER BY nombre ASC
-  `;
-
-  const sqlProximosVencer = `
-    SELECT id_producto, nombre, fecha_vencimiento, cantidad, unidad_medida
-    FROM productos
-    WHERE fecha_vencimiento IS NOT NULL
-      AND fecha_vencimiento BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-    ORDER BY fecha_vencimiento ASC
-  `;
-
-  conexion.query(sqlStockBajo, (errorStock, stockBajo) => {
-    if (errorStock) {
-      return res.status(500).json({
-        mensaje: 'Error al obtener alertas de stock',
-        error: errorStock
-      });
-    }
-
-    conexion.query(sqlSinPrecio, (errorPrecio, sinPrecio) => {
-      if (errorPrecio) {
-        return res.status(500).json({
-          mensaje: 'Error al obtener alertas de precios',
-          error: errorPrecio
-        });
-      }
-
-      conexion.query(sqlProximosVencer, (errorVencer, proximosVencer) => {
-        if (errorVencer) {
-          return res.status(500).json({
-            mensaje: 'Error al obtener alertas de vencimiento',
-            error: errorVencer
-          });
-        }
-
-        res.json({
-          resumen: {
-            stock_bajo: stockBajo.length,
-            sin_precio: sinPrecio.length,
-            proximos_vencer: proximosVencer.length
-          },
-          stock_bajo: stockBajo,
-          sin_precio: sinPrecio,
-          proximos_vencer: proximosVencer
-        });
-      });
-    });
-  });
-});
-
-// Obtener un producto por ID
+// Obtener producto por ID
 router.get('/:id', (req, res) => {
   const { id } = req.params;
 
   const sql = `
     SELECT 
-      id_producto,
-      nombre,
-      id_categoria,
-      id_proveedor,
-      precio_compra,
-      precio_venta,
-      cantidad,
-      stock_minimo,
-      unidad_medida,
-      fecha_vencimiento,
-      estado
-    FROM productos
-    WHERE id_producto = ?
+      p.id_producto,
+      p.nombre,
+      p.cantidad,
+      p.precio_compra,
+      p.precio_venta,
+      p.stock_minimo,
+      p.unidad_medida,
+      p.estado,
+      p.id_proveedor,
+      pr.nombre AS proveedor
+    FROM productos p
+    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id_proveedor
+    WHERE p.id_producto = ?
   `;
 
   conexion.query(sql, [id], (error, resultados) => {
@@ -170,55 +77,51 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   const {
     nombre,
-    id_categoria,
-    id_proveedor,
+    cantidad,
     precio_compra,
     precio_venta,
-    cantidad,
     stock_minimo,
     unidad_medida,
-    fecha_vencimiento
+    id_proveedor
   } = req.body;
 
-  if (
-    !nombre ||
-    precio_compra === undefined ||
-    precio_venta === undefined ||
-    cantidad === undefined
-  ) {
+  if (!nombre) {
     return res.status(400).json({
-      mensaje: 'Faltan datos obligatorios del producto'
+      mensaje: 'Debe ingresar el nombre del producto'
+    });
+  }
+
+  if (!id_proveedor) {
+    return res.status(400).json({
+      mensaje: 'Debe seleccionar un proveedor'
     });
   }
 
   const sql = `
-    INSERT INTO productos 
+    INSERT INTO productos
     (
-      nombre, 
-      id_categoria, 
-      id_proveedor, 
-      precio_compra, 
-      precio_venta, 
-      cantidad, 
-      stock_minimo, 
-      unidad_medida, 
-      fecha_vencimiento
+      nombre,
+      cantidad,
+      precio_compra,
+      precio_venta,
+      stock_minimo,
+      unidad_medida,
+      id_proveedor,
+      estado
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'Activo')
   `;
 
   conexion.query(
     sql,
     [
       nombre,
-      id_categoria || 6,
-      id_proveedor || 1,
-      precio_compra,
-      precio_venta,
-      cantidad,
-      stock_minimo || 5,
+      Number(cantidad || 0),
+      Number(precio_compra || 0),
+      Number(precio_venta || 0),
+      Number(stock_minimo || 5),
       unidad_medida || 'kg',
-      fecha_vencimiento || null
+      id_proveedor
     ],
     (error, resultado) => {
       if (error) {
@@ -242,23 +145,24 @@ router.put('/:id', (req, res) => {
 
   const {
     nombre,
+    cantidad,
     precio_compra,
     precio_venta,
-    cantidad,
     stock_minimo,
     unidad_medida,
-    fecha_vencimiento,
+    id_proveedor,
     estado
   } = req.body;
 
-  if (
-    !nombre ||
-    precio_compra === undefined ||
-    precio_venta === undefined ||
-    cantidad === undefined
-  ) {
+  if (!nombre) {
     return res.status(400).json({
-      mensaje: 'Faltan datos obligatorios para editar el producto'
+      mensaje: 'Debe ingresar el nombre del producto'
+    });
+  }
+
+  if (!id_proveedor) {
+    return res.status(400).json({
+      mensaje: 'Debe seleccionar un proveedor'
     });
   }
 
@@ -266,12 +170,12 @@ router.put('/:id', (req, res) => {
     UPDATE productos
     SET 
       nombre = ?,
+      cantidad = ?,
       precio_compra = ?,
       precio_venta = ?,
-      cantidad = ?,
       stock_minimo = ?,
       unidad_medida = ?,
-      fecha_vencimiento = ?,
+      id_proveedor = ?,
       estado = ?
     WHERE id_producto = ?
   `;
@@ -280,12 +184,12 @@ router.put('/:id', (req, res) => {
     sql,
     [
       nombre,
-      precio_compra,
-      precio_venta,
-      cantidad,
-      stock_minimo || 5,
+      Number(cantidad || 0),
+      Number(precio_compra || 0),
+      Number(precio_venta || 0),
+      Number(stock_minimo || 5),
       unidad_medida || 'kg',
-      fecha_vencimiento || null,
+      id_proveedor,
       estado || 'Activo',
       id
     ],
@@ -310,14 +214,14 @@ router.put('/:id', (req, res) => {
   );
 });
 
-// Aumentar inventario rápido
+// Aumentar inventario
 router.patch('/:id/aumentar', (req, res) => {
   const { id } = req.params;
-  const cantidad = Number(req.body.cantidad || 1);
+  const { cantidad } = req.body;
 
-  if (cantidad <= 0) {
+  if (!cantidad || Number(cantidad) <= 0) {
     return res.status(400).json({
-      mensaje: 'La cantidad debe ser mayor a cero'
+      mensaje: 'Debe ingresar una cantidad válida'
     });
   }
 
@@ -327,7 +231,7 @@ router.patch('/:id/aumentar', (req, res) => {
     WHERE id_producto = ?
   `;
 
-  conexion.query(sql, [cantidad, id], (error, resultado) => {
+  conexion.query(sql, [Number(cantidad), id], (error, resultado) => {
     if (error) {
       return res.status(500).json({
         mensaje: 'Error al aumentar inventario',
@@ -347,60 +251,40 @@ router.patch('/:id/aumentar', (req, res) => {
   });
 });
 
-// Disminuir inventario rápido
+// Disminuir inventario
 router.patch('/:id/disminuir', (req, res) => {
   const { id } = req.params;
-  const cantidad = Number(req.body.cantidad || 1);
+  const { cantidad } = req.body;
 
-  if (cantidad <= 0) {
+  if (!cantidad || Number(cantidad) <= 0) {
     return res.status(400).json({
-      mensaje: 'La cantidad debe ser mayor a cero'
+      mensaje: 'Debe ingresar una cantidad válida'
     });
   }
 
-  const sqlValidar = `
-    SELECT cantidad
-    FROM productos
+  const sql = `
+    UPDATE productos
+    SET cantidad = cantidad - ?
     WHERE id_producto = ?
+      AND cantidad >= ?
   `;
 
-  conexion.query(sqlValidar, [id], (error, resultados) => {
+  conexion.query(sql, [Number(cantidad), id, Number(cantidad)], (error, resultado) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al validar inventario',
+        mensaje: 'Error al disminuir inventario',
         error
       });
     }
 
-    if (resultados.length === 0) {
-      return res.status(404).json({
-        mensaje: 'Producto no encontrado'
-      });
-    }
-
-    if (Number(resultados[0].cantidad) < cantidad) {
+    if (resultado.affectedRows === 0) {
       return res.status(400).json({
-        mensaje: 'No se puede disminuir más de la cantidad disponible'
+        mensaje: 'No hay suficiente inventario o el producto no existe'
       });
     }
 
-    const sqlActualizar = `
-      UPDATE productos
-      SET cantidad = cantidad - ?
-      WHERE id_producto = ?
-    `;
-
-    conexion.query(sqlActualizar, [cantidad, id], (errorActualizar) => {
-      if (errorActualizar) {
-        return res.status(500).json({
-          mensaje: 'Error al disminuir inventario',
-          error: errorActualizar
-        });
-      }
-
-      res.json({
-        mensaje: 'Inventario disminuido correctamente'
-      });
+    res.json({
+      mensaje: 'Inventario disminuido correctamente'
     });
   });
 });

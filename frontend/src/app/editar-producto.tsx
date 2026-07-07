@@ -5,190 +5,282 @@ import {
   TextInput,
   Pressable,
   StyleSheet,
-  Alert,
   ScrollView,
-  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../services/api';
 
 export default function EditarProductoScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
 
-  const [cargando, setCargando] = useState(true);
+  const idProducto = params.id_producto || params.id;
+
   const [nombre, setNombre] = useState('');
+  const [cantidad, setCantidad] = useState('');
   const [precioCompra, setPrecioCompra] = useState('');
   const [precioVenta, setPrecioVenta] = useState('');
-  const [cantidad, setCantidad] = useState('');
   const [stockMinimo, setStockMinimo] = useState('');
   const [unidadMedida, setUnidadMedida] = useState('kg');
-  const [fechaVencimiento, setFechaVencimiento] = useState('');
+  const [estado, setEstado] = useState('Activo');
+  const [idProveedor, setIdProveedor] = useState('');
+  const [proveedores, setProveedores] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(false);
 
   const unidades = ['kg', 'unidad', 'bolsa', 'manojo', 'caja', 'rollo', 'paquete'];
+  const estados = ['Activo', 'Inactivo'];
+
+  const convertirNumero = (valor: string) => {
+    return Number(String(valor || '0').replace(',', '.'));
+  };
+
+  const cargarProveedores = async () => {
+    try {
+      const respuesta = await api.get('/proveedores');
+      setProveedores(respuesta.data);
+    } catch (error) {
+      console.log('Error al cargar proveedores:', error);
+      Alert.alert('Error', 'No se pudieron cargar los proveedores');
+    }
+  };
 
   const cargarProducto = async () => {
-    try {
-      const respuesta = await api.get(`/productos/${id}`);
-      const p = respuesta.data;
+    if (!idProducto) {
+      Alert.alert('Error', 'No se recibió el producto a editar');
+      router.push('/productos' as any);
+      return;
+    }
 
-      setNombre(p.nombre || '');
-      setPrecioCompra(String(p.precio_compra || '0'));
-      setPrecioVenta(String(p.precio_venta || '0'));
-      setCantidad(String(p.cantidad || '0'));
-      setStockMinimo(String(p.stock_minimo || '5'));
-      setUnidadMedida(p.unidad_medida || 'kg');
-      setFechaVencimiento(
-        p.fecha_vencimiento ? String(p.fecha_vencimiento).split('T')[0] : ''
-      );
+    try {
+      const respuesta = await api.get(`/productos/${idProducto}`);
+      const producto = respuesta.data;
+
+      setNombre(producto.nombre || '');
+      setCantidad(String(producto.cantidad ?? ''));
+      setPrecioCompra(String(producto.precio_compra ?? ''));
+      setPrecioVenta(String(producto.precio_venta ?? ''));
+      setStockMinimo(String(producto.stock_minimo ?? '5'));
+      setUnidadMedida(producto.unidad_medida || 'kg');
+      setEstado(producto.estado || 'Activo');
+      setIdProveedor(producto.id_proveedor ? String(producto.id_proveedor) : '');
     } catch (error) {
-      Alert.alert('Error', 'No se pudo cargar el producto');
-      console.log(error);
+      console.log('Error al cargar producto:', error);
+      Alert.alert('Error', 'No se pudo cargar la información del producto');
+    }
+  };
+
+  useEffect(() => {
+    cargarProveedores();
+    cargarProducto();
+  }, []);
+
+  const guardarCambios = async () => {
+    if (!nombre) {
+      Alert.alert('Campo requerido', 'Debe ingresar el nombre del producto');
+      return;
+    }
+
+    if (!idProveedor) {
+      Alert.alert('Proveedor requerido', 'Debe seleccionar un proveedor');
+      return;
+    }
+
+    try {
+      setCargando(true);
+
+      await api.put(`/productos/${idProducto}`, {
+        nombre,
+        cantidad: convertirNumero(cantidad),
+        precio_compra: convertirNumero(precioCompra),
+        precio_venta: convertirNumero(precioVenta),
+        stock_minimo: convertirNumero(stockMinimo),
+        unidad_medida: unidadMedida,
+        id_proveedor: Number(idProveedor),
+        estado,
+      });
+
+      Alert.alert('Producto actualizado', 'Los cambios se guardaron correctamente');
+      router.push('/productos' as any);
+    } catch (error: any) {
+      console.log('Error al editar producto:', error?.response?.data || error);
+
+      Alert.alert(
+        'Error',
+        error?.response?.data?.mensaje || 'No se pudo actualizar el producto'
+      );
     } finally {
       setCargando(false);
     }
   };
 
-  const convertirNumero = (valor: string) => {
-    return Number(String(valor).replace(',', '.'));
-  };
-
-  const guardarCambios = async () => {
-    if (!nombre || !precioCompra || !precioVenta || !cantidad) {
-      Alert.alert('Campos requeridos', 'Complete los datos principales');
-      return;
-    }
-
-    try {
-      await api.put(`/productos/${id}`, {
-        nombre,
-        precio_compra: convertirNumero(precioCompra),
-        precio_venta: convertirNumero(precioVenta),
-        cantidad: convertirNumero(cantidad),
-        stock_minimo: convertirNumero(stockMinimo || '5'),
-        unidad_medida: unidadMedida,
-        fecha_vencimiento: fechaVencimiento || null,
-        estado: 'Activo',
-      });
-
-      Alert.alert('Correcto', 'Producto actualizado correctamente');
-      router.replace('/productos');
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo actualizar el producto');
-      console.log(error);
-    }
-  };
-
-  useEffect(() => {
-    cargarProducto();
-  }, []);
-
-  if (cargando) {
-    return (
-      <View style={styles.centro}>
-        <ActivityIndicator size="large" />
-        <Text>Cargando producto...</Text>
-      </View>
-    );
-  }
-
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Editar producto</Text>
 
-      <Text style={styles.label}>Nombre</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Nombre"
-        value={nombre}
-        onChangeText={setNombre}
-      />
+      <Text style={styles.subtitulo}>
+        Modifique la información del producto y seleccione el proveedor correspondiente.
+      </Text>
 
-      <Text style={styles.label}>Precio compra</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Precio compra"
-        value={precioCompra}
-        onChangeText={setPrecioCompra}
-        keyboardType="numeric"
-      />
+      <View style={styles.card}>
+        <Text style={styles.label}>Nombre del producto</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Nombre del producto"
+          value={nombre}
+          onChangeText={setNombre}
+        />
 
-      <Text style={styles.label}>Precio venta</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Precio venta"
-        value={precioVenta}
-        onChangeText={setPrecioVenta}
-        keyboardType="numeric"
-      />
+        <Text style={styles.label}>Cantidad</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Cantidad"
+          value={cantidad}
+          onChangeText={setCantidad}
+          keyboardType="numeric"
+        />
 
-      <Text style={styles.label}>Cantidad disponible</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Cantidad"
-        value={cantidad}
-        onChangeText={setCantidad}
-        keyboardType="numeric"
-      />
+        <Text style={styles.label}>Precio de compra</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Precio de compra"
+          value={precioCompra}
+          onChangeText={setPrecioCompra}
+          keyboardType="numeric"
+        />
 
-      <Text style={styles.label}>Stock mínimo</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Stock mínimo"
-        value={stockMinimo}
-        onChangeText={setStockMinimo}
-        keyboardType="numeric"
-      />
+        <Text style={styles.label}>Precio de venta</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Precio de venta"
+          value={precioVenta}
+          onChangeText={setPrecioVenta}
+          keyboardType="numeric"
+        />
 
-      <Text style={styles.label}>Unidad de medida</Text>
+        <Text style={styles.label}>Stock mínimo</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Stock mínimo"
+          value={stockMinimo}
+          onChangeText={setStockMinimo}
+          keyboardType="numeric"
+        />
 
-      <View style={styles.unidadesContainer}>
-        {unidades.map((unidad) => (
-          <Pressable
-            key={unidad}
-            style={[
-              styles.unidadBoton,
-              unidadMedida === unidad && styles.unidadSeleccionada,
-            ]}
-            onPress={() => setUnidadMedida(unidad)}
-          >
-            <Text
+        <Text style={styles.label}>Unidad de medida</Text>
+
+        <View style={styles.opcionesContainer}>
+          {unidades.map((unidad) => (
+            <Pressable
+              key={unidad}
               style={[
-                styles.unidadTexto,
-                unidadMedida === unidad && styles.unidadTextoSeleccionada,
+                styles.opcionBoton,
+                unidadMedida === unidad && styles.opcionSeleccionada,
               ]}
+              onPress={() => setUnidadMedida(unidad)}
             >
-              {unidad}
+              <Text
+                style={[
+                  styles.opcionTexto,
+                  unidadMedida === unidad && styles.opcionTextoSeleccionado,
+                ]}
+              >
+                {unidad}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Proveedor</Text>
+
+        {proveedores.length === 0 ? (
+          <View style={styles.sinProveedoresBox}>
+            <Text style={styles.sinProveedoresTexto}>
+              No hay proveedores registrados.
             </Text>
-          </Pressable>
-        ))}
+
+            <Pressable
+              style={styles.botonProveedor}
+              onPress={() => router.push('/proveedores' as any)}
+            >
+              <Text style={styles.textoProveedor}>Registrar proveedor</Text>
+            </Pressable>
+          </View>
+        ) : (
+          proveedores.map((proveedor) => (
+            <Pressable
+              key={proveedor.id_proveedor}
+              style={[
+                styles.proveedorItem,
+                idProveedor === String(proveedor.id_proveedor) &&
+                  styles.proveedorSeleccionado,
+              ]}
+              onPress={() => setIdProveedor(String(proveedor.id_proveedor))}
+            >
+              <Text
+                style={[
+                  styles.proveedorNombre,
+                  idProveedor === String(proveedor.id_proveedor) &&
+                    styles.proveedorNombreSeleccionado,
+                ]}
+              >
+                {proveedor.nombre}
+              </Text>
+
+              <Text
+                style={[
+                  styles.proveedorDetalle,
+                  idProveedor === String(proveedor.id_proveedor) &&
+                    styles.proveedorDetalleSeleccionado,
+                ]}
+              >
+                Teléfono: {proveedor.telefono || 'No indicado'}
+              </Text>
+            </Pressable>
+          ))
+        )}
+
+        <Text style={styles.label}>Estado</Text>
+
+        <View style={styles.opcionesContainer}>
+          {estados.map((item) => (
+            <Pressable
+              key={item}
+              style={[
+                styles.opcionBoton,
+                estado === item && styles.opcionSeleccionada,
+              ]}
+              onPress={() => setEstado(item)}
+            >
+              <Text
+                style={[
+                  styles.opcionTexto,
+                  estado === item && styles.opcionTextoSeleccionado,
+                ]}
+              >
+                {item}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Pressable
+          style={[styles.botonGuardar, cargando && styles.botonDesactivado]}
+          onPress={guardarCambios}
+          disabled={cargando}
+        >
+          <Text style={styles.textoBoton}>
+            {cargando ? 'Guardando...' : 'Guardar cambios'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.botonVolver}
+          onPress={() => router.push('/productos' as any)}
+        >
+          <Text style={styles.textoVolver}>Volver</Text>
+        </Pressable>
       </View>
-
-      <Text style={styles.label}>Fecha de vencimiento</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="YYYY-MM-DD"
-        value={fechaVencimiento}
-        onChangeText={setFechaVencimiento}
-      />
-
-      <View style={styles.vistaPrevia}>
-        <Text style={styles.vistaTitulo}>Vista previa</Text>
-        <Text style={styles.vistaTexto}>
-          Precio venta: ₡{precioVenta || '0'} / {unidadMedida}
-        </Text>
-        <Text style={styles.vistaTexto}>
-          Inventario: {cantidad || '0'} {unidadMedida}
-        </Text>
-      </View>
-
-      <Pressable style={styles.boton} onPress={guardarCambios}>
-        <Text style={styles.textoBoton}>Guardar cambios</Text>
-      </Pressable>
-
-      <Pressable style={styles.botonVolver} onPress={() => router.push('/productos')}>
-        <Text style={styles.textoVolver}>Volver</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -196,80 +288,126 @@ export default function EditarProductoScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 24,
+    padding: 16,
     backgroundColor: '#eef8ef',
   },
-  centro: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   titulo: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: 'bold',
     color: '#1b5e20',
     textAlign: 'center',
-    marginBottom: 22,
+  },
+  subtitulo: {
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  card: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#d7ead8',
   },
   label: {
     fontWeight: 'bold',
     color: '#444',
     marginBottom: 6,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f9fff9',
     borderWidth: 1,
     borderColor: '#d7ead8',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    fontSize: 16,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
   },
-  unidadesContainer: {
+  opcionesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 10,
   },
-  unidadBoton: {
-    backgroundColor: '#fff',
+  opcionBoton: {
+    backgroundColor: '#e8f5e9',
     borderWidth: 1,
-    borderColor: '#2e7d32',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    borderColor: '#c8e6c9',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
   },
-  unidadSeleccionada: {
+  opcionSeleccionada: {
     backgroundColor: '#2e7d32',
+    borderColor: '#2e7d32',
   },
-  unidadTexto: {
-    color: '#2e7d32',
+  opcionTexto: {
+    color: '#1b5e20',
     fontWeight: 'bold',
   },
-  unidadTextoSeleccionada: {
+  opcionTextoSeleccionado: {
     color: '#fff',
   },
-  vistaPrevia: {
-    backgroundColor: '#e8f5e9',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 14,
+  proveedorItem: {
+    backgroundColor: '#f1f8e9',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+    marginBottom: 8,
   },
-  vistaTitulo: {
+  proveedorSeleccionado: {
+    backgroundColor: '#2e7d32',
+    borderColor: '#1b5e20',
+  },
+  proveedorNombre: {
     fontWeight: 'bold',
     color: '#1b5e20',
-    marginBottom: 4,
+    fontSize: 16,
   },
-  vistaTexto: {
-    color: '#444',
-    marginTop: 3,
+  proveedorNombreSeleccionado: {
+    color: '#fff',
   },
-  boton: {
+  proveedorDetalle: {
+    color: '#555',
+    marginTop: 4,
+  },
+  proveedorDetalleSeleccionado: {
+    color: '#e8f5e9',
+  },
+  sinProveedoresBox: {
+    backgroundColor: '#fff8e1',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ffe082',
+    marginBottom: 10,
+  },
+  sinProveedoresTexto: {
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  botonProveedor: {
     backgroundColor: '#2e7d32',
-    padding: 16,
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  textoProveedor: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  botonGuardar: {
+    backgroundColor: '#2e7d32',
+    padding: 15,
     borderRadius: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 16,
+  },
+  botonDesactivado: {
+    opacity: 0.7,
   },
   textoBoton: {
     color: '#fff',
@@ -277,11 +415,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   botonVolver: {
-    marginTop: 18,
+    backgroundColor: '#757575',
+    padding: 14,
+    borderRadius: 14,
     alignItems: 'center',
+    marginTop: 10,
   },
   textoVolver: {
-    color: '#2e7d32',
+    color: '#fff',
     fontWeight: 'bold',
   },
 });

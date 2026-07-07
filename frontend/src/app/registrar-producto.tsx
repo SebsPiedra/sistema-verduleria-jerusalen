@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
   Pressable,
   StyleSheet,
-  Alert,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
@@ -15,62 +15,85 @@ export default function RegistrarProductoScreen() {
   const router = useRouter();
 
   const [nombre, setNombre] = useState('');
+  const [cantidad, setCantidad] = useState('');
   const [precioCompra, setPrecioCompra] = useState('');
   const [precioVenta, setPrecioVenta] = useState('');
-  const [cantidad, setCantidad] = useState('');
   const [stockMinimo, setStockMinimo] = useState('5');
   const [unidadMedida, setUnidadMedida] = useState('kg');
-  const [fechaVencimiento, setFechaVencimiento] = useState('');
+  const [idProveedor, setIdProveedor] = useState('');
+  const [proveedores, setProveedores] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(false);
 
   const unidades = ['kg', 'unidad', 'bolsa', 'manojo', 'caja', 'rollo', 'paquete'];
 
-  const convertirNumero = (valor: string) => {
-    return Number(String(valor).replace(',', '.'));
+  const cargarProveedores = async () => {
+    try {
+      const respuesta = await api.get('/proveedores');
+      setProveedores(respuesta.data);
+
+      if (respuesta.data.length > 0) {
+        setIdProveedor(String(respuesta.data[0].id_proveedor));
+      }
+    } catch (error) {
+      console.log('Error al cargar proveedores:', error);
+      Alert.alert('Error', 'No se pudieron cargar los proveedores');
+    }
   };
 
-  const guardarProducto = async () => {
-    if (!nombre || !precioCompra || !precioVenta || !cantidad) {
-      Alert.alert('Campos requeridos', 'Complete nombre, precios y cantidad');
+  useEffect(() => {
+    cargarProveedores();
+  }, []);
+
+  const convertirNumero = (valor: string) => {
+    return Number(String(valor || '0').replace(',', '.'));
+  };
+
+  const registrarProducto = async () => {
+    if (!nombre) {
+      Alert.alert('Campo requerido', 'Debe ingresar el nombre del producto');
       return;
     }
 
-    if (convertirNumero(precioCompra) < 0 || convertirNumero(precioVenta) < 0) {
-      Alert.alert('Precio inválido', 'Los precios no pueden ser negativos');
-      return;
-    }
-
-    if (convertirNumero(cantidad) < 0) {
-      Alert.alert('Cantidad inválida', 'La cantidad no puede ser negativa');
+    if (!idProveedor) {
+      Alert.alert(
+        'Proveedor requerido',
+        'Debe seleccionar un proveedor para el producto'
+      );
       return;
     }
 
     try {
+      setCargando(true);
+
       await api.post('/productos', {
         nombre,
-        id_categoria: 6,
-        id_proveedor: 1,
+        cantidad: convertirNumero(cantidad),
         precio_compra: convertirNumero(precioCompra),
         precio_venta: convertirNumero(precioVenta),
-        cantidad: convertirNumero(cantidad),
-        stock_minimo: convertirNumero(stockMinimo || '5'),
+        stock_minimo: convertirNumero(stockMinimo),
         unidad_medida: unidadMedida,
-        fecha_vencimiento: fechaVencimiento || null,
+        id_proveedor: Number(idProveedor),
       });
 
-      Alert.alert('Correcto', 'Producto registrado correctamente');
+      Alert.alert('Producto registrado', 'El producto fue registrado correctamente');
 
       setNombre('');
+      setCantidad('');
       setPrecioCompra('');
       setPrecioVenta('');
-      setCantidad('');
       setStockMinimo('5');
       setUnidadMedida('kg');
-      setFechaVencimiento('');
 
-      router.replace('/productos');
-    } catch (error) {
-      Alert.alert('Error', 'No se pudo registrar el producto');
-      console.log(error);
+      router.push('/productos' as any);
+    } catch (error: any) {
+      console.log('Error al registrar producto:', error?.response?.data || error);
+
+      Alert.alert(
+        'Error',
+        error?.response?.data?.mensaje || 'No se pudo registrar el producto'
+      );
+    } finally {
+      setCargando(false);
     }
   };
 
@@ -78,101 +101,145 @@ export default function RegistrarProductoScreen() {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.titulo}>Registrar producto</Text>
 
-      <Text style={styles.label}>Nombre del producto</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Ejemplo: Tomate"
-        value={nombre}
-        onChangeText={setNombre}
-      />
+      <Text style={styles.subtitulo}>
+        Complete la información del producto y seleccione el proveedor correspondiente.
+      </Text>
 
-      <Text style={styles.label}>Unidad de medida</Text>
-      <View style={styles.unidadesContainer}>
-        {unidades.map((unidad) => (
-          <Pressable
-            key={unidad}
-            style={[
-              styles.unidadBoton,
-              unidadMedida === unidad && styles.unidadSeleccionada,
-            ]}
-            onPress={() => setUnidadMedida(unidad)}
-          >
-            <Text
+      <View style={styles.card}>
+        <Text style={styles.label}>Nombre del producto</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ejemplo: Tomate"
+          value={nombre}
+          onChangeText={setNombre}
+        />
+
+        <Text style={styles.label}>Cantidad inicial</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ejemplo: 10"
+          value={cantidad}
+          onChangeText={setCantidad}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>Precio de compra</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ejemplo: 800"
+          value={precioCompra}
+          onChangeText={setPrecioCompra}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>Precio de venta</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ejemplo: 1200"
+          value={precioVenta}
+          onChangeText={setPrecioVenta}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>Stock mínimo</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ejemplo: 5"
+          value={stockMinimo}
+          onChangeText={setStockMinimo}
+          keyboardType="numeric"
+        />
+
+        <Text style={styles.label}>Unidad de medida</Text>
+
+        <View style={styles.unidadesContainer}>
+          {unidades.map((unidad) => (
+            <Pressable
+              key={unidad}
               style={[
-                styles.unidadTexto,
-                unidadMedida === unidad && styles.unidadTextoSeleccionada,
+                styles.unidadBoton,
+                unidadMedida === unidad && styles.unidadSeleccionada,
               ]}
+              onPress={() => setUnidadMedida(unidad)}
             >
-              {unidad}
+              <Text
+                style={[
+                  styles.unidadTexto,
+                  unidadMedida === unidad && styles.unidadTextoSeleccionado,
+                ]}
+              >
+                {unidad}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+
+        <Text style={styles.label}>Proveedor</Text>
+
+        {proveedores.length === 0 ? (
+          <View style={styles.sinProveedoresBox}>
+            <Text style={styles.sinProveedoresTexto}>
+              No hay proveedores registrados.
             </Text>
-          </Pressable>
-        ))}
+
+            <Pressable
+              style={styles.botonProveedor}
+              onPress={() => router.push('/proveedores' as any)}
+            >
+              <Text style={styles.textoProveedor}>Registrar proveedor</Text>
+            </Pressable>
+          </View>
+        ) : (
+          proveedores.map((proveedor) => (
+            <Pressable
+              key={proveedor.id_proveedor}
+              style={[
+                styles.proveedorItem,
+                idProveedor === String(proveedor.id_proveedor) &&
+                  styles.proveedorSeleccionado,
+              ]}
+              onPress={() => setIdProveedor(String(proveedor.id_proveedor))}
+            >
+              <Text
+                style={[
+                  styles.proveedorNombre,
+                  idProveedor === String(proveedor.id_proveedor) &&
+                    styles.proveedorNombreSeleccionado,
+                ]}
+              >
+                {proveedor.nombre}
+              </Text>
+
+              <Text
+                style={[
+                  styles.proveedorDetalle,
+                  idProveedor === String(proveedor.id_proveedor) &&
+                    styles.proveedorDetalleSeleccionado,
+                ]}
+              >
+                Teléfono: {proveedor.telefono || 'No indicado'}
+              </Text>
+            </Pressable>
+          ))
+        )}
+
+        <Pressable
+          style={[styles.botonGuardar, cargando && styles.botonDesactivado]}
+          onPress={registrarProducto}
+          disabled={cargando}
+        >
+          <Text style={styles.textoBoton}>
+            {cargando ? 'Guardando...' : 'Guardar producto'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.botonVolver}
+          onPress={() => router.push('/productos' as any)}
+        >
+          <Text style={styles.textoVolver}>Volver</Text>
+        </Pressable>
       </View>
-
-      <Text style={styles.label}>Precio de compra por {unidadMedida}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={`Ejemplo: 1000 por ${unidadMedida}`}
-        value={precioCompra}
-        onChangeText={setPrecioCompra}
-        keyboardType="numeric"
-      />
-
-      <Text style={styles.label}>Precio de venta por {unidadMedida}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={`Ejemplo: 1500 por ${unidadMedida}`}
-        value={precioVenta}
-        onChangeText={setPrecioVenta}
-        keyboardType="numeric"
-      />
-
-      <Text style={styles.label}>Cantidad disponible en {unidadMedida}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={`Ejemplo: 10 ${unidadMedida}`}
-        value={cantidad}
-        onChangeText={setCantidad}
-        keyboardType="numeric"
-      />
-
-      <Text style={styles.label}>Stock mínimo en {unidadMedida}</Text>
-      <TextInput
-        style={styles.input}
-        placeholder={`Ejemplo: 5 ${unidadMedida}`}
-        value={stockMinimo}
-        onChangeText={setStockMinimo}
-        keyboardType="numeric"
-      />
-
-      <Text style={styles.label}>Fecha de vencimiento</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="YYYY-MM-DD"
-        value={fechaVencimiento}
-        onChangeText={setFechaVencimiento}
-      />
-
-      <View style={styles.vistaPrevia}>
-        <Text style={styles.vistaTitulo}>Vista previa</Text>
-        <Text style={styles.vistaTexto}>
-          Producto: {nombre || 'Sin nombre'}
-        </Text>
-        <Text style={styles.vistaTexto}>
-          Precio venta: ₡{precioVenta || '0'} por {unidadMedida}
-        </Text>
-        <Text style={styles.vistaTexto}>
-          Inventario: {cantidad || '0'} {unidadMedida}
-        </Text>
-      </View>
-
-      <Pressable style={styles.boton} onPress={guardarProducto}>
-        <Text style={styles.textoBoton}>Guardar producto</Text>
-      </Pressable>
-
-      <Pressable style={styles.botonVolver} onPress={() => router.push('/home')}>
-        <Text style={styles.textoVolver}>Volver</Text>
-      </Pressable>
     </ScrollView>
   );
 }
@@ -180,88 +247,141 @@ export default function RegistrarProductoScreen() {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 24,
+    padding: 16,
     backgroundColor: '#eef8ef',
   },
   titulo: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: 'bold',
     color: '#1b5e20',
     textAlign: 'center',
-    marginBottom: 25,
+  },
+  subtitulo: {
+    color: '#555',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  card: {
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#d7ead8',
   },
   label: {
     fontWeight: 'bold',
     color: '#444',
     marginBottom: 6,
+    marginTop: 8,
   },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#f9fff9',
     borderWidth: 1,
     borderColor: '#d7ead8',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 14,
-    fontSize: 16,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
   },
   unidadesContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 10,
   },
   unidadBoton: {
-    backgroundColor: '#fff',
+    backgroundColor: '#e8f5e9',
     borderWidth: 1,
-    borderColor: '#2e7d32',
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 20,
+    borderColor: '#c8e6c9',
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    borderRadius: 12,
   },
   unidadSeleccionada: {
     backgroundColor: '#2e7d32',
+    borderColor: '#2e7d32',
   },
   unidadTexto: {
-    color: '#2e7d32',
+    color: '#1b5e20',
     fontWeight: 'bold',
   },
-  unidadTextoSeleccionada: {
+  unidadTextoSeleccionado: {
     color: '#fff',
   },
-  vistaPrevia: {
-    backgroundColor: '#e8f5e9',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 14,
+  proveedorItem: {
+    backgroundColor: '#f1f8e9',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#c8e6c9',
+    marginBottom: 8,
   },
-  vistaTitulo: {
+  proveedorSeleccionado: {
+    backgroundColor: '#2e7d32',
+    borderColor: '#1b5e20',
+  },
+  proveedorNombre: {
     fontWeight: 'bold',
     color: '#1b5e20',
-    marginBottom: 4,
+    fontSize: 16,
   },
-  vistaTexto: {
-    color: '#444',
-    marginTop: 3,
+  proveedorNombreSeleccionado: {
+    color: '#fff',
   },
-  boton: {
+  proveedorDetalle: {
+    color: '#555',
+    marginTop: 4,
+  },
+  proveedorDetalleSeleccionado: {
+    color: '#e8f5e9',
+  },
+  sinProveedoresBox: {
+    backgroundColor: '#fff8e1',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ffe082',
+    marginBottom: 10,
+  },
+  sinProveedoresTexto: {
+    color: '#555',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  botonProveedor: {
+    backgroundColor: '#2e7d32',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  textoProveedor: {
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  botonGuardar: {
     backgroundColor: '#2e7d32',
     padding: 15,
     borderRadius: 14,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 16,
+  },
+  botonDesactivado: {
+    opacity: 0.7,
   },
   textoBoton: {
     color: '#fff',
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-  botonVolver: {
-    marginTop: 18,
-    alignItems: 'center',
-  },
-  textoVolver: {
-    color: '#2e7d32',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  botonVolver: {
+    backgroundColor: '#757575',
+    padding: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  textoVolver: {
+    color: '#fff',
+    fontWeight: 'bold',
   },
 });
