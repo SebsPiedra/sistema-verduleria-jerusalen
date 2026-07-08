@@ -6,6 +6,7 @@ import {
   Pressable,
   StyleSheet,
   Alert,
+  Image,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { guardarDato } from '../services/storage.js';
@@ -27,7 +28,6 @@ export default function LoginScreen() {
     try {
       setCargando(true);
 
-      // Primero intenta ingresar como administrador
       try {
         const respuestaAdmin = await api.post('/auth/login', {
           correo,
@@ -35,7 +35,10 @@ export default function LoginScreen() {
         });
 
         await guardarDato('token', respuestaAdmin.data.token);
-        await guardarDato('usuario', JSON.stringify(respuestaAdmin.data.usuario));
+        await guardarDato(
+          'usuario',
+          JSON.stringify(respuestaAdmin.data.usuario)
+        );
 
         router.replace('/home' as any);
         return;
@@ -43,7 +46,6 @@ export default function LoginScreen() {
         console.log('No ingresó como administrador, se intenta como cliente');
       }
 
-      // Si no es administrador, intenta ingresar como cliente
       try {
         const respuestaCliente = await api.post('/clientes/login', {
           correo,
@@ -51,7 +53,10 @@ export default function LoginScreen() {
         });
 
         await guardarDato('token_cliente', respuestaCliente.data.token);
-        await guardarDato('cliente', JSON.stringify(respuestaCliente.data.cliente));
+        await guardarDato(
+          'cliente',
+          JSON.stringify(respuestaCliente.data.cliente)
+        );
 
         router.replace('/cliente-home' as any);
         return;
@@ -70,7 +75,11 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>🥬</Text>
+      <Image
+        source={require('../../assets/images/logo-membrete.png')}
+        style={styles.logoImagen}
+        resizeMode="contain"
+      />
 
       <Text style={styles.titulo}>Verdulería Jerusalén</Text>
 
@@ -109,14 +118,15 @@ export default function LoginScreen() {
       >
         <Text style={styles.textoRegistro}>Registrarse como cliente</Text>
       </Pressable>
+
       <Pressable
-  style={styles.botonCatalogo}
-  onPress={() => router.push('/catalogo' as any)}
->
-  <Text style={styles.textoCatalogo}>Ver catálogo sin registrarse</Text>
-</Pressable>
- </View>
-);
+        style={styles.botonCatalogo}
+        onPress={() => router.push('/catalogo' as any)}
+      >
+        <Text style={styles.textoCatalogo}>Ver catálogo sin registrarse</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -126,10 +136,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#f4fff4',
   },
-  logo: {
-    fontSize: 55,
-    textAlign: 'center',
-    marginBottom: 8,
+  logoImagen: {
+    width: '100%',
+    height: 190,
+    marginBottom: 10,
   },
   titulo: {
     fontSize: 30,
@@ -183,28 +193,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  textoAyuda: {
-    marginTop: 18,
-    textAlign: 'center',
-    color: '#555',
-  },
-  usuarioPrueba: {
-    marginTop: 6,
-    textAlign: 'center',
-    color: '#777',
-    fontSize: 13,
-  },
   botonCatalogo: {
-    backgroundColor: '#e8f5e9',
+    backgroundColor: '#fff',
     borderWidth: 1,
-    borderColor: '#2e7d32',
+    borderColor: '#66bb6a',
     padding: 15,
     borderRadius: 12,
     alignItems: 'center',
     marginTop: 12,
   },
   textoCatalogo: {
-    color: '#1b5e20',
+    color: '#2e7d32',
     fontSize: 16,
     fontWeight: 'bold',
   },

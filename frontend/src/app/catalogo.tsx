@@ -110,9 +110,7 @@ export default function CatalogoScreen() {
                   Disponible: {producto.cantidad} {unidad}
                 </Text>
 
-                <Text style={styles.productoDetalle}>
-                  Proveedor: {producto.proveedor || 'No indicado'}
-                </Text>
+               
               </View>
             </View>
           );
