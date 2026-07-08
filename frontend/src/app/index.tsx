@@ -109,20 +109,14 @@ export default function LoginScreen() {
       >
         <Text style={styles.textoRegistro}>Registrarse como cliente</Text>
       </Pressable>
-
-      <Text style={styles.textoAyuda}>
-        Si es administrador, ingrese con el correo autorizado.
-      </Text>
-
-      <Text style={styles.usuarioPrueba}>
-        Admin: admin@verduleria.com / 123456
-      </Text>
-
-      <Text style={styles.usuarioPrueba}>
-        Cliente: cliente@verduleria.com / 123456
-      </Text>
-    </View>
-  );
+      <Pressable
+  style={styles.botonCatalogo}
+  onPress={() => router.push('/catalogo' as any)}
+>
+  <Text style={styles.textoCatalogo}>Ver catálogo sin registrarse</Text>
+</Pressable>
+ </View>
+);
 }
 
 const styles = StyleSheet.create({
@@ -199,5 +193,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#777',
     fontSize: 13,
+  },
+  botonCatalogo: {
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#2e7d32',
+    padding: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  textoCatalogo: {
+    color: '#1b5e20',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

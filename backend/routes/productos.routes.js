@@ -14,6 +14,7 @@ router.get('/', (req, res) => {
       p.precio_venta,
       p.stock_minimo,
       p.unidad_medida,
+      p.imagen_url,
       p.estado,
       p.id_proveedor,
       pr.nombre AS proveedor
@@ -47,6 +48,7 @@ router.get('/:id', (req, res) => {
       p.precio_venta,
       p.stock_minimo,
       p.unidad_medida,
+      p.imagen_url,
       p.estado,
       p.id_proveedor,
       pr.nombre AS proveedor
