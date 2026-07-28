@@ -3,10 +3,23 @@ const conexion = require('../db');
 
 const router = express.Router();
 
+const normalizarNumero = (valor, defecto = 0) => {
+  const numero = Number(valor);
+  return Number.isNaN(numero) ? defecto : numero;
+};
+
+const normalizarId = (valor) => {
+  if (!valor || valor === '' || valor === 'null') {
+    return null;
+  }
+
+  return Number(valor);
+};
+
 // Listar productos
 router.get('/', (req, res) => {
   const sql = `
-    SELECT 
+    SELECT
       p.id_producto,
       p.nombre,
       p.cantidad,
@@ -14,7 +27,7 @@ router.get('/', (req, res) => {
       p.precio_venta,
       p.stock_minimo,
       p.unidad_medida,
-      p.imagen_url,
+      COALESCE(p.imagen_url, p.imagen) AS imagen_url,
       p.estado,
       p.id_proveedor,
       pr.nombre AS proveedor
@@ -35,12 +48,74 @@ router.get('/', (req, res) => {
   });
 });
 
+// Productos con stock bajo
+router.get('/stock-bajo', (req, res) => {
+  const sql = `
+    SELECT
+      p.id_producto,
+      p.nombre,
+      p.cantidad,
+      p.stock_minimo,
+      p.unidad_medida,
+      p.precio_venta,
+      COALESCE(p.imagen_url, p.imagen) AS imagen_url,
+      p.estado,
+      pr.nombre AS proveedor
+    FROM productos p
+    LEFT JOIN proveedores pr ON p.id_proveedor = pr.id_proveedor
+    WHERE p.cantidad <= p.stock_minimo
+      AND COALESCE(p.estado, 'Activo') = 'Activo'
+    ORDER BY p.cantidad ASC
+  `;
+
+  conexion.query(sql, (error, resultados) => {
+    if (error) {
+      return res.status(500).json({
+        mensaje: 'Error al obtener productos con stock bajo',
+        error
+      });
+    }
+
+    res.json(resultados);
+  });
+});
+
+// Alertas de productos
+router.get('/alertas', (req, res) => {
+  const sqlStockBajo = `
+    SELECT
+      id_producto,
+      nombre,
+      cantidad,
+      stock_minimo,
+      unidad_medida
+    FROM productos
+    WHERE cantidad <= stock_minimo
+      AND COALESCE(estado, 'Activo') = 'Activo'
+    ORDER BY cantidad ASC
+  `;
+
+  conexion.query(sqlStockBajo, (error, stockBajo) => {
+    if (error) {
+      return res.status(500).json({
+        mensaje: 'Error al obtener alertas de productos',
+        error
+      });
+    }
+
+    res.json({
+      total_alertas: stockBajo.length,
+      stock_bajo: stockBajo
+    });
+  });
+});
+
 // Obtener producto por ID
 router.get('/:id', (req, res) => {
   const { id } = req.params;
 
   const sql = `
-    SELECT 
+    SELECT
       p.id_producto,
       p.nombre,
       p.cantidad,
@@ -48,7 +123,7 @@ router.get('/:id', (req, res) => {
       p.precio_venta,
       p.stock_minimo,
       p.unidad_medida,
-      p.imagen_url,
+      COALESCE(p.imagen_url, p.imagen) AS imagen_url,
       p.estado,
       p.id_proveedor,
       pr.nombre AS proveedor
@@ -84,7 +159,9 @@ router.post('/', (req, res) => {
     precio_venta,
     stock_minimo,
     unidad_medida,
-    id_proveedor
+    id_proveedor,
+    imagen_url,
+    estado
   } = req.body;
 
   if (!nombre) {
@@ -93,15 +170,8 @@ router.post('/', (req, res) => {
     });
   }
 
-  if (!id_proveedor) {
-    return res.status(400).json({
-      mensaje: 'Debe seleccionar un proveedor'
-    });
-  }
-
   const sql = `
-    INSERT INTO productos
-    (
+    INSERT INTO productos (
       nombre,
       cantidad,
       precio_compra,
@@ -109,21 +179,28 @@ router.post('/', (req, res) => {
       stock_minimo,
       unidad_medida,
       id_proveedor,
+      imagen_url,
+      imagen,
       estado
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'Activo')
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
+
+  const imagenUrlFinal = imagen_url || null;
 
   conexion.query(
     sql,
     [
       nombre,
-      Number(cantidad || 0),
-      Number(precio_compra || 0),
-      Number(precio_venta || 0),
-      Number(stock_minimo || 5),
+      normalizarNumero(cantidad, 0),
+      normalizarNumero(precio_compra, 0),
+      normalizarNumero(precio_venta, 0),
+      normalizarNumero(stock_minimo, 5),
       unidad_medida || 'kg',
-      id_proveedor
+      normalizarId(id_proveedor),
+      imagenUrlFinal,
+      imagenUrlFinal,
+      estado || 'Activo'
     ],
     (error, resultado) => {
       if (error) {
@@ -153,6 +230,7 @@ router.put('/:id', (req, res) => {
     stock_minimo,
     unidad_medida,
     id_proveedor,
+    imagen_url,
     estado
   } = req.body;
 
@@ -162,15 +240,11 @@ router.put('/:id', (req, res) => {
     });
   }
 
-  if (!id_proveedor) {
-    return res.status(400).json({
-      mensaje: 'Debe seleccionar un proveedor'
-    });
-  }
+  const imagenUrlFinal = imagen_url || null;
 
   const sql = `
     UPDATE productos
-    SET 
+    SET
       nombre = ?,
       cantidad = ?,
       precio_compra = ?,
@@ -178,6 +252,8 @@ router.put('/:id', (req, res) => {
       stock_minimo = ?,
       unidad_medida = ?,
       id_proveedor = ?,
+      imagen_url = ?,
+      imagen = ?,
       estado = ?
     WHERE id_producto = ?
   `;
@@ -186,12 +262,14 @@ router.put('/:id', (req, res) => {
     sql,
     [
       nombre,
-      Number(cantidad || 0),
-      Number(precio_compra || 0),
-      Number(precio_venta || 0),
-      Number(stock_minimo || 5),
+      normalizarNumero(cantidad, 0),
+      normalizarNumero(precio_compra, 0),
+      normalizarNumero(precio_venta, 0),
+      normalizarNumero(stock_minimo, 5),
       unidad_medida || 'kg',
-      id_proveedor,
+      normalizarId(id_proveedor),
+      imagenUrlFinal,
+      imagenUrlFinal,
       estado || 'Activo',
       id
     ],

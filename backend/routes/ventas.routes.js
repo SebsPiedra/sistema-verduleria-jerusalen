@@ -1,237 +1,358 @@
 const express = require('express');
-const util = require('util');
 const conexion = require('../db');
 
 const router = express.Router();
 
-const query = util.promisify(conexion.query).bind(conexion);
-const beginTransaction = util.promisify(conexion.beginTransaction).bind(conexion);
-const commit = util.promisify(conexion.commit).bind(conexion);
-const rollback = util.promisify(conexion.rollback).bind(conexion);
+function ejecutar(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    conexion.query(sql, params, (error, resultado) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(resultado);
+      }
+    });
+  });
+}
 
-// Registrar venta / factura interna
-router.post('/', async (req, res) => {
-  const { cliente, metodo_pago, productos, id_usuario } = req.body;
+function obtenerFilas(resultado) {
+  if (Array.isArray(resultado)) return resultado;
+  if (resultado?.rows) return resultado.rows;
+  return [];
+}
 
-  if (!productos || !Array.isArray(productos) || productos.length === 0) {
-    return res.status(400).json({
-      mensaje: 'Debe agregar al menos un producto a la venta'
+function obtenerPrimero(resultado) {
+  const filas = obtenerFilas(resultado);
+  return filas[0] || null;
+}
+
+function generarFactura(idVenta) {
+  return `FAC-${String(idVenta).padStart(6, '0')}`;
+}
+
+async function obtenerSiguienteId(tabla, columna) {
+  const resultado = await ejecutar(
+    `SELECT COALESCE(MAX(${columna}), 0) + 1 AS siguiente FROM ${tabla}`
+  );
+
+  const fila = obtenerPrimero(resultado);
+
+  return Number(fila?.siguiente || 1);
+}
+
+async function cargarDetalles(idsVentas) {
+  if (!idsVentas.length) return {};
+
+  const marcas = idsVentas.map(() => '?').join(',');
+
+  const resultadoDetalles = await ejecutar(
+    `
+      SELECT
+        id_detalle,
+        id_venta,
+        id_producto,
+        COALESCE(nombre_producto, producto, 'Producto') AS nombre_producto,
+        COALESCE(producto, nombre_producto, 'Producto') AS producto,
+        COALESCE(cantidad, 0) AS cantidad,
+        COALESCE(precio_unitario, 0) AS precio_unitario,
+        COALESCE(subtotal, COALESCE(cantidad, 0) * COALESCE(precio_unitario, 0)) AS subtotal
+      FROM detalle_ventas
+      WHERE id_venta IN (${marcas})
+      ORDER BY id_venta DESC, id_detalle ASC
+    `,
+    idsVentas
+  );
+
+  const detalles = obtenerFilas(resultadoDetalles);
+  const mapa = {};
+
+  detalles.forEach((detalle) => {
+    const idVenta = Number(detalle.id_venta);
+
+    if (!mapa[idVenta]) {
+      mapa[idVenta] = [];
+    }
+
+    mapa[idVenta].push(detalle);
+  });
+
+  return mapa;
+}
+
+router.get('/', async (req, res) => {
+  try {
+    const resultadoVentas = await ejecutar(`
+      SELECT
+        id_venta,
+        id_cliente,
+        COALESCE(cliente, 'Cliente general') AS cliente,
+        COALESCE(numero_factura, '') AS numero_factura,
+        COALESCE(total, 0) AS total,
+        COALESCE(metodo_pago, 'Efectivo') AS metodo_pago,
+        COALESCE(estado, 'Completada') AS estado,
+        observacion,
+        fecha_venta
+      FROM ventas
+      ORDER BY id_venta DESC
+    `);
+
+    const ventas = obtenerFilas(resultadoVentas);
+
+    const idsVentas = ventas
+      .map((venta) => Number(venta.id_venta))
+      .filter((id) => id > 0);
+
+    const detallesPorVenta = await cargarDetalles(idsVentas);
+
+    const respuesta = ventas.map((venta) => {
+      const idVenta = Number(venta.id_venta);
+
+      return {
+        ...venta,
+        numero_factura: venta.numero_factura || generarFactura(idVenta),
+        factura: venta.numero_factura || generarFactura(idVenta),
+        detalles: detallesPorVenta[idVenta] || [],
+      };
+    });
+
+    res.json(respuesta);
+  } catch (error) {
+    console.log('ERROR GET /ventas:', error);
+
+    res.status(500).json({
+      mensaje: 'Error al cargar ventas',
+      error: error.message || error,
     });
   }
+});
 
+router.get('/:id', async (req, res) => {
   try {
-    await beginTransaction();
+    const idVenta = Number(req.params.id);
 
-    let total = 0;
-    const detalles = [];
+    if (!idVenta) {
+      return res.status(400).json({
+        mensaje: 'ID de venta inválido',
+      });
+    }
+
+    const resultadoVenta = await ejecutar(
+      `
+        SELECT
+          id_venta,
+          id_cliente,
+          COALESCE(cliente, 'Cliente general') AS cliente,
+          COALESCE(numero_factura, '') AS numero_factura,
+          COALESCE(total, 0) AS total,
+          COALESCE(metodo_pago, 'Efectivo') AS metodo_pago,
+          COALESCE(estado, 'Completada') AS estado,
+          observacion,
+          fecha_venta
+        FROM ventas
+        WHERE id_venta = ?
+        LIMIT 1
+      `,
+      [idVenta]
+    );
+
+    const venta = obtenerPrimero(resultadoVenta);
+
+    if (!venta) {
+      return res.status(404).json({
+        mensaje: 'Venta no encontrada',
+      });
+    }
+
+    const detallesPorVenta = await cargarDetalles([idVenta]);
+
+    res.json({
+      ...venta,
+      numero_factura: venta.numero_factura || generarFactura(idVenta),
+      factura: venta.numero_factura || generarFactura(idVenta),
+      detalles: detallesPorVenta[idVenta] || [],
+    });
+  } catch (error) {
+    console.log('ERROR GET /ventas/:id:', error);
+
+    res.status(500).json({
+      mensaje: 'Error al cargar detalle de venta',
+      error: error.message || error,
+    });
+  }
+});
+
+router.post('/', async (req, res) => {
+  try {
+    const {
+      cliente,
+      id_cliente,
+      metodo_pago,
+      observacion,
+      productos,
+    } = req.body;
+
+    if (!Array.isArray(productos) || productos.length === 0) {
+      return res.status(400).json({
+        mensaje: 'Debe agregar al menos un producto a la venta.',
+      });
+    }
+
+    let totalVenta = 0;
+    const detallesVenta = [];
 
     for (const item of productos) {
-      const idProducto = item.id_producto;
-      const cantidadVendida = Number(item.cantidad);
+      const idProducto = Number(item.id_producto);
+      const cantidad = Number(item.cantidad);
 
-      if (!idProducto || cantidadVendida <= 0) {
-        await rollback();
+      if (!idProducto || !cantidad || cantidad <= 0) {
         return res.status(400).json({
-          mensaje: 'Datos de producto inválidos'
+          mensaje: 'Hay un producto con cantidad inválida.',
         });
       }
 
-      const resultadoProducto = await query(
+      const resultadoProducto = await ejecutar(
         `
-        SELECT 
-          id_producto,
-          nombre,
-          cantidad,
-          precio_venta
-        FROM productos
-        WHERE id_producto = ?
-        FOR UPDATE
+          SELECT
+            id_producto,
+            nombre,
+            precio_venta,
+            cantidad,
+            stock,
+            unidad_medida,
+            estado
+          FROM productos
+          WHERE id_producto = ?
+          LIMIT 1
         `,
         [idProducto]
       );
 
-      if (resultadoProducto.length === 0) {
-        await rollback();
+      const productoBD = obtenerPrimero(resultadoProducto);
+
+      if (!productoBD) {
         return res.status(404).json({
-          mensaje: `Producto con ID ${idProducto} no encontrado`
+          mensaje: `No se encontró el producto con ID ${idProducto}.`,
         });
       }
 
-      const producto = resultadoProducto[0];
-
-      if (Number(producto.cantidad) < cantidadVendida) {
-        await rollback();
+      if (String(productoBD.estado || 'Activo').toLowerCase() === 'inactivo') {
         return res.status(400).json({
-          mensaje: `No hay suficiente inventario para ${producto.nombre}`
+          mensaje: `El producto ${productoBD.nombre} está inactivo.`,
         });
       }
 
-      const precioUnitario = Number(producto.precio_venta);
-      const subtotal = precioUnitario * cantidadVendida;
+      const disponible = Number(productoBD.cantidad ?? productoBD.stock ?? 0);
 
-      total += subtotal;
+      if (cantidad > disponible) {
+        return res.status(400).json({
+          mensaje: `No hay suficiente inventario para ${productoBD.nombre}. Disponible: ${disponible}.`,
+        });
+      }
 
-      detalles.push({
-        id_producto: producto.id_producto,
-        nombre: producto.nombre,
-        cantidad: cantidadVendida,
+      const nombreProducto =
+        item.nombre_producto ||
+        item.producto ||
+        item.nombre ||
+        productoBD.nombre ||
+        'Producto';
+
+      const precioUnitario = Number(
+        item.precio_unitario ||
+        productoBD.precio_venta ||
+        0
+      );
+
+      if (precioUnitario <= 0) {
+        return res.status(400).json({
+          mensaje: `El producto ${nombreProducto} no tiene precio válido.`,
+        });
+      }
+
+      const subtotal = cantidad * precioUnitario;
+
+      totalVenta += subtotal;
+
+      detallesVenta.push({
+        id_producto: idProducto,
+        producto: nombreProducto,
+        nombre_producto: nombreProducto,
+        cantidad,
         precio_unitario: precioUnitario,
-        subtotal
+        subtotal,
       });
     }
 
-    const numeroFactura = `FAC-${Date.now()}`;
+    const idVenta = await obtenerSiguienteId('ventas', 'id_venta');
+    const numeroFactura = generarFactura(idVenta);
 
-    const resultadoVenta = await query(
+    await ejecutar(
       `
-      INSERT INTO ventas 
-      (numero_factura, cliente, total, metodo_pago, id_usuario)
-      VALUES (?, ?, ?, ?, ?)
+        INSERT INTO ventas
+        (id_venta, id_cliente, cliente, numero_factura, total, metodo_pago, fecha_venta, estado, observacion)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
       `,
       [
+        idVenta,
+        id_cliente || null,
+        cliente || 'Cliente general',
         numeroFactura,
-        cliente || 'Cliente contado',
-        total,
+        totalVenta,
         metodo_pago || 'Efectivo',
-        id_usuario || 1
+        observacion || '',
       ]
     );
 
-    const idVenta = resultadoVenta.insertId;
+    let idDetalle = await obtenerSiguienteId('detalle_ventas', 'id_detalle');
 
-    for (const detalle of detalles) {
-      await query(
+    for (const item of detallesVenta) {
+      await ejecutar(
         `
-        INSERT INTO detalle_ventas
-        (id_venta, id_producto, cantidad, precio_unitario, subtotal)
-        VALUES (?, ?, ?, ?, ?)
+          INSERT INTO detalle_ventas
+          (id_detalle, id_venta, id_producto, producto, nombre_producto, cantidad, precio_unitario, subtotal)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
+          idDetalle,
           idVenta,
-          detalle.id_producto,
-          detalle.cantidad,
-          detalle.precio_unitario,
-          detalle.subtotal
+          item.id_producto,
+          item.producto,
+          item.nombre_producto,
+          item.cantidad,
+          item.precio_unitario,
+          item.subtotal,
         ]
       );
 
-      await query(
+      idDetalle += 1;
+
+      await ejecutar(
         `
-        UPDATE productos
-        SET cantidad = cantidad - ?
-        WHERE id_producto = ?
+          UPDATE productos
+          SET
+            cantidad = GREATEST(COALESCE(cantidad, stock, 0) - ?, 0),
+            stock = CAST(CEIL(GREATEST(COALESCE(cantidad, stock, 0) - ?, 0)) AS INTEGER)
+          WHERE id_producto = ?
         `,
-        [detalle.cantidad, detalle.id_producto]
+        [item.cantidad, item.cantidad, item.id_producto]
       );
     }
 
-    await commit();
-
     res.json({
-      mensaje: 'Venta registrada correctamente',
+      mensaje: 'Venta registrada correctamente.',
       id_venta: idVenta,
       numero_factura: numeroFactura,
-      cliente: cliente || 'Cliente contado',
+      factura: numeroFactura,
+      cliente: cliente || 'Cliente general',
       metodo_pago: metodo_pago || 'Efectivo',
-      total,
-      detalles
+      total: totalVenta,
+      detalles: detallesVenta,
     });
   } catch (error) {
-    await rollback();
+    console.log('ERROR POST /ventas:', error);
 
     res.status(500).json({
-      mensaje: 'Error al registrar la venta',
-      error
-    });
-  }
-});
-
-// Listar ventas
-router.get('/', (req, res) => {
-  const sql = `
-    SELECT 
-      v.id_venta,
-      v.numero_factura,
-      v.cliente,
-      v.fecha_venta,
-      v.total,
-      v.metodo_pago,
-      COUNT(d.id_detalle) AS cantidad_productos
-    FROM ventas v
-    LEFT JOIN detalle_ventas d ON v.id_venta = d.id_venta
-    GROUP BY 
-      v.id_venta,
-      v.numero_factura,
-      v.cliente,
-      v.fecha_venta,
-      v.total,
-      v.metodo_pago
-    ORDER BY v.fecha_venta DESC
-  `;
-
-  conexion.query(sql, (error, resultados) => {
-    if (error) {
-      return res.status(500).json({
-        mensaje: 'Error al obtener ventas',
-        error
-      });
-    }
-
-    res.json(resultados);
-  });
-});
-
-// Ver detalle de una factura
-router.get('/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const venta = await query(
-      `
-      SELECT 
-        id_venta,
-        numero_factura,
-        cliente,
-        fecha_venta,
-        total,
-        metodo_pago
-      FROM ventas
-      WHERE id_venta = ?
-      `,
-      [id]
-    );
-
-    if (venta.length === 0) {
-      return res.status(404).json({
-        mensaje: 'Venta no encontrada'
-      });
-    }
-
-    const detalles = await query(
-      `
-      SELECT 
-        d.id_detalle,
-        d.id_producto,
-        p.nombre,
-        p.unidad_medida,
-        d.cantidad,
-        d.precio_unitario,
-        d.subtotal
-      FROM detalle_ventas d
-      INNER JOIN productos p ON d.id_producto = p.id_producto
-      WHERE d.id_venta = ?
-      `,
-      [id]
-    );
-
-    res.json({
-      venta: venta[0],
-      detalles
-    });
-  } catch (error) {
-    res.status(500).json({
-      mensaje: 'Error al obtener detalle de venta',
-      error
+      mensaje: 'No se pudo registrar la venta.',
+      error: error.message || error,
     });
   }
 });

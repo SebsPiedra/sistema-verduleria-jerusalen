@@ -6,6 +6,7 @@ const obtenerVariables = require('./config/variables');
 const authRoutes = require('./routes/auth.routes');
 const productosRoutes = require('./routes/productos.routes');
 const ventasRoutes = require('./routes/ventas.routes');
+const facturasRoutes = require('./routes/facturas.routes');
 const desechosRoutes = require('./routes/desechos.routes');
 const dashboardRoutes = require('./routes/dashboard.routes');
 const clientesRoutes = require('./routes/clientes.routes');
@@ -26,12 +27,19 @@ app.get('/', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/productos', productosRoutes);
 app.use('/api/ventas', ventasRoutes);
+app.use('/api/facturas', facturasRoutes);
 app.use('/api/desechos', desechosRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
 
-app.listen(variables.PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${variables.PORT}`);
-});
+
+if (require.main === module) {
+  app.listen(variables.PORT, () => {
+    console.log(`Servidor corriendo en http://localhost:${variables.PORT}`);
+  });
+}
+
+module.exports = app;
+module.exports.default = app;

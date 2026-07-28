@@ -2,523 +2,1258 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
+  TextInput,
   ScrollView,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function VentasScreen() {
   const router = useRouter();
 
+  const [ventas, setVentas] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
-  const [busqueda, setBusqueda] = useState('');
-  const [cliente, setCliente] = useState('Cliente contado');
-  const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [carrito, setCarrito] = useState<any[]>([]);
-  const [cargando, setCargando] = useState(false);
-  const [facturaGenerada, setFacturaGenerada] = useState<any>(null);
 
-  const cargarProductos = async () => {
-    try {
-      const respuesta = await api.get('/productos');
-      setProductos(respuesta.data);
-    } catch (error) {
-      console.log('Error al cargar productos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los productos');
-    }
-  };
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+  const [busquedaVenta, setBusquedaVenta] = useState('');
+  const [cliente, setCliente] = useState('Cliente general');
+  const [metodoPago, setMetodoPago] = useState('Efectivo');
+  const [observacion, setObservacion] = useState('');
+
+  const [cargando, setCargando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
+
+  const metodosPago = ['Efectivo', 'SINPE Móvil', 'Tarjeta', 'Transferencia'];
 
   useEffect(() => {
-    cargarProductos();
+    cargarDatos();
   }, []);
 
-  const convertirNumero = (valor: string) => {
-    return Number(String(valor).replace(',', '.'));
-  };
+  const mostrarMensaje = (
+    texto: string,
+    tipo: 'ok' | 'error' | 'info' = 'info',
+    alerta = false
+  ) => {
+    setMensaje(texto);
+    setTipoMensaje(tipo);
 
-  const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  );
-
-  const agregarProducto = (producto: any) => {
-    const existe = carrito.find(
-      (item) => item.id_producto === producto.id_producto
-    );
-
-    if (existe) {
-      Alert.alert('Aviso', 'Este producto ya está agregado a la venta');
-      return;
+    if (alerta) {
+      Alert.alert(tipo === 'error' ? 'Error' : 'Aviso', texto);
     }
 
-    if (Number(producto.precio_venta) <= 0) {
-      Alert.alert(
-        'Producto sin precio',
-        'Este producto tiene precio ₡0. Debe editar el precio antes de venderlo.'
-      );
-      return;
-    }
-
-    if (Number(producto.cantidad) <= 0) {
-      Alert.alert(
-        'Sin inventario',
-        'Este producto no tiene cantidad disponible para vender.'
-      );
-      return;
-    }
-
-    setCarrito([
-      ...carrito,
-      {
-        id_producto: producto.id_producto,
-        nombre: producto.nombre,
-        precio_venta: Number(producto.precio_venta),
-        cantidad: '1',
-        disponible: Number(producto.cantidad),
-        unidad_medida: producto.unidad_medida || 'kg',
-      },
-    ]);
-
-    setBusqueda('');
-    setFacturaGenerada(null);
+    setTimeout(() => {
+      setMensaje('');
+    }, 4500);
   };
 
-  const cambiarCantidad = (idProducto: number, valor: string) => {
-    setCarrito(
-      carrito.map((item) =>
-        item.id_producto === idProducto ? { ...item, cantidad: valor } : item
-      )
-    );
-  };
+  const extraerLista = (data: any, claves: string[]) => {
+    if (Array.isArray(data)) return data;
 
-  const eliminarDelCarrito = (idProducto: number) => {
-    setCarrito(carrito.filter((item) => item.id_producto !== idProducto));
-  };
-
-  const calcularTotal = () => {
-    return carrito.reduce((total, item) => {
-      const cantidad = convertirNumero(item.cantidad || '0');
-      return total + cantidad * Number(item.precio_venta);
-    }, 0);
-  };
-
-  const registrarVenta = async () => {
-    if (carrito.length === 0) {
-      Alert.alert('Venta vacía', 'Debe agregar al menos un producto');
-      return;
-    }
-
-    for (const item of carrito) {
-      const cantidad = convertirNumero(item.cantidad);
-
-      if (!cantidad || cantidad <= 0) {
-        Alert.alert('Cantidad inválida', `Revise la cantidad de ${item.nombre}`);
-        return;
-      }
-
-      if (cantidad > Number(item.disponible)) {
-        Alert.alert(
-          'Inventario insuficiente',
-          `No hay suficiente inventario de ${item.nombre}`
-        );
-        return;
+    for (const clave of claves) {
+      if (Array.isArray(data?.[clave])) {
+        return data[clave];
       }
     }
 
+    if (Array.isArray(data?.data)) return data.data;
+
+    return [];
+  };
+
+  const cargarDatos = async () => {
     try {
       setCargando(true);
+      setMensaje('');
 
-      const datosVenta = {
-        cliente: cliente || 'Cliente contado',
-        metodo_pago: metodoPago || 'Efectivo',
-        id_usuario: 1,
-        productos: carrito.map((item) => ({
-          id_producto: item.id_producto,
-          cantidad: convertirNumero(item.cantidad),
-        })),
-      };
+      const [respuestaVentas, respuestaProductos] = await Promise.allSettled([
+        api.get('/ventas'),
+        api.get('/productos'),
+      ]);
 
-      const respuesta = await api.post('/ventas', datosVenta);
+      if (respuestaVentas.status === 'fulfilled') {
+        const datosVentas = extraerLista(respuestaVentas.value.data, [
+          'ventas',
+          'facturas',
+        ]);
 
-      setFacturaGenerada(respuesta.data);
+        setVentas(datosVentas);
+      } else {
+        console.log(
+          'No se pudieron cargar ventas:',
+          respuestaVentas.reason?.response?.data || respuestaVentas.reason
+        );
 
-      Alert.alert(
-        'Venta registrada',
-        `Factura: ${respuesta.data.numero_factura}\nTotal: ₡${Number(
-          respuesta.data.total
-        ).toFixed(2)}`
-      );
+        setVentas([]);
+      }
 
-      setCarrito([]);
-      setCliente('Cliente contado');
-      setMetodoPago('Efectivo');
-      setBusqueda('');
+      if (respuestaProductos.status === 'fulfilled') {
+        const datosProductos = extraerLista(respuestaProductos.value.data, [
+          'productos',
+        ]);
 
-      await cargarProductos();
+        setProductos(datosProductos);
+      } else {
+        console.log(
+          'No se pudieron cargar productos:',
+          respuestaProductos.reason?.response?.data || respuestaProductos.reason
+        );
+
+        setProductos([]);
+        mostrarMensaje('No se pudieron cargar los productos.', 'error', true);
+      }
     } catch (error: any) {
-      console.log('Error al registrar venta:', error?.response?.data || error);
-
-      Alert.alert(
-        'Error',
-        error?.response?.data?.mensaje || 'No se pudo registrar la venta'
-      );
+      console.log('Error general al cargar datos:', error?.response?.data || error);
+      mostrarMensaje('No se pudieron cargar los datos.', 'error', true);
     } finally {
       setCargando(false);
     }
   };
 
+  const formatoColones = (valor: any) => {
+    const numero = Number(valor || 0);
+
+    return `₡${numero.toLocaleString('es-CR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const formatoFecha = (fecha: any) => {
+    if (!fecha) return 'Sin fecha';
+
+    const fechaObj = new Date(fecha);
+
+    if (Number.isNaN(fechaObj.getTime())) {
+      return String(fecha);
+    }
+
+    return fechaObj.toLocaleDateString('es-CR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const obtenerIdProducto = (producto: any) => {
+    return Number(producto.id_producto || producto.id || producto.producto_id || 0);
+  };
+
+  const obtenerNombreProducto = (producto: any) => {
+    return producto.nombre || producto.nombre_producto || producto.producto || 'Producto';
+  };
+
+  const obtenerCategoriaProducto = (producto: any) => {
+    return producto.categoria || producto.nombre_categoria || producto.categoria_nombre || 'General';
+  };
+
+  const obtenerCantidadProducto = (producto: any) => {
+    return Number(producto.cantidad ?? producto.stock ?? producto.existencia ?? 0);
+  };
+
+  const obtenerPrecioProducto = (producto: any) => {
+    return Number(producto.precio_venta || producto.precio || producto.precio_unitario || 0);
+  };
+
+  const obtenerUnidadProducto = (producto: any) => {
+    return producto.unidad_medida || producto.unidad || 'kg';
+  };
+
+  const obtenerFactura = (venta: any) => {
+    const idVenta = venta.id_venta || venta.id || venta.id_factura || '';
+
+    return (
+      venta.numero_factura ||
+      venta.factura ||
+      venta.consecutivo ||
+      `FAC-${String(idVenta).padStart(6, '0')}`
+    );
+  };
+
+  const obtenerClienteVenta = (venta: any) => {
+    return venta.cliente || venta.nombre_cliente || venta.nombre || 'Cliente general';
+  };
+
+  const obtenerMetodoVenta = (venta: any) => {
+    return venta.metodo_pago || venta.metodo || 'Efectivo';
+  };
+
+  const obtenerTotalVenta = (venta: any) => {
+    return Number(venta.total || venta.monto_total || venta.total_venta || 0);
+  };
+
+  const obtenerFechaVenta = (venta: any) => {
+    return venta.fecha_venta || venta.fecha || venta.created_at || venta.fecha_creacion;
+  };
+
+  const productosDisponibles = productos.filter((producto) => {
+    const texto = busquedaProducto.trim().toLowerCase();
+    const estado = String(producto.estado || 'Activo').toLowerCase();
+    const cantidad = obtenerCantidadProducto(producto);
+
+    const coincideBusqueda =
+      texto === '' ||
+      obtenerNombreProducto(producto).toLowerCase().includes(texto) ||
+      obtenerCategoriaProducto(producto).toLowerCase().includes(texto);
+
+    return estado !== 'inactivo' && cantidad > 0 && coincideBusqueda;
+  });
+
+  const ventasFiltradas = ventas.filter((venta) => {
+    const texto = busquedaVenta.toLowerCase();
+
+    return (
+      obtenerFactura(venta).toLowerCase().includes(texto) ||
+      obtenerClienteVenta(venta).toLowerCase().includes(texto) ||
+      obtenerMetodoVenta(venta).toLowerCase().includes(texto)
+    );
+  });
+
+  const totalCarrito = carrito.reduce((total, item) => {
+    return total + Number(item.subtotal || 0);
+  }, 0);
+
+  const totalVendido = ventas.reduce((total, venta) => {
+    return total + obtenerTotalVenta(venta);
+  }, 0);
+
+  const agregarProducto = (producto: any) => {
+    const idProducto = obtenerIdProducto(producto);
+    const nombreProducto = obtenerNombreProducto(producto);
+    const precio = obtenerPrecioProducto(producto);
+    const disponible = obtenerCantidadProducto(producto);
+    const unidad = obtenerUnidadProducto(producto);
+
+    if (!idProducto) {
+      mostrarMensaje('Este producto no tiene ID válido.', 'error', true);
+      return;
+    }
+
+    if (precio <= 0) {
+      mostrarMensaje(`El producto ${nombreProducto} no tiene precio de venta válido.`, 'error', true);
+      return;
+    }
+
+    if (disponible <= 0) {
+      mostrarMensaje(`El producto ${nombreProducto} no tiene inventario disponible.`, 'error', true);
+      return;
+    }
+
+    setCarrito((actual) => {
+      const existe = actual.find((item) => item.id_producto === idProducto);
+
+      if (existe) {
+        const nuevaCantidad = Number(existe.cantidad) + 1;
+
+        if (nuevaCantidad > disponible) {
+          mostrarMensaje(`No hay más inventario disponible para ${nombreProducto}.`, 'error', true);
+          return actual;
+        }
+
+        return actual.map((item) =>
+          item.id_producto === idProducto
+            ? {
+                ...item,
+                cantidad: nuevaCantidad,
+                subtotal: nuevaCantidad * item.precio_unitario,
+              }
+            : item
+        );
+      }
+
+      return [
+        ...actual,
+        {
+          id_producto: idProducto,
+          nombre: nombreProducto,
+          producto: nombreProducto,
+          nombre_producto: nombreProducto,
+          precio_unitario: precio,
+          cantidad: 1,
+          subtotal: precio,
+          disponible,
+          unidad_medida: unidad,
+        },
+      ];
+    });
+
+    mostrarMensaje(`${nombreProducto} agregado a la venta.`, 'ok');
+  };
+
+  const cambiarCantidad = (idProducto: number, valor: string) => {
+    const cantidadNueva = Number(valor.replace(',', '.'));
+
+    if (Number.isNaN(cantidadNueva) || cantidadNueva < 0) {
+      return;
+    }
+
+    setCarrito((actual) =>
+      actual.map((item) => {
+        if (item.id_producto !== idProducto) {
+          return item;
+        }
+
+        const cantidadFinal =
+          cantidadNueva > item.disponible ? item.disponible : cantidadNueva;
+
+        return {
+          ...item,
+          cantidad: cantidadFinal,
+          subtotal: cantidadFinal * item.precio_unitario,
+        };
+      })
+    );
+  };
+
+  const quitarProducto = (idProducto: number) => {
+    setCarrito((actual) => actual.filter((item) => item.id_producto !== idProducto));
+  };
+
+  const limpiarVenta = () => {
+    setCarrito([]);
+    setCliente('Cliente general');
+    setMetodoPago('Efectivo');
+    setObservacion('');
+    setBusquedaProducto('');
+  };
+
+  const cerrarFormulario = () => {
+    limpiarVenta();
+    setMostrarFormulario(false);
+  };
+
+  const registrarVenta = async () => {
+    const clienteLimpio = cliente.trim() || 'Cliente general';
+
+    if (carrito.length === 0) {
+      mostrarMensaje('Debe agregar al menos un producto a la venta.', 'error', true);
+      return;
+    }
+
+    const productoCantidadCero = carrito.find((item) => Number(item.cantidad) <= 0);
+
+    if (productoCantidadCero) {
+      mostrarMensaje('Todos los productos deben tener una cantidad mayor a cero.', 'error', true);
+      return;
+    }
+
+    const productoSinStock = carrito.find(
+      (item) => Number(item.cantidad) > Number(item.disponible)
+    );
+
+    if (productoSinStock) {
+      mostrarMensaje(
+        `La cantidad de ${productoSinStock.nombre} supera el inventario disponible.`,
+        'error',
+        true
+      );
+      return;
+    }
+
+    try {
+      setGuardando(true);
+      mostrarMensaje('Registrando venta y generando factura...', 'info');
+
+      const datosVenta = {
+        cliente: clienteLimpio,
+        metodo_pago: metodoPago,
+        observacion: observacion.trim(),
+        productos: carrito.map((item) => ({
+          id_producto: item.id_producto,
+          producto: item.nombre,
+          nombre_producto: item.nombre,
+          cantidad: Number(item.cantidad),
+          precio_unitario: Number(item.precio_unitario),
+          subtotal: Number(item.subtotal),
+          unidad_medida: item.unidad_medida,
+        })),
+      };
+
+      const respuesta = await api.post('/ventas', datosVenta);
+
+      const numeroFactura =
+        respuesta.data?.numero_factura ||
+        respuesta.data?.factura ||
+        'factura generada';
+
+      mostrarMensaje(
+        `Venta registrada correctamente. Factura: ${numeroFactura}`,
+        'ok',
+        true
+      );
+
+      limpiarVenta();
+      setMostrarFormulario(false);
+
+      await cargarDatos();
+    } catch (error: any) {
+      console.log('Error al registrar venta:', error?.response?.data || error);
+
+      mostrarMensaje(
+        error?.response?.data?.mensaje ||
+          error?.response?.data?.error ||
+          'No se pudo registrar la venta.',
+        'error',
+        true
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Ventas</Text>
-      <Text style={styles.subtitulo}>Facturación interna</Text>
-
-      {facturaGenerada && (
-        <View style={styles.facturaBox}>
-          <Text style={styles.facturaTitulo}>Venta registrada</Text>
-          <Text style={styles.facturaTexto}>
-            Factura: {facturaGenerada.numero_factura}
+    <AdminLayout
+      titulo="Ventas"
+      subtitulo="Registro manual de ventas, facturas y control de historial"
+    >
+      <View style={styles.hero}>
+        <View>
+          <Text style={styles.titulo}>Ventas manuales 📈</Text>
+          <Text style={styles.subtitulo}>
+            Registre ventas realizadas directamente por el administrador.
           </Text>
-          <Text style={styles.facturaTexto}>
-            Cliente: {facturaGenerada.cliente}
-          </Text>
-          <Text style={styles.facturaTexto}>
-            Método de pago: {facturaGenerada.metodo_pago}
-          </Text>
-          <Text style={styles.facturaTotal}>
-            Total: ₡{Number(facturaGenerada.total).toFixed(2)}
-          </Text>
-
-          <Pressable
-            style={styles.botonHistorial}
-            onPress={() => router.push('/historial-ventas')}
-          >
-            <Text style={styles.textoBoton}>Ver historial de ventas</Text>
-          </Pressable>
-        </View>
-      )}
-
-      <View style={styles.seccion}>
-        <Text style={styles.label}>Cliente</Text>
-        <TextInput
-          style={styles.input}
-          value={cliente}
-          onChangeText={setCliente}
-          placeholder="Nombre del cliente"
-        />
-
-        <Text style={styles.label}>Método de pago</Text>
-        <TextInput
-          style={styles.input}
-          value={metodoPago}
-          onChangeText={setMetodoPago}
-          placeholder="Efectivo, SINPE, tarjeta..."
-        />
-      </View>
-
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Buscar producto</Text>
-
-        <TextInput
-          style={styles.input}
-          value={busqueda}
-          onChangeText={setBusqueda}
-          placeholder="Buscar por nombre..."
-        />
-
-        {busqueda.length > 0 &&
-          productosFiltrados.slice(0, 8).map((producto) => {
-            const unidad = producto.unidad_medida || 'kg';
-
-            return (
-              <Pressable
-                key={producto.id_producto}
-                style={styles.productoResultado}
-                onPress={() => agregarProducto(producto)}
-              >
-                <View style={styles.productoInfo}>
-                  <Text style={styles.productoNombre}>{producto.nombre}</Text>
-                  <Text style={styles.productoDetalle}>
-                    ₡{Number(producto.precio_venta).toFixed(2)} por {unidad}
-                  </Text>
-                  <Text style={styles.productoDetalle}>
-                    Disponible: {producto.cantidad} {unidad}
-                  </Text>
-                </View>
-
-                <Text style={styles.agregarTexto}>Agregar</Text>
-              </Pressable>
-            );
-          })}
-      </View>
-
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Detalle de venta</Text>
-
-        {carrito.length === 0 ? (
-          <Text style={styles.textoVacio}>No hay productos agregados.</Text>
-        ) : (
-          carrito.map((item) => {
-            const cantidad = convertirNumero(item.cantidad || '0');
-            const subtotal = cantidad * Number(item.precio_venta);
-
-            return (
-              <View key={item.id_producto} style={styles.itemCarrito}>
-                <View style={styles.fila}>
-                  <Text style={styles.itemNombre}>{item.nombre}</Text>
-
-                  <Pressable onPress={() => eliminarDelCarrito(item.id_producto)}>
-                    <Text style={styles.eliminar}>Eliminar</Text>
-                  </Pressable>
-                </View>
-
-                <Text style={styles.itemDetalle}>
-                  Precio: ₡{item.precio_venta.toFixed(2)} por{' '}
-                  {item.unidad_medida}
-                </Text>
-
-                <Text style={styles.itemDetalle}>
-                  Disponible: {item.disponible} {item.unidad_medida}
-                </Text>
-
-                <Text style={styles.labelCantidad}>
-                  Cantidad a vender en {item.unidad_medida}
-                </Text>
-
-                <TextInput
-                  style={styles.inputCantidad}
-                  value={item.cantidad}
-                  onChangeText={(valor) =>
-                    cambiarCantidad(item.id_producto, valor)
-                  }
-                  keyboardType="numeric"
-                  placeholder={`Ejemplo: 1 ${item.unidad_medida}`}
-                />
-
-                <Text style={styles.subtotal}>
-                  Subtotal: ₡{subtotal.toFixed(2)}
-                </Text>
-              </View>
-            );
-          })
-        )}
-
-        <View style={styles.totalBox}>
-          <Text style={styles.totalTexto}>Total</Text>
-          <Text style={styles.totalMonto}>₡{calcularTotal().toFixed(2)}</Text>
         </View>
 
         <Pressable
-          style={[styles.botonRegistrar, cargando && styles.botonDesactivado]}
-          onPress={registrarVenta}
-          disabled={cargando}
+          style={styles.botonAgregar}
+          onPress={() => setMostrarFormulario(true)}
         >
-          <Text style={styles.textoBoton}>
-            {cargando ? 'Registrando...' : 'Registrar venta'}
-          </Text>
+          <Text style={styles.textoAgregar}>＋ Registrar venta</Text>
         </Pressable>
       </View>
 
-      <Pressable style={styles.botonVolver} onPress={() => router.push('/home')}>
-        <Text style={styles.textoVolver}>Volver al inicio</Text>
-      </Pressable>
-    </ScrollView>
+      {mensaje !== '' && (
+        <View
+          style={[
+            styles.mensajeCaja,
+            tipoMensaje === 'ok' && styles.mensajeOk,
+            tipoMensaje === 'error' && styles.mensajeError,
+            tipoMensaje === 'info' && styles.mensajeInfo,
+          ]}
+        >
+          <Text style={styles.mensajeTexto}>{mensaje}</Text>
+        </View>
+      )}
+
+      <View style={styles.tarjetas}>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIcono}>🧾</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Ventas registradas</Text>
+            <Text style={styles.tarjetaNumero}>{ventas.length}</Text>
+            <Text style={styles.tarjetaDetalle}>Historial de ventas</Text>
+          </View>
+        </View>
+
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoVerde}>₡</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Total vendido</Text>
+            <Text style={styles.tarjetaNumero}>{formatoColones(totalVendido)}</Text>
+            <Text style={styles.tarjetaDetalle}>Monto acumulado</Text>
+          </View>
+        </View>
+
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoNaranja}>📦</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Productos disponibles</Text>
+            <Text style={styles.tarjetaNumeroNaranja}>{productosDisponibles.length}</Text>
+            <Text style={styles.tarjetaDetalle}>Para vender</Text>
+          </View>
+        </View>
+      </View>
+
+      {mostrarFormulario && (
+        <View style={styles.formularioCard}>
+          <View style={styles.formHeader}>
+            <View>
+              <Text style={styles.formTitulo}>Registrar nueva venta</Text>
+              <Text style={styles.formSubtitulo}>
+                Seleccione productos, cantidades y método de pago.
+              </Text>
+            </View>
+
+            <Pressable style={styles.botonCerrar} onPress={cerrarFormulario}>
+              <Text style={styles.textoCerrar}>Cerrar</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.filaDoble}>
+            <View style={styles.campo}>
+              <Text style={styles.label}>Cliente</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Cliente general"
+                value={cliente}
+                onChangeText={setCliente}
+                editable={!guardando}
+              />
+            </View>
+
+            <View style={styles.campo}>
+              <Text style={styles.label}>Método de pago</Text>
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.metodosFila}>
+                  {metodosPago.map((metodo) => (
+                    <Pressable
+                      key={metodo}
+                      style={[
+                        styles.metodoBoton,
+                        metodoPago === metodo && styles.metodoBotonActivo,
+                      ]}
+                      onPress={() => setMetodoPago(metodo)}
+                      disabled={guardando}
+                    >
+                      <Text
+                        style={[
+                          styles.metodoTexto,
+                          metodoPago === metodo && styles.metodoTextoActivo,
+                        ]}
+                      >
+                        {metodo}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+            </View>
+          </View>
+
+          <Text style={styles.label}>Buscar producto</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Escriba el nombre del producto..."
+            value={busquedaProducto}
+            onChangeText={setBusquedaProducto}
+            editable={!guardando}
+          />
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.productosFila}>
+              {productosDisponibles.length === 0 ? (
+                <Text style={styles.sinProductosTexto}>
+                  No hay productos disponibles para vender.
+                </Text>
+              ) : (
+                productosDisponibles.slice(0, 30).map((producto, index) => (
+                  <Pressable
+                    key={obtenerIdProducto(producto) || index}
+                    style={styles.productoCard}
+                    onPress={() => agregarProducto(producto)}
+                    disabled={guardando}
+                  >
+                    <Text style={styles.productoNombre} numberOfLines={1}>
+                      {obtenerNombreProducto(producto)}
+                    </Text>
+
+                    <Text style={styles.productoDetalle}>
+                      Disponible: {obtenerCantidadProducto(producto)} {obtenerUnidadProducto(producto)}
+                    </Text>
+
+                    <Text style={styles.productoPrecio}>
+                      {formatoColones(obtenerPrecioProducto(producto))}
+                    </Text>
+
+                    <Text style={styles.productoAgregar}>Agregar</Text>
+                  </Pressable>
+                ))
+              )}
+            </View>
+          </ScrollView>
+
+          <View style={styles.carritoCard}>
+            <Text style={styles.carritoTitulo}>Productos de la venta</Text>
+
+            {carrito.length === 0 ? (
+              <View style={styles.carritoVacio}>
+                <Text style={styles.carritoVacioTexto}>
+                  Todavía no hay productos agregados.
+                </Text>
+              </View>
+            ) : (
+              carrito.map((item) => (
+                <View key={item.id_producto} style={styles.carritoItem}>
+                  <View style={styles.carritoInfo}>
+                    <Text style={styles.carritoNombre}>{item.nombre}</Text>
+                    <Text style={styles.carritoDetalle}>
+                      Precio: {formatoColones(item.precio_unitario)} · Disponible: {item.disponible} {item.unidad_medida}
+                    </Text>
+                  </View>
+
+                  <TextInput
+                    style={styles.inputCantidad}
+                    value={String(item.cantidad)}
+                    onChangeText={(valor) => cambiarCantidad(item.id_producto, valor)}
+                    keyboardType="numeric"
+                    editable={!guardando}
+                  />
+
+                  <Text style={styles.carritoSubtotal}>
+                    {formatoColones(item.subtotal)}
+                  </Text>
+
+                  <Pressable
+                    style={styles.botonQuitar}
+                    onPress={() => quitarProducto(item.id_producto)}
+                    disabled={guardando}
+                  >
+                    <Text style={styles.textoQuitar}>X</Text>
+                  </Pressable>
+                </View>
+              ))
+            )}
+
+            <View style={styles.totalCaja}>
+              <Text style={styles.totalLabel}>Total de la venta</Text>
+              <Text style={styles.totalValor}>{formatoColones(totalCarrito)}</Text>
+            </View>
+          </View>
+
+          <Text style={styles.label}>Observación</Text>
+          <TextInput
+            style={styles.inputMultilinea}
+            placeholder="Observación opcional de la venta..."
+            value={observacion}
+            onChangeText={setObservacion}
+            multiline
+            editable={!guardando}
+          />
+
+          <View style={styles.botonesFila}>
+            <Pressable
+              style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
+              onPress={registrarVenta}
+              disabled={guardando}
+            >
+              <Text style={styles.textoGuardar}>
+                {guardando ? 'Registrando venta...' : 'Guardar venta y generar factura'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.botonLimpiar}
+              onPress={limpiarVenta}
+              disabled={guardando}
+            >
+              <Text style={styles.textoLimpiar}>Limpiar</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.card}>
+        <View style={styles.filtrosFila}>
+          <TextInput
+            style={styles.inputBuscar}
+            placeholder="Buscar venta por factura, cliente o método de pago..."
+            value={busquedaVenta}
+            onChangeText={setBusquedaVenta}
+          />
+
+          <Pressable style={styles.botonActualizar} onPress={cargarDatos}>
+            <Text style={styles.textoActualizar}>
+              {cargando ? 'Actualizando...' : 'Actualizar'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            style={styles.botonHistorial}
+            onPress={() => router.push('/historial-ventas' as any)}
+          >
+            <Text style={styles.textoHistorial}>Ver historial</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.tablaHeader}>
+          <Text style={[styles.th, styles.colFactura]}>Factura</Text>
+          <Text style={[styles.th, styles.colCliente]}>Cliente</Text>
+          <Text style={[styles.th, styles.colFecha]}>Fecha</Text>
+          <Text style={[styles.th, styles.colPago]}>Pago</Text>
+          <Text style={[styles.th, styles.colTotal]}>Total</Text>
+          <Text style={[styles.th, styles.colEstado]}>Estado</Text>
+        </View>
+
+        {cargando ? (
+          <View style={styles.vacio}>
+            <Text style={styles.vacioTexto}>Cargando ventas...</Text>
+          </View>
+        ) : ventasFiltradas.length === 0 ? (
+          <View style={styles.vacio}>
+            <Text style={styles.vacioIcono}>🧾</Text>
+            <Text style={styles.vacioTitulo}>No hay ventas para mostrar</Text>
+            <Text style={styles.vacioTexto}>
+              Registre una venta manual para verla en esta tabla.
+            </Text>
+          </View>
+        ) : (
+          ventasFiltradas.map((venta, index) => (
+            <View key={venta.id_venta || venta.id || index} style={styles.tablaRow}>
+              <Text style={[styles.tdFactura, styles.colFactura]}>
+                {obtenerFactura(venta)}
+              </Text>
+
+              <Text style={[styles.td, styles.colCliente]} numberOfLines={1}>
+                {obtenerClienteVenta(venta)}
+              </Text>
+
+              <Text style={[styles.tdCentro, styles.colFecha]}>
+                {formatoFecha(obtenerFechaVenta(venta))}
+              </Text>
+
+              <Text style={[styles.tdCentro, styles.colPago]}>
+                {obtenerMetodoVenta(venta)}
+              </Text>
+
+              <Text style={[styles.tdTotal, styles.colTotal]}>
+                {formatoColones(obtenerTotalVenta(venta))}
+              </Text>
+
+              <View style={styles.colEstado}>
+                <View style={styles.estadoBadge}>
+                  <View style={styles.puntoVerde} />
+                  <Text style={styles.estadoTexto}>
+                    {venta.estado || 'Completada'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ))
+        )}
+
+        <View style={styles.footerTabla}>
+          <Text style={styles.footerTexto}>
+            Mostrando {ventasFiltradas.length} de {ventas.length} ventas
+          </Text>
+        </View>
+      </View>
+    </AdminLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#eef8ef',
-  },
-  titulo: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#1b5e20',
-    textAlign: 'center',
-  },
-  subtitulo: {
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 18,
-  },
-  facturaBox: {
-    backgroundColor: '#1b5e20',
-    padding: 18,
-    borderRadius: 18,
-    marginBottom: 14,
-  },
-  facturaTitulo: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  facturaTexto: {
-    color: '#e8f5e9',
-    marginTop: 3,
-  },
-  facturaTotal: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 10,
-  },
-  botonHistorial: {
-    backgroundColor: '#2e7d32',
-    padding: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  seccion: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-  },
-  seccionTitulo: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1b5e20',
-    marginBottom: 12,
-  },
-  label: {
-    fontWeight: 'bold',
-    color: '#444',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#f9fff9',
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  productoResultado: {
-    backgroundColor: '#f1f8e9',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+  hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 10,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  titulo: {
+    color: '#063f22',
+    fontSize: 40,
+    fontWeight: 'bold',
+  },
+  subtitulo: {
+    color: '#666',
+    fontSize: 16,
+    marginTop: 6,
+  },
+  botonAgregar: {
+    backgroundColor: '#7bb51e',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 15,
+  },
+  textoAgregar: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  mensajeCaja: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 18,
+  },
+  mensajeOk: {
+    backgroundColor: '#e8f5e9',
+    borderColor: '#2e7d32',
+  },
+  mensajeError: {
+    backgroundColor: '#ffebee',
+    borderColor: '#c62828',
+  },
+  mensajeInfo: {
+    backgroundColor: '#fff8e1',
+    borderColor: '#f9a825',
+  },
+  mensajeTexto: {
+    color: '#1e1e1e',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  tarjetas: {
+    flexDirection: 'row',
+    gap: 16,
+    flexWrap: 'wrap',
+    marginBottom: 24,
+  },
+  tarjeta: {
+    flex: 1,
+    minWidth: 220,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  tarjetaIcono: {
+    fontSize: 36,
+  },
+  tarjetaIconoVerde: {
+    color: '#2e7d32',
+    borderWidth: 3,
+    borderColor: '#2e7d32',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+  tarjetaIconoNaranja: {
+    color: '#f58220',
+    borderWidth: 3,
+    borderColor: '#f58220',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 23,
+    fontWeight: 'bold',
+  },
+  tarjetaLabel: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  tarjetaNumero: {
+    color: '#0f4f24',
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+  tarjetaNumeroNaranja: {
+    color: '#f58220',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  tarjetaDetalle: {
+    color: '#777',
+    fontSize: 12,
+  },
+  formularioCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 20,
+    padding: 22,
+    marginBottom: 24,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  productoInfo: {
+  formTitulo: {
+    color: '#1b5e20',
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+  formSubtitulo: {
+    color: '#666',
+    marginTop: 4,
+  },
+  botonCerrar: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  textoCerrar: {
+    color: '#c62828',
+    fontWeight: 'bold',
+  },
+  filaDoble: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 12,
+  },
+  campo: {
     flex: 1,
   },
-  productoNombre: {
+  label: {
+    color: '#333',
     fontWeight: 'bold',
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  input: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 15,
+  },
+  inputMultilinea: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 15,
+    minHeight: 72,
+  },
+  metodosFila: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  metodoBoton: {
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+  },
+  metodoBotonActivo: {
+    backgroundColor: '#1b5e20',
+    borderColor: '#1b5e20',
+  },
+  metodoTexto: {
     color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  metodoTextoActivo: {
+    color: '#ffffff',
+  },
+  productosFila: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 12,
+    paddingBottom: 8,
+  },
+  productoCard: {
+    width: 210,
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 16,
+    padding: 14,
+  },
+  productoNombre: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
     fontSize: 16,
   },
   productoDetalle: {
     color: '#555',
-    marginTop: 3,
-  },
-  agregarTexto: {
-    color: '#2e7d32',
-    fontWeight: 'bold',
-  },
-  textoVacio: {
-    color: '#777',
-    textAlign: 'center',
-    marginVertical: 12,
-  },
-  itemCarrito: {
-    backgroundColor: '#fff8e1',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ffe082',
-    marginBottom: 10,
-  },
-  fila: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  itemNombre: {
-    fontWeight: 'bold',
-    color: '#444',
-    fontSize: 17,
-    flex: 1,
-  },
-  eliminar: {
-    color: '#b71c1c',
-    fontWeight: 'bold',
-  },
-  itemDetalle: {
-    color: '#555',
+    fontSize: 12,
     marginTop: 5,
   },
-  labelCantidad: {
+  productoPrecio: {
+    color: '#f58220',
     fontWeight: 'bold',
-    color: '#444',
-    marginTop: 10,
-  },
-  inputCantidad: {
-    backgroundColor: '#fff',
-    borderWidth: 1,
-    borderColor: '#ffe082',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 6,
-  },
-  subtotal: {
+    fontSize: 18,
     marginTop: 8,
-    fontWeight: 'bold',
-    color: '#1b5e20',
   },
-  totalBox: {
-    marginTop: 12,
-    backgroundColor: '#1b5e20',
+  productoAgregar: {
+    color: '#ffffff',
+    backgroundColor: '#0f4f24',
+    textAlign: 'center',
+    paddingVertical: 7,
+    borderRadius: 10,
+    marginTop: 10,
+    fontWeight: 'bold',
+  },
+  sinProductosTexto: {
+    color: '#777',
+    fontWeight: 'bold',
+    padding: 12,
+  },
+  carritoCard: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 18,
     padding: 16,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    marginTop: 18,
   },
-  totalTexto: {
-    color: '#fff',
-    fontSize: 18,
+  carritoTitulo: {
+    color: '#0f4f24',
+    fontSize: 22,
     fontWeight: 'bold',
+    marginBottom: 12,
   },
-  totalMonto: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  botonRegistrar: {
-    backgroundColor: '#2e7d32',
-    padding: 15,
-    borderRadius: 14,
+  carritoVacio: {
+    padding: 20,
     alignItems: 'center',
-    marginTop: 14,
   },
-  botonDesactivado: {
-    opacity: 0.7,
+  carritoVacioTexto: {
+    color: '#777',
+    fontWeight: 'bold',
   },
-  textoBoton: {
-    color: '#fff',
+  carritoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 14,
+    padding: 12,
+    marginBottom: 10,
+  },
+  carritoInfo: {
+    flex: 1,
+  },
+  carritoNombre: {
+    color: '#0f4f24',
     fontWeight: 'bold',
     fontSize: 16,
   },
-  botonVolver: {
-    backgroundColor: '#757575',
-    padding: 14,
+  carritoDetalle: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  inputCantidad: {
+    width: 80,
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
     borderRadius: 12,
+    padding: 10,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  carritoSubtotal: {
+    width: 120,
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    textAlign: 'right',
+  },
+  botonQuitar: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  textoQuitar: {
+    color: '#c62828',
+    fontWeight: 'bold',
+  },
+  totalCaja: {
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#2e7d32',
+    borderRadius: 16,
+    padding: 16,
     marginTop: 8,
   },
-  textoVolver: {
-    color: '#fff',
+  totalLabel: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  totalValor: {
+    color: '#0f4f24',
+    fontSize: 30,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  botonesFila: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  botonGuardar: {
+    flex: 1,
+    backgroundColor: '#f58220',
+    padding: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  botonDesactivado: {
+    backgroundColor: '#9e9e9e',
+  },
+  textoGuardar: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  botonLimpiar: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#c62828',
+    padding: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  textoLimpiar: {
+    color: '#c62828',
+    fontWeight: 'bold',
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 20,
+    padding: 18,
+  },
+  filtrosFila: {
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: 16,
+  },
+  inputBuscar: {
+    flex: 1,
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 14,
+  },
+  botonActualizar: {
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    justifyContent: 'center',
+  },
+  textoActualizar: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  botonHistorial: {
+    backgroundColor: '#0f4f24',
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    justifyContent: 'center',
+  },
+  textoHistorial: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  tablaHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ebe4d3',
+    paddingVertical: 12,
+  },
+  tablaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0eadb',
+    paddingVertical: 14,
+  },
+  th: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  td: {
+    color: '#333',
+    fontSize: 13,
+  },
+  tdFactura: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  tdCentro: {
+    color: '#333',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  tdTotal: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  colFactura: {
+    flex: 1.2,
+  },
+  colCliente: {
+    flex: 1.6,
+  },
+  colFecha: {
+    flex: 1.1,
+    textAlign: 'center',
+  },
+  colPago: {
+    flex: 1.1,
+    textAlign: 'center',
+  },
+  colTotal: {
+    flex: 1.2,
+    textAlign: 'center',
+  },
+  colEstado: {
+    flex: 1.2,
+    alignItems: 'center',
+  },
+  estadoBadge: {
+    backgroundColor: '#e8f5e9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  puntoVerde: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#2e7d32',
+  },
+  estadoTexto: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  vacio: {
+    padding: 34,
+    alignItems: 'center',
+  },
+  vacioIcono: {
+    fontSize: 42,
+    marginBottom: 8,
+  },
+  vacioTitulo: {
+    color: '#0f4f24',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  vacioTexto: {
+    color: '#777',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  footerTabla: {
+    paddingTop: 14,
+  },
+  footerTexto: {
+    color: '#777',
     fontWeight: 'bold',
   },
 });

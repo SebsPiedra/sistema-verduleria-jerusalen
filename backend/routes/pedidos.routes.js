@@ -9,25 +9,452 @@ const beginTransaction = util.promisify(conexion.beginTransaction).bind(conexion
 const commit = util.promisify(conexion.commit).bind(conexion);
 const rollback = util.promisify(conexion.rollback).bind(conexion);
 
-// Registrar pedido del cliente
-router.post('/', async (req, res) => {
-  const { id_cliente, metodo_pago, direccion_entrega, observacion, productos } = req.body;
+const estadosPermitidos = [
+  'Pendiente',
+  'Aceptado',
+  'En preparación',
+  'En entrega',
+  'Entregado',
+  'Rechazado',
+  'Cancelado',
+];
 
-  if (!id_cliente) {
+const estadosQueGeneranVenta = [
+  'Aceptado',
+  'En preparación',
+  'En entrega',
+  'Entregado',
+];
+
+const formatoNumero = (valor) => {
+  const numero = Number(valor || 0);
+  return Number.isNaN(numero) ? 0 : numero;
+};
+
+const obtenerFilas = (resultado) => {
+  if (Array.isArray(resultado)) return resultado;
+  if (resultado?.rows) return resultado.rows;
+  return [];
+};
+
+const obtenerPrimero = (resultado) => {
+  const filas = obtenerFilas(resultado);
+  return filas[0] || null;
+};
+
+const rollbackSeguro = async () => {
+  try {
+    await rollback();
+  } catch (error) {
+    console.log('Rollback no aplicado:', error.message);
+  }
+};
+
+const obtenerSiguienteId = async (tabla, columna) => {
+  const resultado = await query(
+    `SELECT COALESCE(MAX(${columna}), 0) + 1 AS siguiente FROM ${tabla}`
+  );
+
+  const fila = obtenerPrimero(resultado);
+  return Number(fila?.siguiente || 1);
+};
+
+const generarFactura = (idVenta) => {
+  return `FAC-${String(idVenta).padStart(6, '0')}`;
+};
+
+const cargarDetallesPorPedidos = async (pedidos) => {
+  if (!pedidos || pedidos.length === 0) {
+    return [];
+  }
+
+  const ids = pedidos
+    .map((pedido) => Number(pedido.id_pedido))
+    .filter((id) => id > 0);
+
+  if (ids.length === 0) {
+    return [];
+  }
+
+  const placeholders = ids.map(() => '?').join(',');
+
+  const resultadoDetalles = await query(
+    `
+      SELECT
+        dp.id_detalle_pedido,
+        dp.id_pedido,
+        dp.id_producto,
+        COALESCE(dp.nombre_producto, dp.producto, pr.nombre, 'Producto') AS nombre,
+        COALESCE(dp.producto, dp.nombre_producto, pr.nombre, 'Producto') AS producto,
+        COALESCE(dp.nombre_producto, dp.producto, pr.nombre, 'Producto') AS nombre_producto,
+        pr.unidad_medida,
+        COALESCE(pr.imagen_url, pr.imagen, '') AS imagen_url,
+        COALESCE(dp.cantidad, 0) AS cantidad,
+        COALESCE(dp.precio_unitario, pr.precio_venta, 0) AS precio_unitario,
+        COALESCE(
+          dp.subtotal,
+          COALESCE(dp.cantidad, 0) * COALESCE(dp.precio_unitario, pr.precio_venta, 0)
+        ) AS subtotal
+      FROM detalle_pedidos dp
+      LEFT JOIN productos pr ON dp.id_producto = pr.id_producto
+      WHERE dp.id_pedido IN (${placeholders})
+      ORDER BY dp.id_pedido DESC, dp.id_detalle_pedido ASC
+    `,
+    ids
+  );
+
+  return obtenerFilas(resultadoDetalles);
+};
+
+const cargarPedidosConDetalles = async (condicion = '', parametros = []) => {
+  const resultadoPedidos = await query(
+    `
+      SELECT
+        p.id_pedido,
+        p.id_cliente,
+        p.id_venta,
+        COALESCE(p.fecha_pedido, CURRENT_TIMESTAMP) AS fecha_pedido,
+        COALESCE(p.total, 0) AS total,
+        COALESCE(p.estado, 'Pendiente') AS estado,
+        COALESCE(p.metodo_pago, 'Efectivo') AS metodo_pago,
+        COALESCE(p.tipo_entrega, 'Entrega') AS tipo_entrega,
+        COALESCE(p.direccion_entrega, '') AS direccion_entrega,
+        COALESCE(p.observacion, '') AS observacion,
+        COALESCE(p.inventario_descontado, 0) AS inventario_descontado,
+        COALESCE(c.nombre, 'Cliente') AS cliente,
+        c.telefono,
+        COALESCE(c.correo, '') AS correo,
+        c.direccion AS direccion_registrada,
+        COALESCE(SUM(dp.cantidad), 0) AS cantidad_productos
+      FROM pedidos p
+      LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+      LEFT JOIN detalle_pedidos dp ON p.id_pedido = dp.id_pedido
+      ${condicion}
+      GROUP BY
+        p.id_pedido,
+        p.id_cliente,
+        p.id_venta,
+        p.fecha_pedido,
+        p.total,
+        p.estado,
+        p.metodo_pago,
+        p.tipo_entrega,
+        p.direccion_entrega,
+        p.observacion,
+        p.inventario_descontado,
+        c.nombre,
+        c.telefono,
+        c.correo,
+        c.direccion
+      ORDER BY p.id_pedido DESC
+    `,
+    parametros
+  );
+
+  const pedidos = obtenerFilas(resultadoPedidos);
+  const detalles = await cargarDetallesPorPedidos(pedidos);
+
+  return pedidos.map((pedido) => ({
+    ...pedido,
+    detalles: detalles.filter(
+      (detalle) => Number(detalle.id_pedido) === Number(pedido.id_pedido)
+    ),
+  }));
+};
+
+const crearVentaDesdePedido = async (pedido, detalles) => {
+  if (pedido.id_venta) {
+    return Number(pedido.id_venta);
+  }
+
+  const idVenta = await obtenerSiguienteId('ventas', 'id_venta');
+  const numeroFactura = generarFactura(idVenta);
+
+  await query(
+    `
+      INSERT INTO ventas
+      (
+        id_venta,
+        id_cliente,
+        cliente,
+        numero_factura,
+        total,
+        metodo_pago,
+        fecha_venta,
+        estado,
+        observacion
+      )
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+    `,
+    [
+      idVenta,
+      pedido.id_cliente || null,
+      pedido.cliente || 'Cliente general',
+      numeroFactura,
+      formatoNumero(pedido.total),
+      pedido.metodo_pago || 'Efectivo',
+      `Venta generada desde pedido #${pedido.id_pedido}`,
+    ]
+  );
+
+  let idDetalle = await obtenerSiguienteId('detalle_ventas', 'id_detalle');
+
+  for (const detalle of detalles) {
+    await query(
+      `
+        INSERT INTO detalle_ventas
+        (
+          id_detalle,
+          id_venta,
+          id_producto,
+          producto,
+          nombre_producto,
+          cantidad,
+          precio_unitario,
+          subtotal
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      `,
+      [
+        idDetalle,
+        idVenta,
+        detalle.id_producto,
+        detalle.nombre || 'Producto',
+        detalle.nombre || 'Producto',
+        formatoNumero(detalle.cantidad),
+        formatoNumero(detalle.precio_unitario),
+        formatoNumero(detalle.subtotal),
+      ]
+    );
+
+    idDetalle += 1;
+  }
+
+  return idVenta;
+};
+
+const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
+  const { id } = req.params;
+
+  if (!estadoNuevo || !estadosPermitidos.includes(estadoNuevo)) {
     return res.status(400).json({
-      mensaje: 'Debe indicar el cliente'
+      mensaje: 'Estado no válido',
     });
   }
 
-  if (!direccion_entrega) {
+  try {
+    await beginTransaction();
+
+   const resultadoPedido = await query(
+  `
+    SELECT
+      p.id_pedido,
+      p.id_cliente,
+      p.id_venta,
+      p.estado,
+      p.total,
+      p.metodo_pago,
+      p.observacion,
+      COALESCE(p.inventario_descontado, 0) AS inventario_descontado,
+      COALESCE(c.nombre, 'Cliente general') AS cliente
+    FROM pedidos p
+    LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+    WHERE p.id_pedido = ?
+    FOR UPDATE OF p
+  `,
+  [id]
+);
+
+    const pedido = obtenerPrimero(resultadoPedido);
+
+    if (!pedido) {
+      await rollbackSeguro();
+      return res.status(404).json({
+        mensaje: 'Pedido no encontrado',
+      });
+    }
+
+    const resultadoDetalles = await query(
+      `
+        SELECT
+          dp.id_pedido,
+          dp.id_producto,
+          COALESCE(dp.cantidad, 0) AS cantidad,
+          COALESCE(dp.precio_unitario, 0) AS precio_unitario,
+          COALESCE(dp.subtotal, 0) AS subtotal,
+          COALESCE(dp.nombre_producto, dp.producto, pr.nombre, 'Producto') AS nombre,
+          COALESCE(pr.cantidad, pr.stock, 0) AS cantidad_disponible
+        FROM detalle_pedidos dp
+        INNER JOIN productos pr ON dp.id_producto = pr.id_producto
+        WHERE dp.id_pedido = ?
+      `,
+      [id]
+    );
+
+    const detalles = obtenerFilas(resultadoDetalles);
+
+    if (detalles.length === 0) {
+      await rollbackSeguro();
+      return res.status(400).json({
+        mensaje: 'Este pedido no tiene productos registrados. No se puede cambiar el estado.',
+      });
+    }
+
+    let idVentaGenerada = pedido.id_venta || null;
+
+    const debeGenerarVenta = estadosQueGeneranVenta.includes(estadoNuevo);
+
+    const debeDescontarInventario =
+      estadosQueGeneranVenta.includes(estadoNuevo) &&
+      Number(pedido.inventario_descontado) === 0;
+
+    if (debeDescontarInventario) {
+      for (const detalle of detalles) {
+        const disponible = formatoNumero(detalle.cantidad_disponible);
+        const solicitado = formatoNumero(detalle.cantidad);
+
+        if (disponible < solicitado) {
+          await rollbackSeguro();
+
+          return res.status(400).json({
+            mensaje: `No hay suficiente inventario para ${detalle.nombre}. Disponible: ${disponible}, solicitado: ${solicitado}`,
+          });
+        }
+      }
+
+      for (const detalle of detalles) {
+        const cantidad = formatoNumero(detalle.cantidad);
+
+        await query(
+          `
+            UPDATE productos
+            SET
+              cantidad = GREATEST(COALESCE(cantidad, stock, 0) - ?, 0),
+              stock = CAST(CEIL(GREATEST(COALESCE(cantidad, stock, 0) - ?, 0)) AS INTEGER)
+            WHERE id_producto = ?
+          `,
+          [cantidad, cantidad, detalle.id_producto]
+        );
+      }
+    }
+
+    if (debeGenerarVenta && !idVentaGenerada) {
+      idVentaGenerada = await crearVentaDesdePedido(pedido, detalles);
+    }
+
+    if (
+      ['Rechazado', 'Cancelado'].includes(estadoNuevo) &&
+      Number(pedido.inventario_descontado) === 1
+    ) {
+      for (const detalle of detalles) {
+        const cantidad = formatoNumero(detalle.cantidad);
+
+        await query(
+          `
+            UPDATE productos
+            SET
+              cantidad = COALESCE(cantidad, 0) + ?,
+              stock = COALESCE(stock, 0) + CAST(CEIL(CAST(? AS NUMERIC)) AS INTEGER)
+            WHERE id_producto = ?
+          `,
+          [cantidad, cantidad, detalle.id_producto]
+        );
+      }
+
+      if (pedido.id_venta) {
+        await query(
+          `
+            UPDATE ventas
+            SET estado = 'Cancelada'
+            WHERE id_venta = ?
+          `,
+          [pedido.id_venta]
+        );
+      }
+
+      await query(
+        `
+          UPDATE pedidos
+          SET
+            estado = ?,
+            inventario_descontado = 0,
+            id_venta = ?
+          WHERE id_pedido = ?
+        `,
+        [estadoNuevo, idVentaGenerada, id]
+      );
+    } else {
+      await query(
+        `
+          UPDATE pedidos
+          SET
+            estado = ?,
+            inventario_descontado = ?,
+            id_venta = ?
+          WHERE id_pedido = ?
+        `,
+        [
+          estadoNuevo,
+          debeDescontarInventario ? 1 : Number(pedido.inventario_descontado || 0),
+          idVentaGenerada,
+          id,
+        ]
+      );
+    }
+
+    await commit();
+
+    return res.json({
+      mensaje: `Pedido actualizado a ${estadoNuevo}`,
+      estado: estadoNuevo,
+      id_venta: idVentaGenerada,
+      numero_factura: idVentaGenerada ? generarFactura(idVentaGenerada) : null,
+    });
+  } catch (error) {
+    await rollbackSeguro();
+
+    console.log('Error al cambiar estado del pedido:', error);
+
+    return res.status(500).json({
+      mensaje: 'Error al cambiar el estado del pedido',
+      error: error.message || error,
+    });
+  }
+};
+
+router.post('/', async (req, res) => {
+  const {
+    id_cliente,
+    metodo_pago,
+    tipo_entrega,
+    direccion_entrega,
+    observacion,
+    productos,
+  } = req.body;
+
+  if (!id_cliente) {
     return res.status(400).json({
-      mensaje: 'Debe indicar la dirección de entrega'
+      mensaje: 'Debe indicar el cliente',
+    });
+  }
+
+  const tipoEntrega =
+    tipo_entrega === 'Retiro en tienda' ? 'Retiro en tienda' : 'Entrega';
+
+  const direccionFinal =
+    tipoEntrega === 'Retiro en tienda'
+      ? 'Retiro en tienda'
+      : String(direccion_entrega || '').trim();
+
+  if (tipoEntrega === 'Entrega' && !direccionFinal) {
+    return res.status(400).json({
+      mensaje: 'Debe indicar la dirección de entrega',
     });
   }
 
   if (!productos || !Array.isArray(productos) || productos.length === 0) {
     return res.status(400).json({
-      mensaje: 'Debe agregar al menos un producto al pedido'
+      mensaje: 'Debe agregar al menos un producto al pedido',
     });
   }
 
@@ -38,367 +465,286 @@ router.post('/', async (req, res) => {
     const detalles = [];
 
     for (const item of productos) {
-      const idProducto = item.id_producto;
-      const cantidadPedida = Number(item.cantidad);
+      const idProducto = Number(item.id_producto);
+      const cantidadPedida = formatoNumero(item.cantidad);
 
       if (!idProducto || cantidadPedida <= 0) {
-        await rollback();
+        await rollbackSeguro();
+
         return res.status(400).json({
-          mensaje: 'Datos de producto inválidos'
+          mensaje: 'Hay un producto con cantidad inválida',
         });
       }
 
       const resultadoProducto = await query(
         `
-        SELECT 
-          id_producto,
-          nombre,
-          cantidad,
-          precio_venta,
-          estado
-        FROM productos
-        WHERE id_producto = ?
+          SELECT
+            id_producto,
+            nombre,
+            COALESCE(cantidad, stock, 0) AS cantidad,
+            COALESCE(precio_venta, 0) AS precio_venta,
+            COALESCE(estado, 'Activo') AS estado,
+            unidad_medida
+          FROM productos
+          WHERE id_producto = ?
+          FOR UPDATE
         `,
         [idProducto]
       );
 
-      if (resultadoProducto.length === 0) {
-        await rollback();
+      const producto = obtenerPrimero(resultadoProducto);
+
+      if (!producto) {
+        await rollbackSeguro();
+
         return res.status(404).json({
-          mensaje: `Producto con ID ${idProducto} no encontrado`
+          mensaje: `Producto con ID ${idProducto} no encontrado`,
         });
       }
 
-      const producto = resultadoProducto[0];
+      if (String(producto.estado).toLowerCase() !== 'activo') {
+        await rollbackSeguro();
 
-      if (producto.estado !== 'Activo') {
-        await rollback();
         return res.status(400).json({
-          mensaje: `El producto ${producto.nombre} no está activo`
+          mensaje: `El producto ${producto.nombre} no está activo`,
         });
       }
 
-      if (Number(producto.cantidad) < cantidadPedida) {
-        await rollback();
+      if (formatoNumero(producto.cantidad) < cantidadPedida) {
+        await rollbackSeguro();
+
         return res.status(400).json({
-          mensaje: `No hay suficiente inventario para ${producto.nombre}`
+          mensaje: `No hay suficiente inventario para ${producto.nombre}`,
         });
       }
 
-      const precioUnitario = Number(producto.precio_venta);
+      const precioUnitario = formatoNumero(producto.precio_venta);
+
+      if (precioUnitario <= 0) {
+        await rollbackSeguro();
+
+        return res.status(400).json({
+          mensaje: `El producto ${producto.nombre} no tiene precio válido`,
+        });
+      }
+
       const subtotal = precioUnitario * cantidadPedida;
-
       total += subtotal;
 
       detalles.push({
         id_producto: producto.id_producto,
+        producto: producto.nombre,
+        nombre_producto: producto.nombre,
         nombre: producto.nombre,
         cantidad: cantidadPedida,
         precio_unitario: precioUnitario,
-        subtotal
+        subtotal,
       });
     }
 
-    const resultadoPedido = await query(
+    const idPedido = await obtenerSiguienteId('pedidos', 'id_pedido');
+    const observacionLimpia = String(observacion || '').trim();
+
+    await query(
       `
-      INSERT INTO pedidos
-      (id_cliente, total, estado, metodo_pago, direccion_entrega, observacion)
-      VALUES (?, ?, 'Pendiente', ?, ?, ?)
+        INSERT INTO pedidos
+        (
+          id_pedido,
+          id_cliente,
+          total,
+          estado,
+          metodo_pago,
+          tipo_entrega,
+          direccion_entrega,
+          observacion,
+          inventario_descontado,
+          fecha_pedido
+        )
+        VALUES (?, ?, ?, 'Pendiente', ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
       `,
       [
-        id_cliente,
+        idPedido,
+        Number(id_cliente),
         total,
         metodo_pago || 'Efectivo',
-        direccion_entrega,
-        observacion || null
+        tipoEntrega,
+        direccionFinal,
+        observacionLimpia,
       ]
     );
 
-    const idPedido = resultadoPedido.insertId;
+    let idDetallePedido = await obtenerSiguienteId(
+      'detalle_pedidos',
+      'id_detalle_pedido'
+    );
 
     for (const detalle of detalles) {
       await query(
         `
-        INSERT INTO detalle_pedidos
-        (id_pedido, id_producto, cantidad, precio_unitario, subtotal)
-        VALUES (?, ?, ?, ?, ?)
+          INSERT INTO detalle_pedidos
+          (
+            id_detalle_pedido,
+            id_pedido,
+            id_producto,
+            producto,
+            nombre_producto,
+            cantidad,
+            precio_unitario,
+            subtotal
+          )
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         `,
         [
+          idDetallePedido,
           idPedido,
           detalle.id_producto,
+          detalle.producto,
+          detalle.nombre_producto,
           detalle.cantidad,
           detalle.precio_unitario,
-          detalle.subtotal
+          detalle.subtotal,
         ]
       );
+
+      idDetallePedido += 1;
     }
 
     await commit();
 
-    res.json({
+    return res.json({
       mensaje: 'Pedido registrado correctamente',
       id_pedido: idPedido,
       estado: 'Pendiente',
-      direccion_entrega,
+      metodo_pago: metodo_pago || 'Efectivo',
+      tipo_entrega: tipoEntrega,
+      direccion_entrega: direccionFinal,
+      observacion: observacionLimpia,
       total,
-      detalles
+      inventario_descontado: 0,
+      detalles,
     });
   } catch (error) {
-    await rollback();
+    await rollbackSeguro();
 
-    res.status(500).json({
+    console.log('Error al registrar pedido:', error);
+
+    return res.status(500).json({
       mensaje: 'Error al registrar pedido',
-      error
+      error: error.message || error,
     });
   }
 });
 
-// Listar pedidos para administrador
-router.get('/', (req, res) => {
-  const sql = `
-    SELECT 
-      p.id_pedido,
-      p.fecha_pedido,
-      p.total,
-      p.estado,
-      p.metodo_pago,
-      p.direccion_entrega,
-      p.observacion,
-      p.inventario_descontado,
-      c.nombre AS cliente,
-      c.telefono,
-      c.correo,
-      c.direccion AS direccion_registrada,
-      COUNT(dp.id_detalle_pedido) AS cantidad_productos
-    FROM pedidos p
-    INNER JOIN clientes c ON p.id_cliente = c.id_cliente
-    LEFT JOIN detalle_pedidos dp ON p.id_pedido = dp.id_pedido
-    GROUP BY 
-      p.id_pedido,
-      p.fecha_pedido,
-      p.total,
-      p.estado,
-      p.metodo_pago,
-      p.direccion_entrega,
-      p.observacion,
-      p.inventario_descontado,
-      c.nombre,
-      c.telefono,
-      c.correo,
-      c.direccion
-    ORDER BY p.fecha_pedido DESC
-  `;
+router.get('/', async (req, res) => {
+  try {
+    const pedidos = await cargarPedidosConDetalles();
+    res.json(pedidos);
+  } catch (error) {
+    console.log('Error al obtener pedidos:', error);
 
-  conexion.query(sql, (error, resultados) => {
-    if (error) {
-      return res.status(500).json({
-        mensaje: 'Error al obtener pedidos',
-        error
-      });
-    }
-
-    res.json(resultados);
-  });
+    res.status(500).json({
+      mensaje: 'Error al obtener pedidos',
+      error: error.message || error,
+    });
+  }
 });
 
-// Ver pedidos de un cliente
-router.get('/cliente/:id_cliente', (req, res) => {
+router.get('/cliente/:id_cliente', async (req, res) => {
   const { id_cliente } = req.params;
 
-  const sql = `
-    SELECT 
-      id_pedido,
-      fecha_pedido,
-      total,
-      estado,
-      metodo_pago,
-      direccion_entrega,
-      observacion,
-      inventario_descontado
-    FROM pedidos
-    WHERE id_cliente = ?
-    ORDER BY fecha_pedido DESC
-  `;
+  try {
+    const pedidos = await cargarPedidosConDetalles('WHERE p.id_cliente = ?', [
+      id_cliente,
+    ]);
 
-  conexion.query(sql, [id_cliente], (error, resultados) => {
-    if (error) {
-      return res.status(500).json({
-        mensaje: 'Error al obtener pedidos del cliente',
-        error
-      });
-    }
+    res.json(pedidos);
+  } catch (error) {
+    console.log('Error al obtener pedidos del cliente:', error);
 
-    res.json(resultados);
-  });
+    res.status(500).json({
+      mensaje: 'Error al obtener pedidos del cliente',
+      error: error.message || error,
+    });
+  }
 });
 
-// Ver detalle de un pedido
 router.get('/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const pedido = await query(
-      `
-      SELECT 
-        p.id_pedido,
-        p.fecha_pedido,
-        p.total,
-        p.estado,
-        p.metodo_pago,
-        p.direccion_entrega,
-        p.observacion,
-        p.inventario_descontado,
-        c.id_cliente,
-        c.nombre AS cliente,
-        c.telefono,
-        c.correo,
-        c.direccion AS direccion_registrada
-      FROM pedidos p
-      INNER JOIN clientes c ON p.id_cliente = c.id_cliente
-      WHERE p.id_pedido = ?
-      `,
-      [id]
-    );
+    const pedidos = await cargarPedidosConDetalles('WHERE p.id_pedido = ?', [id]);
 
-    if (pedido.length === 0) {
+    if (pedidos.length === 0) {
       return res.status(404).json({
-        mensaje: 'Pedido no encontrado'
+        mensaje: 'Pedido no encontrado',
       });
     }
 
-    const detalles = await query(
-      `
-      SELECT 
-        dp.id_detalle_pedido,
-        dp.id_producto,
-        pr.nombre,
-        pr.unidad_medida,
-        dp.cantidad,
-        dp.precio_unitario,
-        dp.subtotal
-      FROM detalle_pedidos dp
-      INNER JOIN productos pr ON dp.id_producto = pr.id_producto
-      WHERE dp.id_pedido = ?
-      `,
-      [id]
-    );
-
-    res.json({
-      pedido: pedido[0],
-      detalles
+    return res.json({
+      ...pedidos[0],
+      pedido: pedidos[0],
+      detalles: pedidos[0].detalles || [],
     });
   } catch (error) {
-    res.status(500).json({
+    console.log('Error al obtener detalle del pedido:', error);
+
+    return res.status(500).json({
       mensaje: 'Error al obtener detalle del pedido',
-      error
+      error: error.message || error,
     });
   }
 });
 
-// Cambiar estado del pedido
 router.patch('/:id/estado', async (req, res) => {
-  const { id } = req.params;
-  const { estado } = req.body;
+  return cambiarEstadoPedido(req, res, req.body.estado);
+});
 
-  const estadosPermitidos = ['Pendiente', 'Aceptado', 'Rechazado', 'Entregado', 'Cancelado'];
+router.patch('/:id/aceptar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Aceptado');
+});
 
-  if (!estado || !estadosPermitidos.includes(estado)) {
-    return res.status(400).json({
-      mensaje: 'Estado no válido'
-    });
-  }
+router.put('/:id/aceptar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Aceptado');
+});
 
-  try {
-    await beginTransaction();
+router.patch('/:id/preparar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'En preparación');
+});
 
-    const pedidoResultado = await query(
-      `
-      SELECT id_pedido, estado, inventario_descontado
-      FROM pedidos
-      WHERE id_pedido = ?
-      FOR UPDATE
-      `,
-      [id]
-    );
+router.put('/:id/preparar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'En preparación');
+});
 
-    if (pedidoResultado.length === 0) {
-      await rollback();
-      return res.status(404).json({
-        mensaje: 'Pedido no encontrado'
-      });
-    }
+router.patch('/:id/enviar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'En entrega');
+});
 
-    const pedido = pedidoResultado[0];
+router.put('/:id/enviar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'En entrega');
+});
 
-    if (estado === 'Aceptado' && Number(pedido.inventario_descontado) === 0) {
-      const detalles = await query(
-        `
-        SELECT 
-          dp.id_producto,
-          dp.cantidad,
-          pr.nombre,
-          pr.cantidad AS cantidad_disponible
-        FROM detalle_pedidos dp
-        INNER JOIN productos pr ON dp.id_producto = pr.id_producto
-        WHERE dp.id_pedido = ?
-        FOR UPDATE
-        `,
-        [id]
-      );
+router.patch('/:id/entregar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Entregado');
+});
 
-      for (const detalle of detalles) {
-        if (Number(detalle.cantidad_disponible) < Number(detalle.cantidad)) {
-          await rollback();
-          return res.status(400).json({
-            mensaje: `No hay suficiente inventario para ${detalle.nombre}`
-          });
-        }
-      }
+router.put('/:id/entregar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Entregado');
+});
 
-      for (const detalle of detalles) {
-        await query(
-          `
-          UPDATE productos
-          SET cantidad = cantidad - ?
-          WHERE id_producto = ?
-          `,
-          [detalle.cantidad, detalle.id_producto]
-        );
-      }
+router.patch('/:id/rechazar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Rechazado');
+});
 
-      await query(
-        `
-        UPDATE pedidos
-        SET estado = ?, inventario_descontado = 1
-        WHERE id_pedido = ?
-        `,
-        [estado, id]
-      );
-    } else {
-      await query(
-        `
-        UPDATE pedidos
-        SET estado = ?
-        WHERE id_pedido = ?
-        `,
-        [estado, id]
-      );
-    }
+router.put('/:id/rechazar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Rechazado');
+});
 
-    await commit();
+router.patch('/:id/cancelar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Cancelado');
+});
 
-    res.json({
-      mensaje: 'Estado del pedido actualizado correctamente',
-      estado
-    });
-  } catch (error) {
-    await rollback();
-
-    res.status(500).json({
-      mensaje: 'Error al actualizar estado del pedido',
-      error
-    });
-  }
+router.put('/:id/cancelar', async (req, res) => {
+  return cambiarEstadoPedido(req, res, 'Cancelado');
 });
 
 module.exports = router;

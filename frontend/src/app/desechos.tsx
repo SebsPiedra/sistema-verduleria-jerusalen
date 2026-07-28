@@ -2,481 +2,1090 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
-  ScrollView,
+  TextInput,
   Alert,
+  ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function DesechosScreen() {
-  const router = useRouter();
-
-  const [productos, setProductos] = useState<any[]>([]);
   const [desechos, setDesechos] = useState<any[]>([]);
-  const [totalPerdida, setTotalPerdida] = useState(0);
-
+  const [productos, setProductos] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
+  const [busquedaProducto, setBusquedaProducto] = useState('');
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+
   const [productoSeleccionado, setProductoSeleccionado] = useState<any>(null);
   const [cantidad, setCantidad] = useState('');
-  const [motivo, setMotivo] = useState('Vencido');
+  const [motivo, setMotivo] = useState('Producto dañado');
   const [observacion, setObservacion] = useState('');
+
   const [cargando, setCargando] = useState(false);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
 
-  const convertirNumero = (valor: string) => {
-    return Number(String(valor).replace(',', '.'));
-  };
-
-  const cargarProductos = async () => {
-    try {
-      const respuesta = await api.get('/productos');
-      setProductos(respuesta.data);
-    } catch (error) {
-      console.log('Error al cargar productos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los productos');
-    }
-  };
-
-  const cargarDesechos = async () => {
-    try {
-      const respuesta = await api.get('/desechos');
-      setDesechos(respuesta.data.registros || []);
-      setTotalPerdida(Number(respuesta.data.total_perdida || 0));
-    } catch (error) {
-      console.log('Error al cargar desechos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los desechos');
-    }
-  };
+  const motivos = [
+    'Producto dañado',
+    'Producto vencido',
+    'Producto golpeado',
+    'Producto podrido',
+    'Merma natural',
+    'Otro',
+  ];
 
   useEffect(() => {
-    cargarProductos();
-    cargarDesechos();
+    cargarDatos();
   }, []);
 
-  const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  );
+  const mostrarMensaje = (
+    texto: string,
+    tipo: 'ok' | 'error' | 'info' = 'info',
+    alerta = false
+  ) => {
+    setMensaje(texto);
+    setTipoMensaje(tipo);
 
-  const seleccionarProducto = (producto: any) => {
-    setProductoSeleccionado(producto);
-    setBusqueda(producto.nombre);
+    if (alerta) {
+      Alert.alert(tipo === 'error' ? 'Error' : 'Aviso', texto);
+    }
+
+    setTimeout(() => {
+      setMensaje('');
+    }, 4500);
   };
 
-  const calcularPerdidaEstimada = () => {
-    if (!productoSeleccionado || !cantidad) return 0;
-
-    const cantidadDesechada = convertirNumero(cantidad);
-    const precioCompra = Number(productoSeleccionado.precio_compra || 0);
-
-    return precioCompra * cantidadDesechada;
-  };
-
-  const registrarDesecho = async () => {
-    if (!productoSeleccionado) {
-      Alert.alert('Producto requerido', 'Debe seleccionar un producto');
-      return;
-    }
-
-    const cantidadDesechada = convertirNumero(cantidad);
-
-    if (!cantidadDesechada || cantidadDesechada <= 0) {
-      Alert.alert('Cantidad inválida', 'Debe ingresar una cantidad mayor a cero');
-      return;
-    }
-
-    if (cantidadDesechada > Number(productoSeleccionado.cantidad)) {
-      Alert.alert(
-        'Inventario insuficiente',
-        'No puede desechar más cantidad de la disponible'
-      );
-      return;
-    }
-
-    if (!motivo) {
-      Alert.alert('Motivo requerido', 'Debe indicar el motivo del desecho');
-      return;
-    }
-
+  const cargarDatos = async () => {
     try {
       setCargando(true);
+      setMensaje('');
 
-      await api.post('/desechos', {
-        id_producto: productoSeleccionado.id_producto,
-        cantidad: cantidadDesechada,
-        motivo,
-        observacion,
-      });
+      const respuestaDesechos = await api.get('/desechos');
 
-      Alert.alert('Correcto', 'Desecho registrado correctamente');
+      const datosDesechos = Array.isArray(respuestaDesechos.data)
+        ? respuestaDesechos.data
+        : respuestaDesechos.data?.desechos ||
+          respuestaDesechos.data?.registros ||
+          [];
 
-      setProductoSeleccionado(null);
-      setBusqueda('');
-      setCantidad('');
-      setMotivo('Vencido');
-      setObservacion('');
+      setDesechos(datosDesechos);
 
-      await cargarProductos();
-      await cargarDesechos();
+      try {
+        const respuestaProductos = await api.get('/productos');
+
+        const datosProductos = Array.isArray(respuestaProductos.data)
+          ? respuestaProductos.data
+          : respuestaProductos.data?.productos || [];
+
+        setProductos(datosProductos);
+      } catch (error) {
+        console.log('No se pudieron cargar productos:', error);
+        setProductos([]);
+      }
     } catch (error: any) {
-      console.log('Error al registrar desecho:', error?.response?.data || error);
-
-      Alert.alert(
-        'Error',
-        error?.response?.data?.mensaje || 'No se pudo registrar el desecho'
-      );
+      console.log('Error al cargar desechos:', error?.response?.data || error);
+      setDesechos([]);
+      mostrarMensaje('No se pudieron cargar los desechos.', 'error');
     } finally {
       setCargando(false);
     }
   };
 
+  const formatoColones = (valor: any) => {
+    const numero = Number(valor || 0);
+
+    return `₡${numero.toLocaleString('es-CR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const formatoFecha = (fecha: any) => {
+    if (!fecha) return 'Sin fecha';
+
+    const fechaObj = new Date(fecha);
+
+    if (Number.isNaN(fechaObj.getTime())) {
+      return String(fecha);
+    }
+
+    return fechaObj.toLocaleDateString('es-CR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+    });
+  };
+
+  const obtenerIdProducto = (producto: any) => {
+    return producto.id_producto || producto.id || producto.producto_id;
+  };
+
+  const obtenerNombreProducto = (producto: any) => {
+    return producto.nombre || producto.nombre_producto || producto.producto || 'Producto';
+  };
+
+  const obtenerCantidadProducto = (producto: any) => {
+    return Number(producto.cantidad ?? producto.stock ?? 0);
+  };
+
+  const obtenerPrecioCompraProducto = (producto: any) => {
+    return Number(producto.precio_compra || 0);
+  };
+
+  const obtenerUnidadProducto = (producto: any) => {
+    return producto.unidad_medida || producto.unidad || 'kg';
+  };
+
+  const obtenerEstadoProducto = (producto: any) => {
+    return String(producto.estado || 'Activo').toLowerCase();
+  };
+
+  const obtenerNombreDesecho = (desecho: any) => {
+    return (
+      desecho.producto ||
+      desecho.nombre_producto ||
+      desecho.nombre ||
+      'Producto no especificado'
+    );
+  };
+
+  const obtenerCantidadDesecho = (desecho: any) => {
+    return Number(desecho.cantidad || 0);
+  };
+
+  const obtenerPrecioCompraDesecho = (desecho: any) => {
+    return Number(desecho.precio_compra || desecho.precio_unitario || 0);
+  };
+
+  const obtenerPerdidaDesecho = (desecho: any) => {
+    const perdida = Number(desecho.perdida_total || desecho.total_perdida || 0);
+
+    if (perdida > 0) {
+      return perdida;
+    }
+
+    return obtenerCantidadDesecho(desecho) * obtenerPrecioCompraDesecho(desecho);
+  };
+
+  const obtenerMotivoDesecho = (desecho: any) => {
+    return desecho.motivo || desecho.razon || 'Sin motivo';
+  };
+
+  const obtenerFechaDesecho = (desecho: any) => {
+    return desecho.fecha_desecho || desecho.fecha || desecho.created_at;
+  };
+
+  const limpiarFormulario = () => {
+    setProductoSeleccionado(null);
+    setBusquedaProducto('');
+    setCantidad('');
+    setMotivo('Producto dañado');
+    setObservacion('');
+  };
+
+  const abrirFormulario = () => {
+    limpiarFormulario();
+    setMostrarFormulario(true);
+  };
+
+  const cerrarFormulario = () => {
+    limpiarFormulario();
+    setMostrarFormulario(false);
+  };
+
+  const perdidaCalculada = productoSeleccionado
+    ? Number(cantidad || 0) * obtenerPrecioCompraProducto(productoSeleccionado)
+    : 0;
+
+  const productosFiltrados = productos
+    .filter((producto) => {
+      const texto = busquedaProducto.toLowerCase();
+      const cantidadDisponible = obtenerCantidadProducto(producto);
+      const estado = obtenerEstadoProducto(producto);
+
+      return (
+        obtenerNombreProducto(producto).toLowerCase().includes(texto) &&
+        cantidadDisponible > 0 &&
+        estado !== 'inactivo'
+      );
+    })
+    .slice(0, 12);
+
+  const desechosFiltrados = desechos.filter((desecho) => {
+    const texto = busqueda.toLowerCase();
+
+    return (
+      obtenerNombreDesecho(desecho).toLowerCase().includes(texto) ||
+      obtenerMotivoDesecho(desecho).toLowerCase().includes(texto) ||
+      String(desecho.observacion || '').toLowerCase().includes(texto)
+    );
+  });
+
+  const registrarDesecho = async () => {
+    if (!productoSeleccionado) {
+      mostrarMensaje('Debe seleccionar un producto.', 'error', true);
+      return;
+    }
+
+    if (!cantidad || Number(cantidad) <= 0 || Number.isNaN(Number(cantidad))) {
+      mostrarMensaje('Debe ingresar una cantidad válida.', 'error', true);
+      return;
+    }
+
+    const cantidadNumero = Number(cantidad);
+    const cantidadDisponible = obtenerCantidadProducto(productoSeleccionado);
+
+    if (cantidadNumero > cantidadDisponible) {
+      mostrarMensaje(
+        `La cantidad de desecho no puede ser mayor al inventario disponible (${cantidadDisponible}).`,
+        'error',
+        true
+      );
+      return;
+    }
+
+    try {
+      setGuardando(true);
+      mostrarMensaje('Registrando desecho...', 'info');
+
+      const idProducto = obtenerIdProducto(productoSeleccionado);
+      const nombreProducto = obtenerNombreProducto(productoSeleccionado);
+      const precioCompra = obtenerPrecioCompraProducto(productoSeleccionado);
+      const perdidaTotal = cantidadNumero * precioCompra;
+
+      await api.post('/desechos', {
+        id_producto: idProducto,
+        producto_id: idProducto,
+        producto: nombreProducto,
+        nombre_producto: nombreProducto,
+        cantidad: cantidadNumero,
+        precio_compra: precioCompra,
+        perdida_total: perdidaTotal,
+        total_perdida: perdidaTotal,
+        motivo,
+        observacion: observacion.trim(),
+        fecha_desecho: new Date().toISOString(),
+        estado: 'Registrado',
+      });
+
+      mostrarMensaje('Desecho registrado correctamente.', 'ok', true);
+
+      cerrarFormulario();
+      await cargarDatos();
+    } catch (error: any) {
+      console.log('Error al registrar desecho:', error?.response?.data || error);
+
+      mostrarMensaje(
+        error?.response?.data?.mensaje ||
+          error?.response?.data?.error ||
+          'No se pudo registrar el desecho.',
+        'error',
+        true
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const totalDesechos = desechos.length;
+
+  const perdidaTotal = desechos.reduce((total, desecho) => {
+    return total + obtenerPerdidaDesecho(desecho);
+  }, 0);
+
+  const cantidadTotalDesechada = desechos.reduce((total, desecho) => {
+    return total + obtenerCantidadDesecho(desecho);
+  }, 0);
+
+  const hoy = new Date().toISOString().slice(0, 10);
+
+  const desechosHoy = desechos.filter((desecho) => {
+    const fecha = obtenerFechaDesecho(desecho);
+
+    if (!fecha) return false;
+
+    return new Date(fecha).toISOString().slice(0, 10) === hoy;
+  });
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Productos desechados</Text>
-      <Text style={styles.subtitulo}>Control de pérdidas de inventario</Text>
-
-      <View style={styles.resumen}>
-        <Text style={styles.resumenTexto}>Pérdida total registrada</Text>
-        <Text style={styles.resumenMonto}>₡{totalPerdida.toFixed(2)}</Text>
-      </View>
-
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Registrar desecho</Text>
-
-        <Text style={styles.label}>Buscar producto</Text>
-        <TextInput
-          style={styles.input}
-          value={busqueda}
-          onChangeText={(texto) => {
-            setBusqueda(texto);
-            setProductoSeleccionado(null);
-          }}
-          placeholder="Buscar producto..."
-        />
-
-        {busqueda.length > 0 &&
-          !productoSeleccionado &&
-          productosFiltrados.slice(0, 8).map((producto) => {
-            const unidad = producto.unidad_medida || 'kg';
-
-            return (
-              <Pressable
-                key={producto.id_producto}
-                style={styles.productoResultado}
-                onPress={() => seleccionarProducto(producto)}
-              >
-                <View style={styles.productoInfo}>
-                  <Text style={styles.productoNombre}>{producto.nombre}</Text>
-                  <Text style={styles.productoDetalle}>
-                    Disponible: {producto.cantidad} {unidad}
-                  </Text>
-                  <Text style={styles.productoDetalle}>
-                    Costo: ₡{Number(producto.precio_compra).toFixed(2)} por {unidad}
-                  </Text>
-                </View>
-
-                <Text style={styles.seleccionarTexto}>Seleccionar</Text>
-              </Pressable>
-            );
-          })}
-
-        {productoSeleccionado && (
-          <View style={styles.productoSeleccionado}>
-            <Text style={styles.productoSeleccionadoTitulo}>
-              Producto seleccionado
-            </Text>
-
-            <Text style={styles.productoSeleccionadoNombre}>
-              {productoSeleccionado.nombre}
-            </Text>
-
-            <Text style={styles.detalle}>
-              Disponible: {productoSeleccionado.cantidad}{' '}
-              {productoSeleccionado.unidad_medida || 'kg'}
-            </Text>
-
-            <Text style={styles.detalle}>
-              Precio compra: ₡
-              {Number(productoSeleccionado.precio_compra).toFixed(2)} por{' '}
-              {productoSeleccionado.unidad_medida || 'kg'}
-            </Text>
-          </View>
-        )}
-
-        <Text style={styles.label}>
-          Cantidad a desechar{' '}
-          {productoSeleccionado
-            ? `en ${productoSeleccionado.unidad_medida || 'kg'}`
-            : ''}
-        </Text>
-
-        <TextInput
-          style={styles.input}
-          value={cantidad}
-          onChangeText={setCantidad}
-          keyboardType="numeric"
-          placeholder="Ejemplo: 1, 0.5, 2.25"
-        />
-
-        <Text style={styles.label}>Motivo</Text>
-        <TextInput
-          style={styles.input}
-          value={motivo}
-          onChangeText={setMotivo}
-          placeholder="Vencido, dañado, mal estado..."
-        />
-
-        <Text style={styles.label}>Observación</Text>
-        <TextInput
-          style={styles.input}
-          value={observacion}
-          onChangeText={setObservacion}
-          placeholder="Observación opcional"
-        />
-
-        <View style={styles.perdidaEstimada}>
-          <Text style={styles.perdidaTexto}>Pérdida estimada</Text>
-
-          <Text style={styles.perdidaMonto}>
-            ₡{calcularPerdidaEstimada().toFixed(2)}
+    <AdminLayout
+      titulo="Desechos"
+      subtitulo="Registro de productos dañados, vencidos o dados de baja"
+    >
+      <View style={styles.hero}>
+        <View>
+          <Text style={styles.titulo}>Control de desechos 🗑️</Text>
+          <Text style={styles.subtitulo}>
+            Registre pérdidas para mejorar el control del inventario.
           </Text>
-
-          {productoSeleccionado && (
-            <Text style={styles.perdidaDetalle}>
-              Cálculo: {cantidad || '0'} {productoSeleccionado.unidad_medida || 'kg'} × ₡
-              {Number(productoSeleccionado.precio_compra).toFixed(2)}
-            </Text>
-          )}
         </View>
 
-        <Pressable
-          style={[styles.botonRegistrar, cargando && styles.botonDesactivado]}
-          onPress={registrarDesecho}
-          disabled={cargando}
-        >
-          <Text style={styles.textoBoton}>
-            {cargando ? 'Registrando...' : 'Registrar desecho'}
-          </Text>
+        <Pressable style={styles.botonAgregar} onPress={abrirFormulario}>
+          <Text style={styles.textoAgregar}>＋ Registrar desecho</Text>
         </Pressable>
       </View>
 
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Historial de desechos</Text>
+      {mensaje !== '' && (
+        <View
+          style={[
+            styles.mensajeCaja,
+            tipoMensaje === 'ok' && styles.mensajeOk,
+            tipoMensaje === 'error' && styles.mensajeError,
+            tipoMensaje === 'info' && styles.mensajeInfo,
+          ]}
+        >
+          <Text style={styles.mensajeTexto}>{mensaje}</Text>
+        </View>
+      )}
 
-        {desechos.length === 0 ? (
-          <Text style={styles.textoVacio}>No hay desechos registrados.</Text>
-        ) : (
-          desechos.map((item) => {
-            const unidad = item.unidad_medida || 'kg';
+      <View style={styles.tarjetas}>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIcono}>🗑️</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Registros</Text>
+            <Text style={styles.tarjetaNumero}>{totalDesechos}</Text>
+            <Text style={styles.tarjetaDetalle}>Desechos guardados</Text>
+          </View>
+        </View>
 
-            return (
-              <View key={item.id_desecho} style={styles.cardDesecho}>
-                <Text style={styles.nombreDesecho}>{item.producto}</Text>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoRojo}>₡</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Pérdida total</Text>
+            <Text style={styles.tarjetaNumeroRojo}>
+              {formatoColones(perdidaTotal)}
+            </Text>
+            <Text style={styles.tarjetaDetalle}>Monto acumulado</Text>
+          </View>
+        </View>
 
-                <Text style={styles.detalle}>
-                  Cantidad desechada: {item.cantidad} {unidad}
-                </Text>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoNaranja}>⚠</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Cantidad desechada</Text>
+            <Text style={styles.tarjetaNumeroNaranja}>{cantidadTotalDesechada}</Text>
+            <Text style={styles.tarjetaDetalle}>Unidades/kg registrados</Text>
+          </View>
+        </View>
 
-                <Text style={styles.detalle}>
-                  Precio compra: ₡{Number(item.precio_compra).toFixed(2)} por {unidad}
-                </Text>
-
-                <Text style={styles.detalle}>Motivo: {item.motivo}</Text>
-
-                <Text style={styles.perdidaHistorial}>
-                  Pérdida: ₡{Number(item.perdida_total).toFixed(2)}
-                </Text>
-
-                {item.observacion ? (
-                  <Text style={styles.detalle}>Observación: {item.observacion}</Text>
-                ) : null}
-              </View>
-            );
-          })
-        )}
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoVerde}>☀</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Desechos de hoy</Text>
+            <Text style={styles.tarjetaNumero}>{desechosHoy.length}</Text>
+            <Text style={styles.tarjetaDetalle}>Registrados hoy</Text>
+          </View>
+        </View>
       </View>
 
-      <Pressable style={styles.botonVolver} onPress={() => router.push('/home')}>
-        <Text style={styles.textoVolver}>Volver al inicio</Text>
-      </Pressable>
-    </ScrollView>
+      {mostrarFormulario && (
+        <View style={styles.formularioCard}>
+          <View style={styles.formHeader}>
+            <View>
+              <Text style={styles.formTitulo}>Registrar desecho</Text>
+              <Text style={styles.formSubtitulo}>
+                Seleccione el producto y la cantidad que se va a dar de baja.
+              </Text>
+            </View>
+
+            <Pressable style={styles.botonCerrar} onPress={cerrarFormulario}>
+              <Text style={styles.textoCerrar}>Cerrar</Text>
+            </Pressable>
+          </View>
+
+          <Text style={styles.label}>Buscar producto</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Escriba el nombre del producto..."
+            value={busquedaProducto}
+            onChangeText={setBusquedaProducto}
+            editable={!guardando}
+          />
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.productosFila}>
+              {productosFiltrados.length === 0 ? (
+                <Text style={styles.sinProductosTexto}>
+                  No hay productos disponibles.
+                </Text>
+              ) : (
+                productosFiltrados.map((producto, index) => {
+                  const seleccionado =
+                    obtenerIdProducto(producto) ===
+                    obtenerIdProducto(productoSeleccionado || {});
+
+                  return (
+                    <Pressable
+                      key={obtenerIdProducto(producto) || index}
+                      style={[
+                        styles.productoOpcion,
+                        seleccionado && styles.productoOpcionActiva,
+                      ]}
+                      onPress={() => setProductoSeleccionado(producto)}
+                      disabled={guardando}
+                    >
+                      <Text
+                        style={[
+                          styles.productoOpcionNombre,
+                          seleccionado && styles.productoOpcionNombreActivo,
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {obtenerNombreProducto(producto)}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.productoOpcionDetalle,
+                          seleccionado && styles.productoOpcionDetalleActivo,
+                        ]}
+                      >
+                        Disponible: {obtenerCantidadProducto(producto)}{' '}
+                        {obtenerUnidadProducto(producto)}
+                      </Text>
+
+                      <Text
+                        style={[
+                          styles.productoOpcionDetalle,
+                          seleccionado && styles.productoOpcionDetalleActivo,
+                        ]}
+                      >
+                        Compra: {formatoColones(obtenerPrecioCompraProducto(producto))}
+                      </Text>
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          </ScrollView>
+
+          <View style={styles.filaDoble}>
+            <View style={styles.campo}>
+              <Text style={styles.label}>Cantidad a desechar</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Ejemplo: 2"
+                value={cantidad}
+                onChangeText={setCantidad}
+                keyboardType="numeric"
+                editable={!guardando}
+              />
+            </View>
+
+            <View style={styles.campo}>
+              <Text style={styles.label}>Pérdida calculada</Text>
+              <View style={styles.totalCalculado}>
+                <Text style={styles.totalCalculadoTexto}>
+                  {formatoColones(perdidaCalculada)}
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          <Text style={styles.label}>Motivo</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.motivosFila}>
+              {motivos.map((item) => (
+                <Pressable
+                  key={item}
+                  style={[
+                    styles.motivoBoton,
+                    motivo === item && styles.motivoBotonActivo,
+                  ]}
+                  onPress={() => setMotivo(item)}
+                  disabled={guardando}
+                >
+                  <Text
+                    style={[
+                      styles.motivoTexto,
+                      motivo === item && styles.motivoTextoActivo,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+
+          <Text style={styles.label}>Observación</Text>
+          <TextInput
+            style={styles.inputMultilinea}
+            placeholder="Ejemplo: Producto dañado durante almacenamiento."
+            value={observacion}
+            onChangeText={setObservacion}
+            multiline
+            editable={!guardando}
+          />
+
+          <View style={styles.botonesFila}>
+            <Pressable
+              style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
+              onPress={registrarDesecho}
+              disabled={guardando}
+            >
+              <Text style={styles.textoGuardar}>
+                {guardando ? 'Registrando...' : 'Guardar desecho'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.botonCancelar}
+              onPress={cerrarFormulario}
+              disabled={guardando}
+            >
+              <Text style={styles.textoCancelar}>Cancelar</Text>
+            </Pressable>
+          </View>
+        </View>
+      )}
+
+      <View style={styles.card}>
+        <View style={styles.filtrosFila}>
+          <TextInput
+            style={styles.inputBuscar}
+            placeholder="Buscar por producto, motivo u observación..."
+            value={busqueda}
+            onChangeText={setBusqueda}
+          />
+
+          <Pressable style={styles.botonActualizar} onPress={cargarDatos}>
+            <Text style={styles.textoActualizar}>
+              {cargando ? 'Actualizando...' : 'Actualizar'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.tablaHeader}>
+          <Text style={[styles.th, styles.colProducto]}>Producto</Text>
+          <Text style={[styles.th, styles.colCantidad]}>Cantidad</Text>
+          <Text style={[styles.th, styles.colPrecio]}>Precio compra</Text>
+          <Text style={[styles.th, styles.colPerdida]}>Pérdida</Text>
+          <Text style={[styles.th, styles.colMotivo]}>Motivo</Text>
+          <Text style={[styles.th, styles.colFecha]}>Fecha</Text>
+        </View>
+
+        {cargando ? (
+          <View style={styles.vacio}>
+            <Text style={styles.vacioTexto}>Cargando desechos...</Text>
+          </View>
+        ) : desechosFiltrados.length === 0 ? (
+          <View style={styles.vacio}>
+            <Text style={styles.vacioIcono}>🗑️</Text>
+            <Text style={styles.vacioTitulo}>No hay desechos para mostrar</Text>
+            <Text style={styles.vacioTexto}>
+              Registre un desecho o revise la búsqueda.
+            </Text>
+          </View>
+        ) : (
+          desechosFiltrados.map((desecho, index) => (
+            <View
+              key={desecho.id_desecho || desecho.id || index}
+              style={styles.tablaRow}
+            >
+              <View style={[styles.colProducto, styles.productoInfo]}>
+                <View style={styles.avatarDesecho}>
+                  <Text style={styles.avatarTexto}>🗑️</Text>
+                </View>
+
+                <View style={styles.nombreArea}>
+                  <Text style={styles.nombreProducto} numberOfLines={1}>
+                    {obtenerNombreDesecho(desecho)}
+                  </Text>
+
+                  <Text style={styles.observacionTexto} numberOfLines={1}>
+                    {desecho.observacion || 'Sin observación'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={[styles.tdCentro, styles.colCantidad]}>
+                {obtenerCantidadDesecho(desecho)}
+              </Text>
+
+              <Text style={[styles.tdCentro, styles.colPrecio]}>
+                {formatoColones(obtenerPrecioCompraDesecho(desecho))}
+              </Text>
+
+              <Text style={[styles.tdPerdida, styles.colPerdida]}>
+                {formatoColones(obtenerPerdidaDesecho(desecho))}
+              </Text>
+
+              <View style={styles.colMotivo}>
+                <View style={styles.motivoBadge}>
+                  <Text style={styles.motivoBadgeTexto}>
+                    {obtenerMotivoDesecho(desecho)}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={[styles.tdCentro, styles.colFecha]}>
+                {formatoFecha(obtenerFechaDesecho(desecho))}
+              </Text>
+            </View>
+          ))
+        )}
+
+        <View style={styles.footerTabla}>
+          <Text style={styles.footerTexto}>
+            Mostrando {desechosFiltrados.length} de {desechos.length} registros
+          </Text>
+        </View>
+      </View>
+    </AdminLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#eef8ef',
-  },
-  titulo: {
-    fontSize: 30,
-    fontWeight: 'bold',
-    color: '#1b5e20',
-    textAlign: 'center',
-  },
-  subtitulo: {
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 18,
-  },
-  resumen: {
-    backgroundColor: '#b71c1c',
-    padding: 20,
-    borderRadius: 18,
-    marginBottom: 16,
-  },
-  resumenTexto: {
-    color: '#ffebee',
-    fontSize: 15,
-  },
-  resumenMonto: {
-    color: '#fff',
-    fontSize: 30,
-    fontWeight: 'bold',
-    marginTop: 5,
-  },
-  seccion: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-  },
-  seccionTitulo: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1b5e20',
-    marginBottom: 12,
-  },
-  label: {
-    fontWeight: 'bold',
-    color: '#444',
-    marginBottom: 6,
-  },
-  input: {
-    backgroundColor: '#f9fff9',
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-  },
-  productoResultado: {
-    backgroundColor: '#f1f8e9',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+  hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 10,
     alignItems: 'center',
+    marginBottom: 24,
   },
-  productoInfo: {
-    flex: 1,
-  },
-  productoNombre: {
+  titulo: {
+    color: '#063f22',
+    fontSize: 40,
     fontWeight: 'bold',
-    color: '#1b5e20',
+  },
+  subtitulo: {
+    color: '#666',
     fontSize: 16,
-  },
-  productoDetalle: {
-    color: '#555',
-    marginTop: 3,
-  },
-  seleccionarTexto: {
-    color: '#2e7d32',
-    fontWeight: 'bold',
-  },
-  productoSeleccionado: {
-    backgroundColor: '#e8f5e9',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-  },
-  productoSeleccionadoTitulo: {
-    color: '#555',
-    fontWeight: 'bold',
-  },
-  productoSeleccionadoNombre: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1b5e20',
-    marginTop: 4,
-  },
-  detalle: {
-    color: '#555',
-    marginTop: 4,
-  },
-  perdidaEstimada: {
-    backgroundColor: '#ffebee',
-    padding: 14,
-    borderRadius: 12,
-    marginTop: 4,
-  },
-  perdidaTexto: {
-    color: '#b71c1c',
-    fontWeight: 'bold',
-  },
-  perdidaMonto: {
-    color: '#b71c1c',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  perdidaDetalle: {
-    color: '#b71c1c',
-    marginTop: 5,
-  },
-  botonRegistrar: {
-    backgroundColor: '#b71c1c',
-    padding: 15,
-    borderRadius: 14,
-    alignItems: 'center',
-    marginTop: 14,
-  },
-  botonDesactivado: {
-    opacity: 0.7,
-  },
-  textoBoton: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-  textoVacio: {
-    color: '#777',
-    textAlign: 'center',
-    marginVertical: 12,
-  },
-  cardDesecho: {
-    backgroundColor: '#fff8e1',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ffe082',
-    marginBottom: 10,
-  },
-  nombreDesecho: {
-    fontSize: 17,
-    fontWeight: 'bold',
-    color: '#444',
-  },
-  perdidaHistorial: {
-    color: '#b71c1c',
-    fontWeight: 'bold',
     marginTop: 6,
   },
-  botonVolver: {
-    backgroundColor: '#757575',
+  botonAgregar: {
+    backgroundColor: '#7bb51e',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 15,
+  },
+  textoAgregar: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  mensajeCaja: {
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 18,
+  },
+  mensajeOk: {
+    backgroundColor: '#e8f5e9',
+    borderColor: '#2e7d32',
+  },
+  mensajeError: {
+    backgroundColor: '#ffebee',
+    borderColor: '#c62828',
+  },
+  mensajeInfo: {
+    backgroundColor: '#fff8e1',
+    borderColor: '#f9a825',
+  },
+  mensajeTexto: {
+    color: '#1e1e1e',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  tarjetas: {
+    flexDirection: 'row',
+    gap: 16,
+    flexWrap: 'wrap',
+    marginBottom: 24,
+  },
+  tarjeta: {
+    flex: 1,
+    minWidth: 220,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 15,
+  },
+  tarjetaIcono: {
+    fontSize: 36,
+  },
+  tarjetaIconoRojo: {
+    color: '#c62828',
+    borderWidth: 3,
+    borderColor: '#c62828',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+  tarjetaIconoNaranja: {
+    color: '#f58220',
+    borderWidth: 3,
+    borderColor: '#f58220',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 26,
+    fontWeight: 'bold',
+  },
+  tarjetaIconoVerde: {
+    color: '#2e7d32',
+    borderWidth: 3,
+    borderColor: '#2e7d32',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  tarjetaLabel: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  tarjetaNumero: {
+    color: '#0f4f24',
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  tarjetaNumeroRojo: {
+    color: '#c62828',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  tarjetaNumeroNaranja: {
+    color: '#f58220',
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  tarjetaDetalle: {
+    color: '#777',
+    fontSize: 12,
+  },
+  formularioCard: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 20,
+    padding: 22,
+    marginBottom: 24,
+  },
+  formHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  formTitulo: {
+    color: '#1b5e20',
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+  formSubtitulo: {
+    color: '#666',
+    marginTop: 4,
+  },
+  botonCerrar: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+  },
+  textoCerrar: {
+    color: '#c62828',
+    fontWeight: 'bold',
+  },
+  label: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  input: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 15,
+  },
+  inputMultilinea: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 14,
+    fontSize: 15,
+    minHeight: 75,
+  },
+  productosFila: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 10,
+    paddingBottom: 8,
+  },
+  productoOpcion: {
+    width: 210,
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 13,
+  },
+  productoOpcionActiva: {
+    backgroundColor: '#1b5e20',
+    borderColor: '#1b5e20',
+  },
+  productoOpcionNombre: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  productoOpcionNombreActivo: {
+    color: '#ffffff',
+  },
+  productoOpcionDetalle: {
+    color: '#555',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  productoOpcionDetalleActivo: {
+    color: '#e8f5e9',
+  },
+  sinProductosTexto: {
+    color: '#777',
+    fontWeight: 'bold',
+    padding: 12,
+  },
+  filaDoble: {
+    flexDirection: 'row',
+    gap: 14,
     marginTop: 8,
   },
-  textoVolver: {
-    color: '#fff',
+  campo: {
+    flex: 1,
+  },
+  totalCalculado: {
+    backgroundColor: '#e8f5e9',
+    borderWidth: 1,
+    borderColor: '#2e7d32',
+    borderRadius: 14,
+    padding: 14,
+  },
+  totalCalculadoTexto: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  motivosFila: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  motivoBoton: {
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+  },
+  motivoBotonActivo: {
+    backgroundColor: '#1b5e20',
+    borderColor: '#1b5e20',
+  },
+  motivoTexto: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  motivoTextoActivo: {
+    color: '#ffffff',
+  },
+  botonesFila: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  botonGuardar: {
+    flex: 1,
+    backgroundColor: '#f58220',
+    padding: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  botonDesactivado: {
+    backgroundColor: '#9e9e9e',
+  },
+  textoGuardar: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+  },
+  botonCancelar: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#c62828',
+    padding: 15,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  textoCancelar: {
+    color: '#c62828',
+    fontWeight: 'bold',
+  },
+  card: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 20,
+    padding: 18,
+  },
+  filtrosFila: {
+    flexDirection: 'row',
+    gap: 14,
+    marginBottom: 16,
+  },
+  inputBuscar: {
+    flex: 1,
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 14,
+  },
+  botonActualizar: {
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    justifyContent: 'center',
+  },
+  textoActualizar: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  tablaHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ebe4d3',
+    paddingVertical: 12,
+  },
+  tablaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0eadb',
+    paddingVertical: 14,
+  },
+  th: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  tdCentro: {
+    color: '#333',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  tdPerdida: {
+    color: '#c62828',
+    fontSize: 13,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  colProducto: {
+    flex: 2,
+  },
+  colCantidad: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  colPrecio: {
+    flex: 1.2,
+    textAlign: 'center',
+  },
+  colPerdida: {
+    flex: 1.2,
+    textAlign: 'center',
+  },
+  colMotivo: {
+    flex: 1.4,
+    alignItems: 'center',
+  },
+  colFecha: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  productoInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  avatarDesecho: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#ffebee',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarTexto: {
+    fontSize: 20,
+  },
+  nombreArea: {
+    flex: 1,
+  },
+  nombreProducto: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+  },
+  observacionTexto: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 3,
+  },
+  motivoBadge: {
+    backgroundColor: '#fff3e0',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  motivoBadgeTexto: {
+    color: '#e65100',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  vacio: {
+    padding: 34,
+    alignItems: 'center',
+  },
+  vacioIcono: {
+    fontSize: 42,
+    marginBottom: 8,
+  },
+  vacioTitulo: {
+    color: '#0f4f24',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  vacioTexto: {
+    color: '#777',
+    marginTop: 6,
+    textAlign: 'center',
+  },
+  footerTabla: {
+    paddingTop: 14,
+  },
+  footerTexto: {
+    color: '#777',
     fontWeight: 'bold',
   },
 });

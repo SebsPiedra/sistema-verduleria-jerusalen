@@ -3,6 +3,7 @@ require('dotenv').config();
 const obtenerVariables = () => {
   return {
     PORT: process.env.PORT || 3000,
+    DATABASE_URL: process.env.DATABASE_URL,
 
     DB_HOST: process.env.DB_HOST || 'localhost',
     DB_USER: process.env.DB_USER || 'root',

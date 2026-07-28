@@ -2,602 +2,1211 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
   Pressable,
   StyleSheet,
   ScrollView,
-  Alert,
+  Image,
+  TextInput,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
-import { obtenerDato } from '../services/storage.js';
+
+const CARRITO_KEY = 'carrito';
+const CARRITO_CLIENTE_KEY = 'carrito_cliente';
 
 export default function ClientePedidoScreen() {
   const router = useRouter();
 
   const [cliente, setCliente] = useState<any>(null);
   const [productos, setProductos] = useState<any[]>([]);
-  const [busqueda, setBusqueda] = useState('');
   const [carrito, setCarrito] = useState<any[]>([]);
-  const [metodoPago, setMetodoPago] = useState('Efectivo');
+  const [busqueda, setBusqueda] = useState('');
+  const [tipoEntrega, setTipoEntrega] = useState('Entrega');
   const [direccionEntrega, setDireccionEntrega] = useState('');
+  const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [observacion, setObservacion] = useState('');
   const [cargando, setCargando] = useState(false);
-  const [pedidoGenerado, setPedidoGenerado] = useState<any>(null);
+  const [guardando, setGuardando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
 
-  const cargarCliente = async () => {
-    const clienteGuardado = await obtenerDato('cliente');
+  useEffect(() => {
+    cargarCliente();
+    cargarCarrito();
+    cargarProductos();
+  }, []);
 
-    if (clienteGuardado) {
-      const clienteData = JSON.parse(clienteGuardado);
-      setCliente(clienteData);
-      setDireccionEntrega(clienteData.direccion || '');
-    } else {
-      Alert.alert('Sesión requerida', 'Debe iniciar sesión');
-      router.replace('/' as any);
+  const mostrarMensaje = (texto: string, tipo: 'ok' | 'error' | 'info' = 'info') => {
+    setMensaje(texto);
+    setTipoMensaje(tipo);
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }
+  };
+
+  const cargarCliente = () => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const clienteGuardado = localStorage.getItem('cliente');
+
+        if (!clienteGuardado) {
+          mostrarMensaje('Debe iniciar sesión como cliente para realizar un pedido.', 'info');
+          router.replace('/cliente-login' as any);
+          return;
+        }
+
+        const datosCliente = JSON.parse(clienteGuardado);
+        setCliente(datosCliente);
+        setDireccionEntrega(datosCliente.direccion || '');
+      }
+    } catch (error) {
+      console.log('Error al cargar cliente:', error);
+      mostrarMensaje('No se pudo cargar la información del cliente.', 'error');
     }
   };
 
   const cargarProductos = async () => {
     try {
-      const respuesta = await api.get('/productos');
-      setProductos(respuesta.data);
-    } catch (error) {
-      console.log('Error al cargar productos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los productos');
-    }
-  };
-
-  useEffect(() => {
-    cargarCliente();
-    cargarProductos();
-  }, []);
-
-  const convertirNumero = (valor: string) => {
-    return Number(String(valor).replace(',', '.'));
-  };
-
-  const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(busqueda.toLowerCase())
-  );
-
-  const agregarProducto = (producto: any) => {
-    const existe = carrito.find(
-      (item) => item.id_producto === producto.id_producto
-    );
-
-    if (existe) {
-      Alert.alert('Aviso', 'Este producto ya está agregado al pedido');
-      return;
-    }
-
-    if (Number(producto.precio_venta) <= 0) {
-      Alert.alert(
-        'Producto no disponible',
-        'Este producto todavía no tiene precio de venta'
-      );
-      return;
-    }
-
-    if (Number(producto.cantidad) <= 0) {
-      Alert.alert(
-        'Sin inventario',
-        'Este producto no tiene cantidad disponible'
-      );
-      return;
-    }
-
-    setCarrito([
-      ...carrito,
-      {
-        id_producto: producto.id_producto,
-        nombre: producto.nombre,
-        precio_venta: Number(producto.precio_venta),
-        cantidad: '1',
-        disponible: Number(producto.cantidad),
-        unidad_medida: producto.unidad_medida || 'kg',
-      },
-    ]);
-
-    setBusqueda('');
-    setPedidoGenerado(null);
-  };
-
-  const cambiarCantidad = (idProducto: number, valor: string) => {
-    setCarrito(
-      carrito.map((item) =>
-        item.id_producto === idProducto ? { ...item, cantidad: valor } : item
-      )
-    );
-  };
-
-  const eliminarProducto = (idProducto: number) => {
-    setCarrito(carrito.filter((item) => item.id_producto !== idProducto));
-  };
-
-  const calcularTotal = () => {
-    return carrito.reduce((total, item) => {
-      const cantidad = convertirNumero(item.cantidad || '0');
-      return total + cantidad * Number(item.precio_venta);
-    }, 0);
-  };
-
-  const usarDireccionRegistrada = () => {
-    if (cliente?.direccion) {
-      setDireccionEntrega(cliente.direccion);
-    } else {
-      Alert.alert(
-        'Sin dirección registrada',
-        'El cliente no tiene dirección registrada. Puede escribir una dirección manualmente.'
-      );
-    }
-  };
-
-  const confirmarPedido = async () => {
-    if (!cliente) {
-      Alert.alert('Sesión requerida', 'Debe iniciar sesión');
-      return;
-    }
-
-    if (!direccionEntrega) {
-      Alert.alert(
-        'Dirección requerida',
-        'Debe ingresar una dirección de entrega'
-      );
-      return;
-    }
-
-    if (carrito.length === 0) {
-      Alert.alert('Pedido vacío', 'Debe agregar al menos un producto');
-      return;
-    }
-
-    for (const item of carrito) {
-      const cantidad = convertirNumero(item.cantidad);
-
-      if (!cantidad || cantidad <= 0) {
-        Alert.alert('Cantidad inválida', `Revise la cantidad de ${item.nombre}`);
-        return;
-      }
-
-      if (cantidad > Number(item.disponible)) {
-        Alert.alert(
-          'Inventario insuficiente',
-          `No hay suficiente inventario de ${item.nombre}`
-        );
-        return;
-      }
-    }
-
-    try {
       setCargando(true);
 
-      const datosPedido = {
-        id_cliente: cliente.id_cliente,
-        metodo_pago: metodoPago || 'Efectivo',
-        direccion_entrega: direccionEntrega,
-        observacion: observacion || null,
-        productos: carrito.map((item) => ({
-          id_producto: item.id_producto,
-          cantidad: convertirNumero(item.cantidad),
-        })),
-      };
+      const respuesta = await api.get('/productos');
 
-      const respuesta = await api.post('/pedidos', datosPedido);
+      const datos = Array.isArray(respuesta.data)
+        ? respuesta.data
+        : respuesta.data?.productos || [];
 
-      setPedidoGenerado(respuesta.data);
-
-      Alert.alert(
-        'Pedido registrado',
-        `Pedido #${respuesta.data.id_pedido}\nEstado: ${respuesta.data.estado}\nTotal: ₡${Number(
-          respuesta.data.total
-        ).toFixed(2)}`
-      );
-
-      setCarrito([]);
-      setMetodoPago('Efectivo');
-      setObservacion('');
-      setBusqueda('');
-
-      await cargarProductos();
+      setProductos(datos);
     } catch (error: any) {
-      console.log('Error al registrar pedido:', error?.response?.data || error);
-
-      Alert.alert(
-        'Error',
-        error?.response?.data?.mensaje || 'No se pudo registrar el pedido'
-      );
+      console.log('Error al cargar productos:', error?.response?.data || error);
+      setProductos([]);
+      mostrarMensaje('No se pudieron cargar los productos.', 'error');
     } finally {
       setCargando(false);
     }
   };
 
+  const guardarCarrito = (nuevoCarrito: any[]) => {
+    const carritoLimpio = nuevoCarrito.map((item) => ({
+      ...item,
+      cantidad: Number(item.cantidad || 1),
+      precio: Number(item.precio || 0),
+      subtotal: Number(item.cantidad || 1) * Number(item.precio || 0),
+    }));
+
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(CARRITO_KEY, JSON.stringify(carritoLimpio));
+      localStorage.setItem(CARRITO_CLIENTE_KEY, JSON.stringify(carritoLimpio));
+    }
+
+    setCarrito(carritoLimpio);
+  };
+
+  const borrarCarrito = () => {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem(CARRITO_KEY);
+      localStorage.removeItem(CARRITO_CLIENTE_KEY);
+    }
+
+    setCarrito([]);
+  };
+
+  const cargarCarrito = () => {
+    try {
+      if (typeof localStorage !== 'undefined') {
+        const carritoGuardado =
+          localStorage.getItem(CARRITO_CLIENTE_KEY) ||
+          localStorage.getItem(CARRITO_KEY);
+
+        if (!carritoGuardado) {
+          setCarrito([]);
+          return;
+        }
+
+        const datosCarrito = JSON.parse(carritoGuardado);
+
+        if (!Array.isArray(datosCarrito)) {
+          borrarCarrito();
+          return;
+        }
+
+        const carritoNormalizado = datosCarrito
+          .filter((item) => item.id_producto && Number(item.cantidad || 0) > 0)
+          .map((item) => ({
+            id_producto: Number(item.id_producto),
+            nombre: item.nombre || 'Producto',
+            precio: Number(item.precio || item.precio_venta || item.precio_unitario || 0),
+            cantidad: Number(item.cantidad || 1),
+            subtotal:
+              Number(item.cantidad || 1) *
+              Number(item.precio || item.precio_venta || item.precio_unitario || 0),
+            imagen_url: item.imagen_url || item.imagen || '',
+            unidad_medida: item.unidad_medida || item.unidad || 'kg',
+            disponible: Number(item.disponible || item.cantidad_disponible || 999999),
+          }));
+
+        guardarCarrito(carritoNormalizado);
+      }
+    } catch (error) {
+      console.log('Error al cargar carrito:', error);
+      borrarCarrito();
+      mostrarMensaje('El carrito tenía datos dañados y fue limpiado.', 'info');
+    }
+  };
+
+  const formatoColones = (valor: any) => {
+    const numero = Number(valor || 0);
+
+    return `₡${numero.toLocaleString('es-CR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const obtenerNombre = (producto: any) => {
+    return producto.nombre || producto.nombre_producto || producto.producto || 'Producto';
+  };
+
+  const obtenerPrecio = (producto: any) => {
+    return Number(producto.precio_venta || producto.precio || producto.precio_unitario || 0);
+  };
+
+  const obtenerImagen = (producto: any) => {
+    return producto.imagen_url || producto.imagen || producto.url_imagen || '';
+  };
+
+  const obtenerUnidad = (producto: any) => {
+    return producto.unidad_medida || producto.unidad || 'kg';
+  };
+
+  const obtenerDisponible = (producto: any) => {
+    return Number(producto.cantidad ?? producto.stock ?? producto.disponible ?? 0);
+  };
+
+  const productoActivo = (producto: any) => {
+    const estado = String(producto.estado || 'Activo').toLowerCase();
+    return estado !== 'inactivo';
+  };
+
+  const totalPedido = carrito.reduce(
+    (total, item) => total + Number(item.subtotal || 0),
+    0
+  );
+
+  const cantidadCarrito = carrito.reduce(
+    (total, item) => total + Number(item.cantidad || 0),
+    0
+  );
+
+  const agregarProducto = (producto: any) => {
+    if (guardando) return;
+
+    const disponible = obtenerDisponible(producto);
+
+    if (disponible <= 0) {
+      mostrarMensaje(`${obtenerNombre(producto)} está agotado.`, 'error');
+      return;
+    }
+
+    const idProducto = Number(producto.id_producto || producto.id);
+    const copia = [...carrito];
+
+    const existente = copia.find(
+      (item) => Number(item.id_producto) === idProducto
+    );
+
+    if (existente) {
+      if (Number(existente.cantidad) + 1 > disponible) {
+        mostrarMensaje(`No hay más cantidad disponible de ${obtenerNombre(producto)}.`, 'error');
+        return;
+      }
+
+      existente.cantidad = Number(existente.cantidad) + 1;
+      existente.subtotal = Number(existente.cantidad) * Number(existente.precio);
+      existente.disponible = disponible;
+    } else {
+      copia.push({
+        id_producto: idProducto,
+        nombre: obtenerNombre(producto),
+        precio: obtenerPrecio(producto),
+        cantidad: 1,
+        subtotal: obtenerPrecio(producto),
+        imagen_url: obtenerImagen(producto),
+        unidad_medida: obtenerUnidad(producto),
+        disponible,
+      });
+    }
+
+    guardarCarrito(copia);
+    mostrarMensaje(`${obtenerNombre(producto)} fue agregado al pedido.`, 'ok');
+  };
+
+  const aumentarCantidad = (idProducto: any) => {
+    const copia = carrito.map((item) => {
+      if (Number(item.id_producto) === Number(idProducto)) {
+        const disponible = Number(item.disponible || 999999);
+
+        if (Number(item.cantidad) + 1 > disponible) {
+          mostrarMensaje(`No hay más cantidad disponible de ${item.nombre}.`, 'error');
+          return item;
+        }
+
+        const nuevaCantidad = Number(item.cantidad) + 1;
+
+        return {
+          ...item,
+          cantidad: nuevaCantidad,
+          subtotal: nuevaCantidad * Number(item.precio),
+        };
+      }
+
+      return item;
+    });
+
+    guardarCarrito(copia);
+  };
+
+  const disminuirCantidad = (idProducto: any) => {
+    const copia = carrito
+      .map((item) => {
+        if (Number(item.id_producto) === Number(idProducto)) {
+          const nuevaCantidad = Number(item.cantidad) - 1;
+
+          if (nuevaCantidad <= 0) {
+            return null;
+          }
+
+          return {
+            ...item,
+            cantidad: nuevaCantidad,
+            subtotal: nuevaCantidad * Number(item.precio),
+          };
+        }
+
+        return item;
+      })
+      .filter(Boolean);
+
+    guardarCarrito(copia as any[]);
+  };
+
+  const eliminarProducto = (idProducto: any) => {
+    const copia = carrito.filter(
+      (item) => Number(item.id_producto) !== Number(idProducto)
+    );
+
+    guardarCarrito(copia);
+    mostrarMensaje('Producto eliminado del carrito.', 'info');
+  };
+
+  const limpiarCarrito = () => {
+    borrarCarrito();
+    mostrarMensaje('Carrito limpiado correctamente.', 'info');
+  };
+
+  const usarDireccionRegistrada = () => {
+    if (cliente?.direccion) {
+      setDireccionEntrega(cliente.direccion);
+      mostrarMensaje('Se usó la dirección registrada.', 'ok');
+    } else {
+      mostrarMensaje('El cliente no tiene dirección registrada.', 'error');
+    }
+  };
+
+  const confirmarPedido = async () => {
+    if (guardando) {
+      return;
+    }
+
+    setMensaje('');
+
+    if (!cliente?.id_cliente) {
+      mostrarMensaje('Debe iniciar sesión como cliente.', 'error');
+      router.replace('/cliente-login' as any);
+      return;
+    }
+
+    if (carrito.length === 0) {
+      mostrarMensaje('Debe agregar al menos un producto al pedido.', 'error');
+      return;
+    }
+
+    const direccionFinal =
+      tipoEntrega === 'Retiro en tienda'
+        ? 'Retiro en tienda'
+        : direccionEntrega.trim();
+
+    if (tipoEntrega === 'Entrega' && !direccionFinal) {
+      mostrarMensaje('Debe indicar la dirección de entrega.', 'error');
+      return;
+    }
+
+    const productosInvalidos = carrito.filter(
+      (item) =>
+        !item.id_producto ||
+        Number(item.cantidad) <= 0 ||
+        Number(item.precio) <= 0
+    );
+
+    if (productosInvalidos.length > 0) {
+      mostrarMensaje('Hay productos con datos incompletos. Limpie el carrito y vuelva a agregarlos.', 'error');
+      return;
+    }
+
+    try {
+      setGuardando(true);
+      mostrarMensaje('Registrando pedido, por favor espere...', 'info');
+
+      const productosPedido = carrito.map((item) => ({
+        id_producto: Number(item.id_producto),
+        cantidad: Number(item.cantidad),
+      }));
+
+      const respuesta = await api.post('/pedidos', {
+        id_cliente: Number(cliente.id_cliente),
+        metodo_pago: metodoPago,
+        tipo_entrega: tipoEntrega,
+        direccion_entrega: direccionFinal,
+        observacion: observacion.trim(),
+        productos: productosPedido,
+      });
+
+      borrarCarrito();
+      setObservacion('');
+
+      const numeroPedido = respuesta.data?.id_pedido || '';
+
+      mostrarMensaje(
+        `Pedido registrado correctamente${numeroPedido ? ` #${numeroPedido}` : ''}. El administrador ya puede verlo.`,
+        'ok'
+      );
+
+      if (typeof window !== 'undefined') {
+        window.alert(
+          `Pedido registrado correctamente${numeroPedido ? ` #${numeroPedido}` : ''}.`
+        );
+      }
+
+      setTimeout(() => {
+        router.replace('/cliente-mis-pedidos' as any);
+      }, 1800);
+    } catch (error: any) {
+      console.log('Error al registrar pedido:', error?.response?.data || error);
+
+      mostrarMensaje(
+        error?.response?.data?.mensaje ||
+          error?.message ||
+          'No se pudo registrar el pedido. Revise la conexión o el inventario.',
+        'error'
+      );
+    } finally {
+      setGuardando(false);
+    }
+  };
+
+  const productosFiltrados = productos
+    .filter((producto) => {
+      const nombre = obtenerNombre(producto).toLowerCase();
+      const precio = obtenerPrecio(producto);
+
+      return (
+        nombre.includes(busqueda.toLowerCase()) &&
+        precio > 0 &&
+        productoActivo(producto)
+      );
+    })
+    .slice(0, 12);
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Realizar pedido</Text>
+    <ScrollView style={styles.pagina} contentContainerStyle={styles.contenido}>
+      <View style={styles.contenedorPrincipal}>
+        <View style={styles.header}>
+          <Pressable onPress={() => router.push('/cliente-home' as any)} style={styles.logoArea}>
+            <Text style={styles.logoTexto}>VERDULERÍA</Text>
+            <Text style={styles.logoNombre}>JERUSALÉN</Text>
+            <Text style={styles.logoSubtitulo}>FRUTAS · VERDURAS · JUGOS NATURALES</Text>
+          </Pressable>
 
-      <Text style={styles.subtitulo}>
-        Cliente: {cliente?.nombre || 'Cliente'}
-      </Text>
+          <View style={styles.menu}>
+            <Pressable onPress={() => router.push('/cliente-home' as any)}>
+              <Text style={styles.menuTexto}>Inicio</Text>
+            </Pressable>
 
-      {pedidoGenerado && (
-        <View style={styles.pedidoBox}>
-          <Text style={styles.pedidoTitulo}>Pedido registrado</Text>
+            <Pressable onPress={() => router.push('/catalogo' as any)}>
+              <Text style={styles.menuTexto}>Catálogo</Text>
+            </Pressable>
 
-          <Text style={styles.pedidoTexto}>
-            Número de pedido: #{pedidoGenerado.id_pedido}
+            <Pressable onPress={() => router.push('/cliente-mis-pedidos' as any)}>
+              <Text style={styles.menuTexto}>Mis pedidos</Text>
+            </Pressable>
+          </View>
+
+          <View style={styles.carritoHeader}>
+            <Text style={styles.carritoIcono}>🛒</Text>
+            <View style={styles.carritoNumero}>
+              <Text style={styles.carritoNumeroTexto}>{cantidadCarrito}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.banner}>
+          <Text style={styles.titulo}>Realizar pedido</Text>
+          <Text style={styles.subtitulo}>
+            Cliente: {cliente?.nombre || 'Cliente'}
           </Text>
-
-          <Text style={styles.pedidoTexto}>
-            Estado: {pedidoGenerado.estado}
-          </Text>
-
-          <Text style={styles.pedidoTexto}>
-            Dirección: {pedidoGenerado.direccion_entrega}
-          </Text>
-
-          <Text style={styles.pedidoTotal}>
-            Total: ₡{Number(pedidoGenerado.total).toFixed(2)}
+          <Text style={styles.descripcion}>
+            Agregue productos, revise cantidades y confirme el pedido.
           </Text>
         </View>
-      )}
 
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Buscar productos</Text>
+        <View style={styles.contenidoPedido}>
+          <View style={styles.columnaProductos}>
+            <Text style={styles.tituloSeccion}>Agregar productos</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Buscar producto..."
-          value={busqueda}
-          onChangeText={setBusqueda}
-        />
+            <TextInput
+              style={styles.inputBusqueda}
+              placeholder="Buscar producto..."
+              value={busqueda}
+              onChangeText={setBusqueda}
+            />
 
-        {busqueda.length > 0 &&
-          productosFiltrados.slice(0, 8).map((producto) => {
-            const unidad = producto.unidad_medida || 'kg';
+            {cargando ? (
+              <Text style={styles.textoVacio}>Cargando productos...</Text>
+            ) : productosFiltrados.length === 0 ? (
+              <Text style={styles.textoVacio}>No hay productos disponibles.</Text>
+            ) : (
+              <View style={styles.productosGrid}>
+                {productosFiltrados.map((producto, index) => {
+                  const imagen = obtenerImagen(producto);
+                  const disponible = obtenerDisponible(producto);
+                  const agotado = disponible <= 0;
 
-            return (
-              <Pressable
-                key={producto.id_producto}
-                style={styles.productoResultado}
-                onPress={() => agregarProducto(producto)}
-              >
-                <View style={styles.productoInfo}>
-                  <Text style={styles.productoNombre}>{producto.nombre}</Text>
+                  return (
+                    <View
+                      key={producto.id_producto || producto.id || index}
+                      style={styles.productoCard}
+                    >
+                      {agotado && (
+                        <View style={styles.etiquetaAgotado}>
+                          <Text style={styles.etiquetaAgotadoTexto}>Agotado</Text>
+                        </View>
+                      )}
 
-                  <Text style={styles.productoDetalle}>
-                    ₡{Number(producto.precio_venta).toFixed(2)} por {unidad}
-                  </Text>
+                      <View style={styles.imagenArea}>
+                        {imagen ? (
+                          <Image
+                            source={{ uri: imagen }}
+                            style={styles.imagenProducto}
+                            resizeMode="contain"
+                          />
+                        ) : (
+                          <Text style={styles.imagenEmoji}>🥦</Text>
+                        )}
+                      </View>
 
-                  <Text style={styles.productoDetalle}>
-                    Disponible: {producto.cantidad} {unidad}
-                  </Text>
-                </View>
+                      <Text style={styles.productoNombre} numberOfLines={2}>
+                        {obtenerNombre(producto)}
+                      </Text>
 
-                <Text style={styles.agregarTexto}>Agregar</Text>
-              </Pressable>
-            );
-          })}
-      </View>
+                      <Text style={styles.productoDetalle}>
+                        Disponible: {disponible} {obtenerUnidad(producto)}
+                      </Text>
 
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Carrito del pedido</Text>
+                      <Text style={styles.productoPrecio}>
+                        {formatoColones(obtenerPrecio(producto))}
+                      </Text>
 
-        {carrito.length === 0 ? (
-          <Text style={styles.textoVacio}>No hay productos agregados.</Text>
-        ) : (
-          carrito.map((item) => {
-            const cantidad = convertirNumero(item.cantidad || '0');
-            const subtotal = cantidad * Number(item.precio_venta);
+                      <Pressable
+                        style={[styles.botonAgregar, agotado && styles.botonAgotado]}
+                        onPress={() => agregarProducto(producto)}
+                        disabled={agotado || guardando}
+                      >
+                        <Text style={styles.textoBotonAgregar}>
+                          {agotado ? 'Agotado' : 'Agregar'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </View>
 
-            return (
-              <View key={item.id_producto} style={styles.itemCarrito}>
-                <View style={styles.fila}>
-                  <Text style={styles.itemNombre}>{item.nombre}</Text>
+          <View style={styles.columnaCarrito}>
+            <View style={styles.carritoTituloFila}>
+              <Text style={styles.tituloSeccion}>Carrito del pedido</Text>
 
-                  <Pressable onPress={() => eliminarProducto(item.id_producto)}>
-                    <Text style={styles.eliminar}>Eliminar</Text>
-                  </Pressable>
-                </View>
+              {carrito.length > 0 && !guardando && (
+                <Pressable onPress={limpiarCarrito}>
+                  <Text style={styles.limpiarTexto}>Limpiar</Text>
+                </Pressable>
+              )}
+            </View>
 
-                <Text style={styles.itemDetalle}>
-                  Precio: ₡{item.precio_venta.toFixed(2)} por{' '}
-                  {item.unidad_medida}
+            {carrito.length === 0 ? (
+              <View style={styles.carritoVacio}>
+                <Text style={styles.carritoVacioIcono}>🛒</Text>
+                <Text style={styles.textoVacio}>
+                  No hay productos agregados.
                 </Text>
-
-                <Text style={styles.itemDetalle}>
-                  Disponible: {item.disponible} {item.unidad_medida}
-                </Text>
-
-                <Text style={styles.labelCantidad}>
-                  Cantidad en {item.unidad_medida}
-                </Text>
-
-                <TextInput
-                  style={styles.inputCantidad}
-                  value={item.cantidad}
-                  onChangeText={(valor) =>
-                    cambiarCantidad(item.id_producto, valor)
-                  }
-                  keyboardType="numeric"
-                  placeholder={`Ejemplo: 1 ${item.unidad_medida}`}
-                />
-
-                <Text style={styles.subtotal}>
-                  Subtotal: ₡{subtotal.toFixed(2)}
+                <Text style={styles.textoAyuda}>
+                  Seleccione productos desde el catálogo o desde esta pantalla.
                 </Text>
               </View>
-            );
-          })
-        )}
+            ) : (
+              carrito.map((item) => (
+                <View key={item.id_producto} style={styles.itemCarrito}>
+                  <View style={styles.itemImagenArea}>
+                    {item.imagen_url ? (
+                      <Image
+                        source={{ uri: item.imagen_url }}
+                        style={styles.itemImagen}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text style={styles.itemEmoji}>🥦</Text>
+                    )}
+                  </View>
 
-        <Text style={styles.label}>Dirección de entrega</Text>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemNombre}>{item.nombre}</Text>
+                    <Text style={styles.itemDetalle}>
+                      {formatoColones(item.precio)} por {item.unidad_medida || 'kg'}
+                    </Text>
+                    <Text style={styles.itemSubtotal}>
+                      Subtotal: {formatoColones(item.subtotal)}
+                    </Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Ejemplo: Alajuela, Turrúcares, frente a la iglesia"
-          value={direccionEntrega}
-          onChangeText={setDireccionEntrega}
-        />
+                    <View style={styles.cantidadFila}>
+                      <Pressable
+                        style={styles.botonCantidad}
+                        onPress={() => disminuirCantidad(item.id_producto)}
+                        disabled={guardando}
+                      >
+                        <Text style={styles.textoCantidad}>−</Text>
+                      </Pressable>
 
-        <Pressable
-          style={styles.botonDireccion}
-          onPress={usarDireccionRegistrada}
-        >
-          <Text style={styles.textoDireccion}>Usar dirección registrada</Text>
-        </Pressable>
+                      <Text style={styles.numeroCantidad}>{item.cantidad}</Text>
 
-        <Text style={styles.textoAyuda}>
-          Puede cambiar esta dirección si desea recibir el pedido en otro lugar.
-        </Text>
+                      <Pressable
+                        style={styles.botonCantidad}
+                        onPress={() => aumentarCantidad(item.id_producto)}
+                        disabled={guardando}
+                      >
+                        <Text style={styles.textoCantidad}>+</Text>
+                      </Pressable>
 
-        <Text style={styles.label}>Método de pago</Text>
+                      <Pressable
+                        style={styles.botonEliminar}
+                        onPress={() => eliminarProducto(item.id_producto)}
+                        disabled={guardando}
+                      >
+                        <Text style={styles.textoEliminar}>Eliminar</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                </View>
+              ))
+            )}
 
-        <TextInput
-          style={styles.input}
-          placeholder="Efectivo, SINPE, tarjeta..."
-          value={metodoPago}
-          onChangeText={setMetodoPago}
-        />
+            <View style={styles.totalCaja}>
+              <Text style={styles.totalTexto}>Total del pedido</Text>
+              <Text style={styles.totalMonto}>{formatoColones(totalPedido)}</Text>
+            </View>
 
-        <Text style={styles.label}>Observación del pedido</Text>
+            <Text style={styles.label}>Tipo de entrega</Text>
 
-        <TextInput
-          style={styles.input}
-          placeholder="Ejemplo: entregar en la tarde, llamar antes..."
-          value={observacion}
-          onChangeText={setObservacion}
-        />
+            <View style={styles.metodosPago}>
+              {['Entrega', 'Retiro en tienda'].map((tipo) => (
+                <Pressable
+                  key={tipo}
+                  style={[
+                    styles.metodoBoton,
+                    tipoEntrega === tipo && styles.metodoBotonActivo,
+                  ]}
+                  onPress={() => setTipoEntrega(tipo)}
+                  disabled={guardando}
+                >
+                  <Text
+                    style={[
+                      styles.metodoTexto,
+                      tipoEntrega === tipo && styles.metodoTextoActivo,
+                    ]}
+                  >
+                    {tipo}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
 
-        <View style={styles.totalBox}>
-          <Text style={styles.totalTexto}>Total</Text>
-          <Text style={styles.totalMonto}>₡{calcularTotal().toFixed(2)}</Text>
+            {tipoEntrega === 'Entrega' ? (
+              <>
+                <Text style={styles.label}>Dirección de entrega</Text>
+
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ingrese la dirección de entrega"
+                  value={direccionEntrega}
+                  onChangeText={setDireccionEntrega}
+                  multiline
+                  editable={!guardando}
+                />
+
+                <Pressable
+                  style={styles.botonDireccion}
+                  onPress={usarDireccionRegistrada}
+                  disabled={guardando}
+                >
+                  <Text style={styles.textoDireccion}>Usar dirección registrada</Text>
+                </Pressable>
+              </>
+            ) : (
+              <View style={styles.retiroCaja}>
+                <Text style={styles.retiroTitulo}>Retiro en tienda seleccionado</Text>
+                <Text style={styles.retiroTexto}>
+                  El pedido quedará registrado para ser retirado directamente en la verdulería.
+                </Text>
+              </View>
+            )}
+
+            <Text style={styles.label}>Método de pago</Text>
+
+            <View style={styles.metodosPago}>
+              {['Efectivo', 'SINPE Móvil', 'Tarjeta', 'Transferencia'].map((metodo) => (
+                <Pressable
+                  key={metodo}
+                  style={[
+                    styles.metodoBoton,
+                    metodoPago === metodo && styles.metodoBotonActivo,
+                  ]}
+                  onPress={() => setMetodoPago(metodo)}
+                  disabled={guardando}
+                >
+                  <Text
+                    style={[
+                      styles.metodoTexto,
+                      metodoPago === metodo && styles.metodoTextoActivo,
+                    ]}
+                  >
+                    {metodo}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+
+            <Text style={styles.label}>Observación</Text>
+
+            <TextInput
+              style={styles.input}
+              placeholder="Opcional. Ejemplo: entregar después de las 5 p.m."
+              value={observacion}
+              onChangeText={setObservacion}
+              multiline
+              editable={!guardando}
+            />
+
+            {mensaje !== '' && (
+              <View
+                style={[
+                  styles.mensajeCaja,
+                  tipoMensaje === 'ok' && styles.mensajeOk,
+                  tipoMensaje === 'error' && styles.mensajeError,
+                  tipoMensaje === 'info' && styles.mensajeInfo,
+                ]}
+              >
+                <Text style={styles.mensajeTexto}>{mensaje}</Text>
+              </View>
+            )}
+
+            <Pressable
+              style={[
+                styles.botonConfirmar,
+                (guardando || carrito.length === 0) && styles.botonDesactivado,
+              ]}
+              onPress={confirmarPedido}
+              disabled={guardando || carrito.length === 0}
+            >
+              <Text style={styles.textoConfirmar}>
+                {guardando ? 'Registrando pedido...' : 'Confirmar pedido'}
+              </Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.botonVolver}
+              onPress={() => router.push('/catalogo' as any)}
+              disabled={guardando}
+            >
+              <Text style={styles.textoVolver}>Volver al catálogo</Text>
+            </Pressable>
+          </View>
         </View>
-
-        <Pressable
-          style={[styles.botonConfirmar, cargando && styles.botonDesactivado]}
-          onPress={confirmarPedido}
-          disabled={cargando}
-        >
-          <Text style={styles.textoBoton}>
-            {cargando ? 'Registrando...' : 'Confirmar pedido'}
-          </Text>
-        </Pressable>
       </View>
-
-      <Pressable
-        style={styles.botonVolver}
-        onPress={() => router.push('/cliente-home' as any)}
-      >
-        <Text style={styles.textoVolver}>Volver</Text>
-      </Pressable>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#eef8ef',
+  pagina: {
+    flex: 1,
+    backgroundColor: '#f7f5ee',
+  },
+  contenido: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  contenedorPrincipal: {
+    width: '100%',
+    maxWidth: 1200,
+    backgroundColor: '#fffdf6',
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+  },
+  header: {
+    minHeight: 110,
+    backgroundColor: '#fffdf6',
+    paddingHorizontal: 32,
+    paddingVertical: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  logoArea: {
+    width: 280,
+  },
+  logoTexto: {
+    color: '#0f4f24',
+    fontSize: 18,
+    letterSpacing: 3,
+    fontWeight: 'bold',
+  },
+  logoNombre: {
+    color: '#0f4f24',
+    fontSize: 36,
+    fontWeight: 'bold',
+    lineHeight: 38,
+  },
+  logoSubtitulo: {
+    color: '#e07b18',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginTop: 3,
+  },
+  menu: {
+    flexDirection: 'row',
+    gap: 36,
+    alignItems: 'center',
+  },
+  menuTexto: {
+    color: '#1e1e1e',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  carritoHeader: {
+    position: 'relative',
+  },
+  carritoIcono: {
+    fontSize: 34,
+  },
+  carritoNumero: {
+    position: 'absolute',
+    top: -8,
+    right: -9,
+    backgroundColor: '#0f4f24',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  carritoNumeroTexto: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  banner: {
+    backgroundColor: '#f4f1dc',
+    paddingVertical: 38,
+    paddingHorizontal: 32,
+    alignItems: 'center',
   },
   titulo: {
-    fontSize: 30,
+    color: '#063f22',
+    fontSize: 40,
     fontWeight: 'bold',
-    color: '#1b5e20',
     textAlign: 'center',
   },
   subtitulo: {
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 18,
-  },
-  pedidoBox: {
-    backgroundColor: '#1b5e20',
-    padding: 18,
-    borderRadius: 18,
-    marginBottom: 14,
-  },
-  pedidoTitulo: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  pedidoTexto: {
-    color: '#e8f5e9',
-    marginTop: 3,
-  },
-  pedidoTotal: {
-    color: '#fff',
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginTop: 10,
-  },
-  seccion: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-  },
-  seccionTitulo: {
-    fontSize: 20,
-    fontWeight: 'bold',
     color: '#1b5e20',
-    marginBottom: 12,
+    fontSize: 17,
+    fontWeight: 'bold',
+    marginTop: 8,
   },
-  input: {
-    backgroundColor: '#f9fff9',
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
+  descripcion: {
+    color: '#333',
+    marginTop: 8,
+    textAlign: 'center',
   },
-  productoResultado: {
-    backgroundColor: '#f1f8e9',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
+  contenidoPedido: {
+    padding: 24,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-    alignItems: 'center',
+    gap: 22,
+    alignItems: 'flex-start',
   },
-  productoInfo: {
+  columnaProductos: {
+    flex: 1.2,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+  },
+  columnaCarrito: {
     flex: 1,
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+  },
+  tituloSeccion: {
+    color: '#1b5e20',
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 14,
+  },
+  inputBusqueda: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 13,
+    fontSize: 15,
+    marginBottom: 16,
+  },
+  productosGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 14,
+  },
+  productoCard: {
+    width: 155,
+    backgroundColor: '#fffdf6',
+    borderRadius: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    position: 'relative',
+  },
+  etiquetaAgotado: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#c62828',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    zIndex: 2,
+  },
+  etiquetaAgotadoTexto: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  imagenArea: {
+    height: 90,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagenProducto: {
+    width: '100%',
+    height: 85,
+  },
+  imagenEmoji: {
+    fontSize: 55,
   },
   productoNombre: {
+    color: '#1e1e1e',
     fontWeight: 'bold',
-    color: '#1b5e20',
-    fontSize: 16,
+    fontSize: 14,
+    minHeight: 36,
   },
   productoDetalle: {
     color: '#555',
-    marginTop: 3,
+    fontSize: 12,
+    marginTop: 4,
   },
-  agregarTexto: {
-    color: '#2e7d32',
+  productoPrecio: {
+    color: '#0f4f24',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  botonAgregar: {
+    backgroundColor: '#1b5e20',
+    padding: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  botonAgotado: {
+    backgroundColor: '#9e9e9e',
+  },
+  textoBotonAgregar: {
+    color: '#ffffff',
     fontWeight: 'bold',
   },
-  textoVacio: {
-    color: '#777',
-    textAlign: 'center',
-    marginVertical: 12,
-  },
-  itemCarrito: {
-    backgroundColor: '#fff8e1',
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ffe082',
-    marginBottom: 10,
-  },
-  fila: {
+  carritoTituloFila: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 10,
+    alignItems: 'center',
   },
-  itemNombre: {
+  limpiarTexto: {
+    color: '#c62828',
     fontWeight: 'bold',
-    color: '#444',
-    fontSize: 17,
+  },
+  carritoVacio: {
+    backgroundColor: '#fffdf6',
+    borderRadius: 14,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    marginBottom: 16,
+  },
+  carritoVacioIcono: {
+    fontSize: 42,
+    marginBottom: 8,
+  },
+  textoVacio: {
+    color: '#555',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  textoAyuda: {
+    color: '#777',
+    textAlign: 'center',
+    marginTop: 8,
+    fontSize: 13,
+  },
+  itemCarrito: {
+    flexDirection: 'row',
+    gap: 12,
+    backgroundColor: '#fffdf6',
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    marginBottom: 12,
+  },
+  itemImagenArea: {
+    width: 70,
+    height: 70,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemImagen: {
+    width: 68,
+    height: 68,
+  },
+  itemEmoji: {
+    fontSize: 42,
+  },
+  itemInfo: {
     flex: 1,
   },
-  eliminar: {
-    color: '#b71c1c',
+  itemNombre: {
+    color: '#1e1e1e',
     fontWeight: 'bold',
+    fontSize: 16,
   },
   itemDetalle: {
     color: '#555',
+    fontSize: 13,
+    marginTop: 3,
+  },
+  itemSubtotal: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
     marginTop: 5,
   },
-  label: {
-    fontWeight: 'bold',
-    color: '#444',
-    marginBottom: 6,
-  },
-  labelCantidad: {
-    fontWeight: 'bold',
-    color: '#444',
+  cantidadFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 10,
   },
-  inputCantidad: {
-    backgroundColor: '#fff',
+  botonCantidad: {
+    backgroundColor: '#e8f5e9',
     borderWidth: 1,
-    borderColor: '#ffe082',
-    borderRadius: 10,
-    padding: 10,
-    marginTop: 6,
+    borderColor: '#2e7d32',
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  subtotal: {
-    marginTop: 8,
-    fontWeight: 'bold',
+  textoCantidad: {
     color: '#1b5e20',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  numeroCantidad: {
+    color: '#1e1e1e',
+    fontSize: 16,
+    fontWeight: 'bold',
+    minWidth: 24,
+    textAlign: 'center',
+  },
+  botonEliminar: {
+    marginLeft: 8,
+  },
+  textoEliminar: {
+    color: '#c62828',
+    fontWeight: 'bold',
+  },
+  totalCaja: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 16,
+    padding: 16,
+    marginTop: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#2e7d32',
+  },
+  totalTexto: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  totalMonto: {
+    color: '#0f4f24',
+    fontSize: 30,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  label: {
+    color: '#333',
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 14,
+    padding: 13,
+    fontSize: 15,
+    minHeight: 48,
   },
   botonDireccion: {
     backgroundColor: '#e8f5e9',
     borderWidth: 1,
     borderColor: '#2e7d32',
-    padding: 12,
     borderRadius: 12,
+    padding: 12,
     alignItems: 'center',
-    marginBottom: 8,
+    marginTop: 10,
   },
   textoDireccion: {
     color: '#1b5e20',
     fontWeight: 'bold',
   },
-  textoAyuda: {
-    color: '#666',
-    fontSize: 13,
-    marginBottom: 12,
+  retiroCaja: {
+    backgroundColor: '#fff8e1',
+    borderWidth: 1,
+    borderColor: '#f9d77e',
+    borderRadius: 14,
+    padding: 14,
+    marginTop: 10,
+  },
+  retiroTitulo: {
+    color: '#e65100',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  retiroTexto: {
+    color: '#555',
+    marginTop: 5,
+    lineHeight: 20,
+  },
+  metodosPago: {
+    flexDirection: 'row',
+    gap: 10,
+    flexWrap: 'wrap',
+    marginBottom: 4,
+  },
+  metodoBoton: {
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+  },
+  metodoBotonActivo: {
+    backgroundColor: '#1b5e20',
+    borderColor: '#1b5e20',
+  },
+  metodoTexto: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  metodoTextoActivo: {
+    color: '#ffffff',
+  },
+  mensajeCaja: {
+    marginTop: 16,
+    marginBottom: 10,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+  },
+  mensajeOk: {
+    backgroundColor: '#e8f5e9',
+    borderColor: '#2e7d32',
+  },
+  mensajeError: {
+    backgroundColor: '#ffebee',
+    borderColor: '#c62828',
+  },
+  mensajeInfo: {
+    backgroundColor: '#fff8e1',
+    borderColor: '#f9a825',
+  },
+  mensajeTexto: {
+    color: '#1e1e1e',
+    fontWeight: 'bold',
     textAlign: 'center',
   },
-  totalBox: {
-    marginTop: 12,
-    backgroundColor: '#1b5e20',
-    padding: 16,
-    borderRadius: 14,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  totalTexto: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  totalMonto: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   botonConfirmar: {
-    backgroundColor: '#2e7d32',
+    backgroundColor: '#f58220',
     padding: 15,
-    borderRadius: 14,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 14,
+    marginTop: 12,
   },
   botonDesactivado: {
-    opacity: 0.7,
+    backgroundColor: '#9e9e9e',
   },
-  textoBoton: {
-    color: '#fff',
+  textoConfirmar: {
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 16,
   },
   botonVolver: {
-    backgroundColor: '#757575',
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#1b5e20',
     padding: 14,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 12,
   },
   textoVolver: {
-    color: '#fff',
+    color: '#1b5e20',
     fontWeight: 'bold',
   },
 });

@@ -1,8 +1,10 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const conexion = require('../db');
+const obtenerVariables = require('../config/variables');
 
 const router = express.Router();
+const variables = obtenerVariables();
 
 router.post('/login', (req, res) => {
   const { correo, clave } = req.body;
@@ -13,7 +15,12 @@ router.post('/login', (req, res) => {
     });
   }
 
-  const sql = 'SELECT * FROM usuarios WHERE correo = ? LIMIT 1';
+  const sql = `
+    SELECT *
+    FROM usuarios
+    WHERE LOWER(COALESCE(correo, email)) = LOWER(?)
+    LIMIT 1
+  `;
 
   conexion.query(sql, [correo], (error, resultados) => {
     if (error) {
@@ -31,7 +38,9 @@ router.post('/login', (req, res) => {
 
     const usuario = resultados[0];
 
-    if (clave !== usuario.clave) {
+    const claveGuardada = usuario.clave || usuario.password;
+
+    if (!claveGuardada || clave !== claveGuardada) {
       return res.status(401).json({
         mensaje: 'Correo o contraseña incorrectos'
       });
@@ -40,10 +49,11 @@ router.post('/login', (req, res) => {
     const token = jwt.sign(
       {
         id_usuario: usuario.id_usuario,
-        correo: usuario.correo,
-        rol: usuario.rol
+        correo: usuario.correo || usuario.email,
+        rol: usuario.rol || 'admin',
+        tipo: 'admin'
       },
-      process.env.JWT_SECRET,
+      variables.JWT_SECRET,
       { expiresIn: '8h' }
     );
 
@@ -53,8 +63,9 @@ router.post('/login', (req, res) => {
       usuario: {
         id_usuario: usuario.id_usuario,
         nombre: usuario.nombre,
-        correo: usuario.correo,
-        rol: usuario.rol
+        correo: usuario.correo || usuario.email,
+        rol: usuario.rol || 'admin',
+        tipo: 'admin'
       }
     });
   });

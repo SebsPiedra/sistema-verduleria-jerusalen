@@ -19,7 +19,8 @@ router.post('/registrar', (req, res) => {
   const sqlValidar = `
     SELECT id_cliente
     FROM clientes
-    WHERE correo = ?
+    WHERE LOWER(COALESCE(correo, email)) = LOWER(?)
+    LIMIT 1
   `;
 
   conexion.query(sqlValidar, [correo], (errorValidar, resultados) => {
@@ -38,8 +39,8 @@ router.post('/registrar', (req, res) => {
 
     const sqlInsertar = `
       INSERT INTO clientes
-      (nombre, telefono, correo, clave, direccion)
-      VALUES (?, ?, ?, ?, ?)
+      (nombre, telefono, correo, email, clave, direccion, estado)
+      VALUES (?, ?, ?, ?, ?, ?, 'Activo')
     `;
 
     conexion.query(
@@ -47,6 +48,7 @@ router.post('/registrar', (req, res) => {
       [
         nombre,
         telefono || null,
+        correo,
         correo,
         clave,
         direccion || null
@@ -81,8 +83,7 @@ router.post('/login', (req, res) => {
   const sql = `
     SELECT *
     FROM clientes
-    WHERE correo = ?
-      AND estado = 'Activo'
+    WHERE LOWER(COALESCE(correo, email)) = LOWER(?)
     LIMIT 1
   `;
 
@@ -102,7 +103,15 @@ router.post('/login', (req, res) => {
 
     const cliente = resultados[0];
 
-    if (clave !== cliente.clave) {
+    if (cliente.estado && cliente.estado !== 'Activo') {
+      return res.status(401).json({
+        mensaje: 'El cliente se encuentra inactivo'
+      });
+    }
+
+    const claveGuardada = cliente.clave || cliente.password;
+
+    if (!claveGuardada || clave !== claveGuardada) {
       return res.status(401).json({
         mensaje: 'Correo o contraseña incorrectos'
       });
@@ -111,7 +120,7 @@ router.post('/login', (req, res) => {
     const token = jwt.sign(
       {
         id_cliente: cliente.id_cliente,
-        correo: cliente.correo,
+        correo: cliente.correo || cliente.email,
         tipo: 'cliente'
       },
       variables.JWT_SECRET,
@@ -124,9 +133,10 @@ router.post('/login', (req, res) => {
       cliente: {
         id_cliente: cliente.id_cliente,
         nombre: cliente.nombre,
-        correo: cliente.correo,
+        correo: cliente.correo || cliente.email,
         telefono: cliente.telefono,
-        direccion: cliente.direccion
+        direccion: cliente.direccion,
+        tipo: 'cliente'
       }
     });
   });
@@ -135,16 +145,16 @@ router.post('/login', (req, res) => {
 // Listar clientes
 router.get('/', (req, res) => {
   const sql = `
-    SELECT 
+    SELECT
       id_cliente,
       nombre,
       telefono,
-      correo,
+      COALESCE(correo, email) AS correo,
       direccion,
-      fecha_registro,
-      estado
+      COALESCE(fecha_registro, fecha_creacion) AS fecha_registro,
+      COALESCE(estado, 'Activo') AS estado
     FROM clientes
-    ORDER BY fecha_registro DESC
+    ORDER BY COALESCE(fecha_registro, fecha_creacion) DESC
   `;
 
   conexion.query(sql, (error, resultados) => {

@@ -2,313 +2,880 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  FlatList,
-  StyleSheet,
-  ActivityIndicator,
   Pressable,
+  StyleSheet,
   TextInput,
-  Alert,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
+import AdminLayout from '../components/AdminLayout';
 
 export default function ProductosScreen() {
   const router = useRouter();
+
   const [productos, setProductos] = useState<any[]>([]);
-  const [filtro, setFiltro] = useState('');
-  const [cargando, setCargando] = useState(true);
-
-  const cargarProductos = async () => {
-    try {
-      setCargando(true);
-      const respuesta = await api.get('/productos');
-      setProductos(respuesta.data);
-    } catch (error) {
-      console.log('Error al cargar productos:', error);
-      Alert.alert('Error', 'No se pudieron cargar los productos');
-    } finally {
-      setCargando(false);
-    }
-  };
-
-  const aumentarInventario = async (idProducto: number) => {
-    try {
-      await api.patch(`/productos/${idProducto}/aumentar`, {
-        cantidad: 1,
-      });
-
-      await cargarProductos();
-    } catch (error) {
-      console.log('Error al aumentar inventario:', error);
-      Alert.alert('Error', 'No se pudo aumentar el inventario');
-    }
-  };
-
-  const disminuirInventario = async (idProducto: number) => {
-    try {
-      await api.patch(`/productos/${idProducto}/disminuir`, {
-        cantidad: 1,
-      });
-
-      await cargarProductos();
-    } catch (error: any) {
-      console.log('Error al disminuir inventario:', error?.response?.data || error);
-
-      Alert.alert(
-        'Error',
-        error?.response?.data?.mensaje || 'No se pudo disminuir el inventario'
-      );
-    }
-  };
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [filtroCategoria, setFiltroCategoria] = useState('Todas');
+  const [cargando, setCargando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
 
   useEffect(() => {
     cargarProductos();
   }, []);
 
-  const productosFiltrados = productos.filter((p) =>
-    p.nombre.toLowerCase().includes(filtro.toLowerCase())
-  );
+  const mostrarMensaje = (
+    texto: string,
+    tipo: 'ok' | 'error' | 'info' = 'info'
+  ) => {
+    setMensaje(texto);
+    setTipoMensaje(tipo);
 
-  if (cargando) {
-    return (
-      <View style={styles.centro}>
-        <ActivityIndicator size="large" />
-        <Text>Cargando productos...</Text>
-      </View>
-    );
-  }
+    setTimeout(() => {
+      setMensaje('');
+    }, 4000);
+  };
+
+  const cargarProductos = async () => {
+    try {
+      setCargando(true);
+      setMensaje('');
+
+      const respuesta = await api.get('/productos');
+
+      const datos = Array.isArray(respuesta.data)
+        ? respuesta.data
+        : respuesta.data?.productos || [];
+
+      setProductos(datos);
+    } catch (error: any) {
+      console.log('Error al cargar productos:', error?.response?.data || error);
+      mostrarMensaje('No se pudieron cargar los productos.', 'error');
+    } finally {
+      setCargando(false);
+    }
+  };
+
+  const formatoColones = (valor: any) => {
+    const numero = Number(valor || 0);
+
+    return `₡${numero.toLocaleString('es-CR', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    })}`;
+  };
+
+  const obtenerNombre = (producto: any) => {
+    return producto.nombre || producto.nombre_producto || producto.producto || 'Producto';
+  };
+
+  const obtenerCategoria = (producto: any) => {
+    return producto.categoria || producto.nombre_categoria || producto.categoria_nombre || 'General';
+  };
+
+  const obtenerPrecio = (producto: any) => {
+    return Number(producto.precio_venta || producto.precio || producto.precio_unitario || 0);
+  };
+
+  const obtenerPrecioCompra = (producto: any) => {
+    return Number(producto.precio_compra || 0);
+  };
+
+  const obtenerCantidad = (producto: any) => {
+    return Number(producto.cantidad ?? producto.stock ?? 0);
+  };
+
+  const obtenerStockMinimo = (producto: any) => {
+    return Number(producto.stock_minimo || 5);
+  };
+
+  const obtenerUnidad = (producto: any) => {
+    return producto.unidad_medida || producto.unidad || 'kg';
+  };
+
+  const obtenerImagen = (producto: any) => {
+    return producto.imagen_url || producto.imagen || producto.url_imagen || '';
+  };
+
+  const obtenerEstadoProducto = (producto: any) => {
+    const estado = String(producto.estado || 'Activo');
+
+    if (estado.toLowerCase() === 'inactivo') {
+      return 'Inactivo';
+    }
+
+    const cantidad = obtenerCantidad(producto);
+    const minimo = obtenerStockMinimo(producto);
+
+    if (cantidad <= 0) {
+      return 'Sin stock';
+    }
+
+    if (cantidad <= minimo) {
+      return 'Stock bajo';
+    }
+
+    return 'En buen estado';
+  };
+
+  const obtenerEstiloEstado = (estado: string) => {
+    if (estado === 'Sin stock') {
+      return {
+        badge: styles.estadoSinStock,
+        punto: styles.puntoRojo,
+      };
+    }
+
+    if (estado === 'Stock bajo') {
+      return {
+        badge: styles.estadoBajo,
+        punto: styles.puntoNaranja,
+      };
+    }
+
+    if (estado === 'Inactivo') {
+      return {
+        badge: styles.estadoInactivo,
+        punto: styles.puntoGris,
+      };
+    }
+
+    return {
+      badge: styles.estadoBueno,
+      punto: styles.puntoVerde,
+    };
+  };
+
+  const irRegistrar = () => {
+    router.push('/registrar-producto' as any);
+  };
+
+  const irEditar = (producto: any) => {
+    const id = producto.id_producto || producto.id;
+
+    if (!id) {
+      mostrarMensaje('No se pudo abrir el producto porque no tiene ID.', 'error');
+      return;
+    }
+
+    router.push({
+      pathname: '/editar-producto',
+      params: { id: String(id) },
+    } as any);
+  };
+
+  const categorias = [
+    'Todas',
+    ...Array.from(new Set(productos.map((producto) => obtenerCategoria(producto)))),
+  ];
+
+  const productosFiltrados = productos.filter((producto) => {
+    const texto = busqueda.toLowerCase();
+
+    const coincideBusqueda =
+      obtenerNombre(producto).toLowerCase().includes(texto) ||
+      obtenerCategoria(producto).toLowerCase().includes(texto);
+
+    const estadoProducto = obtenerEstadoProducto(producto);
+
+    const coincideEstado =
+      filtroEstado === 'Todos' || estadoProducto === filtroEstado;
+
+    const coincideCategoria =
+      filtroCategoria === 'Todas' || obtenerCategoria(producto) === filtroCategoria;
+
+    return coincideBusqueda && coincideEstado && coincideCategoria;
+  });
+
+  const totalProductos = productos.length;
+
+  const totalActivos = productos.filter(
+    (producto) => String(producto.estado || 'Activo').toLowerCase() !== 'inactivo'
+  ).length;
+
+  const totalBuenEstado = productos.filter(
+    (producto) => obtenerEstadoProducto(producto) === 'En buen estado'
+  ).length;
+
+  const totalStockBajo = productos.filter(
+    (producto) => obtenerEstadoProducto(producto) === 'Stock bajo'
+  ).length;
+
+  const totalSinStock = productos.filter(
+    (producto) => obtenerEstadoProducto(producto) === 'Sin stock'
+  ).length;
+
+  const valorInventario = productos.reduce((total, producto) => {
+    return total + obtenerCantidad(producto) * obtenerPrecioCompra(producto);
+  }, 0);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.titulo}>Productos</Text>
-      <Text style={styles.subtitulo}>{productos.length} productos registrados</Text>
+    <AdminLayout
+      titulo="Inventario"
+      subtitulo="Control de productos, cantidades, precios y estado del inventario"
+    >
+      <View style={styles.hero}>
+        <View>
+          <Text style={styles.titulo}>Inventario de productos 📦</Text>
+          <Text style={styles.subtitulo}>
+            Administre productos, precios, imágenes y disponibilidad.
+          </Text>
+        </View>
 
-      <TextInput
-        style={styles.buscador}
-        placeholder="Buscar producto..."
-        value={filtro}
-        onChangeText={setFiltro}
-      />
+        <Pressable style={styles.botonAgregar} onPress={irRegistrar}>
+          <Text style={styles.botonAgregarTexto}>＋ Agregar producto</Text>
+        </Pressable>
+      </View>
 
-      <FlatList
-        data={productosFiltrados}
-        keyExtractor={(item) => item.id_producto.toString()}
-        renderItem={({ item }) => {
-          const unidad = item.unidad_medida || 'kg';
-          const stockBajo =
-            Number(item.cantidad) <= Number(item.stock_minimo);
+      {mensaje !== '' && (
+        <View
+          style={[
+            styles.mensajeCaja,
+            tipoMensaje === 'ok' && styles.mensajeOk,
+            tipoMensaje === 'error' && styles.mensajeError,
+            tipoMensaje === 'info' && styles.mensajeInfo,
+          ]}
+        >
+          <Text style={styles.mensajeTexto}>{mensaje}</Text>
+        </View>
+      )}
 
-          return (
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Text style={styles.nombre}>{item.nombre}</Text>
+      <View style={styles.tarjetas}>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIcono}>🧺</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Productos totales</Text>
+            <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
+            <Text style={styles.tarjetaDetalle}>Registrados</Text>
+          </View>
+        </View>
 
-                <Text style={[styles.estado, stockBajo && styles.estadoAlerta]}>
-                  {stockBajo ? 'Stock bajo' : 'Activo'}
-                </Text>
-              </View>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoVerde}>✓</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Activos</Text>
+            <Text style={styles.tarjetaNumero}>{totalActivos}</Text>
+            <Text style={styles.tarjetaDetalle}>Disponibles en sistema</Text>
+          </View>
+        </View>
 
-              <View style={styles.precioBox}>
-                <Text style={styles.precioLabel}>Precio de venta</Text>
-                <Text style={styles.precioValor}>
-                  ₡{Number(item.precio_venta).toFixed(2)} por {unidad}
-                </Text>
-              </View>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoNaranja}>⚠</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Stock bajo</Text>
+            <Text style={styles.tarjetaNumeroNaranja}>{totalStockBajo}</Text>
+            <Text style={styles.tarjetaDetalle}>Revisar reposición</Text>
+          </View>
+        </View>
 
-              <Text style={styles.detalle}>Categoría: {item.categoria}</Text>
-              <Text style={styles.detalle}>
-                Precio compra: ₡{Number(item.precio_compra).toFixed(2)} por {unidad}
-              </Text>
-              <Text style={styles.detalle}>
-                Disponible: {item.cantidad} {unidad}
-              </Text>
-              <Text style={styles.detalle}>
-                Stock mínimo: {item.stock_minimo} {unidad}
-              </Text>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoRojo}>!</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Sin stock</Text>
+            <Text style={styles.tarjetaNumeroRojo}>{totalSinStock}</Text>
+            <Text style={styles.tarjetaDetalle}>Agotados</Text>
+          </View>
+        </View>
+      </View>
 
-              <View style={styles.contenedorCantidad}>
+      <View style={styles.cardInventario}>
+        <View style={styles.filtrosFila}>
+          <TextInput
+            style={styles.inputBuscar}
+            placeholder="Buscar producto o categoría..."
+            value={busqueda}
+            onChangeText={setBusqueda}
+          />
+
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.filtrosHorizontales}>
+              {['Todos', 'En buen estado', 'Stock bajo', 'Sin stock', 'Inactivo'].map((estado) => (
                 <Pressable
-                  style={styles.botonMenos}
-                  onPress={() => disminuirInventario(item.id_producto)}
+                  key={estado}
+                  style={[
+                    styles.filtroBoton,
+                    filtroEstado === estado && styles.filtroBotonActivo,
+                  ]}
+                  onPress={() => setFiltroEstado(estado)}
                 >
-                  <Text style={styles.textoCantidad}>-1</Text>
+                  <Text
+                    style={[
+                      styles.filtroTexto,
+                      filtroEstado === estado && styles.filtroTextoActivo,
+                    ]}
+                  >
+                    {estado}
+                  </Text>
                 </Pressable>
+              ))}
+            </View>
+          </ScrollView>
+        </View>
 
-                <View style={styles.cantidadCentro}>
-                  <Text style={styles.cantidadActual}>{item.cantidad}</Text>
-                  <Text style={styles.cantidadUnidad}>{unidad}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={styles.categoriasFila}>
+            {categorias.map((categoria) => (
+              <Pressable
+                key={categoria}
+                style={[
+                  styles.categoriaBoton,
+                  filtroCategoria === categoria && styles.categoriaBotonActivo,
+                ]}
+                onPress={() => setFiltroCategoria(categoria)}
+              >
+                <Text
+                  style={[
+                    styles.categoriaTexto,
+                    filtroCategoria === categoria && styles.categoriaTextoActivo,
+                  ]}
+                >
+                  {categoria}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+
+        <View style={styles.accionesFila}>
+          <Text style={styles.resultadoTexto}>
+            Mostrando {productosFiltrados.length} de {productos.length} productos
+          </Text>
+
+          <Pressable style={styles.botonActualizar} onPress={cargarProductos}>
+            <Text style={styles.botonActualizarTexto}>
+              {cargando ? 'Actualizando...' : 'Actualizar'}
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.tablaHeader}>
+          <Text style={[styles.th, styles.colProducto]}>Producto</Text>
+          <Text style={[styles.th, styles.colCategoria]}>Categoría</Text>
+          <Text style={[styles.th, styles.colCantidad]}>Cantidad</Text>
+          <Text style={[styles.th, styles.colUnidad]}>Unidad</Text>
+          <Text style={[styles.th, styles.colPrecio]}>Precio venta</Text>
+          <Text style={[styles.th, styles.colEstado]}>Estado</Text>
+          <Text style={[styles.th, styles.colAcciones]}>Acciones</Text>
+        </View>
+
+        {productosFiltrados.length === 0 ? (
+          <View style={styles.vacio}>
+            <Text style={styles.vacioIcono}>📦</Text>
+            <Text style={styles.vacioTitulo}>
+              {cargando ? 'Cargando productos...' : 'No hay productos para mostrar'}
+            </Text>
+            <Text style={styles.vacioTexto}>
+              Revise los filtros o registre un nuevo producto.
+            </Text>
+          </View>
+        ) : (
+          productosFiltrados.map((producto, index) => {
+            const imagen = obtenerImagen(producto);
+            const estado = obtenerEstadoProducto(producto);
+            const estilosEstado = obtenerEstiloEstado(estado);
+
+            return (
+              <View key={producto.id_producto || producto.id || index} style={styles.tablaRow}>
+                <View style={[styles.colProducto, styles.productoInfo]}>
+                  <View style={styles.imagenArea}>
+                    {imagen ? (
+                      <Image
+                        source={{ uri: imagen }}
+                        style={styles.imagenProducto}
+                        resizeMode="contain"
+                      />
+                    ) : (
+                      <Text style={styles.imagenEmoji}>🥦</Text>
+                    )}
+                  </View>
+
+                  <View style={styles.nombreArea}>
+                    <Text style={styles.nombreProducto} numberOfLines={1}>
+                      {obtenerNombre(producto)}
+                    </Text>
+
+                    <Text style={styles.descripcionProducto} numberOfLines={1}>
+                      {producto.descripcion || 'Producto fresco de verdulería'}
+                    </Text>
+                  </View>
                 </View>
 
-                <Pressable
-                  style={styles.botonMas}
-                  onPress={() => aumentarInventario(item.id_producto)}
-                >
-                  <Text style={styles.textoCantidad}>+1</Text>
-                </Pressable>
+                <Text style={[styles.td, styles.colCategoria]}>
+                  {obtenerCategoria(producto)}
+                </Text>
+
+                <Text style={[styles.tdCentro, styles.colCantidad]}>
+                  {obtenerCantidad(producto)}
+                </Text>
+
+                <Text style={[styles.tdCentro, styles.colUnidad]}>
+                  {obtenerUnidad(producto)}
+                </Text>
+
+                <Text style={[styles.tdCentro, styles.colPrecio]}>
+                  {formatoColones(obtenerPrecio(producto))}
+                </Text>
+
+                <View style={styles.colEstado}>
+                  <View style={[styles.estadoBadge, estilosEstado.badge]}>
+                    <View style={[styles.puntoEstado, estilosEstado.punto]} />
+                    <Text style={styles.estadoTexto}>{estado}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.colAcciones}>
+                  <Pressable
+                    style={styles.botonEditar}
+                    onPress={() => irEditar(producto)}
+                  >
+                    <Text style={styles.botonEditarTexto}>Editar</Text>
+                  </Pressable>
+                </View>
               </View>
+            );
+          })
+        )}
+      </View>
 
-              <Pressable
-                style={styles.botonEditar}
-                onPress={() =>
-                  router.push(`/editar-producto?id=${item.id_producto}` as any)
-                }
-              >
-                <Text style={styles.textoEditar}>Editar producto</Text>
-              </Pressable>
-            </View>
-          );
-        }}
-      />
+      <View style={styles.footerResumen}>
+        <View style={styles.footerItem}>
+          <Text style={styles.footerIcono}>🌿</Text>
+          <View>
+            <Text style={styles.footerLabel}>Productos en buen estado</Text>
+            <Text style={styles.footerValor}>{totalBuenEstado}</Text>
+          </View>
+        </View>
 
-      <Pressable style={styles.boton} onPress={() => router.push('/home')}>
-        <Text style={styles.textoBoton}>Volver al inicio</Text>
-      </Pressable>
-    </View>
+        <View style={styles.footerSeparador} />
+
+        <View style={styles.footerItem}>
+          <Text style={styles.footerIcono}>⚠️</Text>
+          <View>
+            <Text style={styles.footerLabel}>Requieren atención</Text>
+            <Text style={styles.footerValor}>{totalStockBajo + totalSinStock}</Text>
+          </View>
+        </View>
+
+        <View style={styles.footerSeparador} />
+
+        <View style={styles.footerItem}>
+          <Text style={styles.footerIcono}>💰</Text>
+          <View>
+            <Text style={styles.footerLabel}>Valor compra estimado</Text>
+            <Text style={styles.footerValor}>{formatoColones(valorInventario)}</Text>
+          </View>
+        </View>
+      </View>
+    </AdminLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: '#eef8ef',
-  },
-  centro: {
-    flex: 1,
-    justifyContent: 'center',
+  hero: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 24,
   },
   titulo: {
-    fontSize: 30,
+    color: '#063f22',
+    fontSize: 40,
     fontWeight: 'bold',
-    color: '#1b5e20',
-    textAlign: 'center',
   },
   subtitulo: {
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 14,
+    color: '#666',
+    fontSize: 16,
+    marginTop: 6,
   },
-  buscador: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-    marginBottom: 14,
+  botonAgregar: {
+    backgroundColor: '#7bb51e',
+    paddingVertical: 16,
+    paddingHorizontal: 22,
+    borderRadius: 16,
   },
-  card: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 18,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-    elevation: 2,
-  },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  nombre: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#2e7d32',
-    flex: 1,
-  },
-  estado: {
-    backgroundColor: '#e8f5e9',
-    color: '#2e7d32',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
-  estadoAlerta: {
-    backgroundColor: '#ffebee',
-    color: '#b71c1c',
-  },
-  precioBox: {
-    backgroundColor: '#f1f8e9',
-    padding: 12,
-    borderRadius: 14,
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  precioLabel: {
-    color: '#555',
-    fontSize: 13,
-  },
-  precioValor: {
-    color: '#1b5e20',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 2,
-  },
-  detalle: {
-    marginTop: 5,
-    color: '#444',
-  },
-  contenedorCantidad: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
-    backgroundColor: '#f1f8e9',
-    padding: 10,
-    borderRadius: 14,
-  },
-  botonMenos: {
-    backgroundColor: '#b71c1c',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-  },
-  botonMas: {
-    backgroundColor: '#2e7d32',
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    borderRadius: 12,
-  },
-  textoCantidad: {
-    color: '#fff',
+  botonAgregarTexto: {
+    color: '#ffffff',
     fontWeight: 'bold',
     fontSize: 16,
   },
-  cantidadCentro: {
+  mensajeCaja: {
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    marginBottom: 18,
+  },
+  mensajeOk: {
+    backgroundColor: '#e8f5e9',
+    borderColor: '#2e7d32',
+  },
+  mensajeError: {
+    backgroundColor: '#ffebee',
+    borderColor: '#c62828',
+  },
+  mensajeInfo: {
+    backgroundColor: '#fff8e1',
+    borderColor: '#f9a825',
+  },
+  mensajeTexto: {
+    textAlign: 'center',
+    color: '#1e1e1e',
+    fontWeight: 'bold',
+  },
+  tarjetas: {
+    flexDirection: 'row',
+    gap: 16,
+    marginBottom: 24,
+    flexWrap: 'wrap',
+  },
+  tarjeta: {
+    flex: 1,
+    minWidth: 190,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 15,
+  },
+  tarjetaIcono: {
+    fontSize: 35,
+  },
+  tarjetaIconoVerde: {
+    color: '#7bb51e',
+    borderWidth: 3,
+    borderColor: '#7bb51e',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  tarjetaIconoNaranja: {
+    color: '#f58220',
+    borderWidth: 3,
+    borderColor: '#f58220',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  tarjetaIconoRojo: {
+    color: '#d32f2f',
+    borderWidth: 3,
+    borderColor: '#d32f2f',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 28,
+    fontWeight: 'bold',
+  },
+  tarjetaLabel: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  tarjetaNumero: {
+    color: '#0f4f24',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  tarjetaNumeroNaranja: {
+    color: '#f58220',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  tarjetaNumeroRojo: {
+    color: '#d32f2f',
+    fontSize: 30,
+    fontWeight: 'bold',
+  },
+  tarjetaDetalle: {
+    color: '#777',
+    fontSize: 12,
+  },
+  cardInventario: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 20,
+    padding: 18,
+  },
+  filtrosFila: {
+    gap: 14,
+    marginBottom: 14,
+  },
+  inputBuscar: {
+    borderWidth: 1,
+    borderColor: '#e0d7c2',
+    borderRadius: 14,
+    padding: 14,
+    backgroundColor: '#fffdf6',
+  },
+  filtrosHorizontales: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  filtroBoton: {
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 18,
+  },
+  filtroBotonActivo: {
+    backgroundColor: '#1b5e20',
+    borderColor: '#1b5e20',
+  },
+  filtroTexto: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  filtroTextoActivo: {
+    color: '#ffffff',
+  },
+  categoriasFila: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  categoriaBoton: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    paddingVertical: 9,
+    paddingHorizontal: 15,
+    borderRadius: 18,
+  },
+  categoriaBotonActivo: {
+    backgroundColor: '#7bb51e',
+    borderColor: '#7bb51e',
+  },
+  categoriaTexto: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  categoriaTextoActivo: {
+    color: '#ffffff',
+  },
+  accionesFila: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  resultadoTexto: {
+    color: '#777',
+    fontWeight: 'bold',
+  },
+  botonActualizar: {
+    backgroundColor: '#f7f2dc',
+    borderWidth: 1,
+    borderColor: '#d7cfae',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  botonActualizarTexto: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+  },
+  tablaHeader: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ebe4d3',
+    paddingVertical: 12,
+  },
+  tablaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0eadb',
+  },
+  th: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    fontSize: 13,
+  },
+  td: {
+    color: '#333',
+    fontSize: 13,
+  },
+  tdCentro: {
+    color: '#333',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  colProducto: {
+    flex: 2.3,
+  },
+  colCategoria: {
+    flex: 1.2,
+  },
+  colCantidad: {
+    flex: 1,
+    textAlign: 'center',
+  },
+  colUnidad: {
+    flex: 0.8,
+    textAlign: 'center',
+  },
+  colPrecio: {
+    flex: 1.1,
+    textAlign: 'center',
+  },
+  colEstado: {
+    flex: 1.5,
     alignItems: 'center',
   },
-  cantidadActual: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1b5e20',
+  colAcciones: {
+    flex: 1,
+    alignItems: 'center',
   },
-  cantidadUnidad: {
-    fontSize: 13,
-    color: '#555',
+  productoInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  imagenArea: {
+    width: 42,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  imagenProducto: {
+    width: 40,
+    height: 40,
+  },
+  imagenEmoji: {
+    fontSize: 30,
+  },
+  nombreArea: {
+    flex: 1,
+  },
+  nombreProducto: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  descripcionProducto: {
+    color: '#777',
+    fontSize: 12,
+  },
+  estadoBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+  },
+  estadoBueno: {
+    backgroundColor: '#eef8e8',
+  },
+  estadoBajo: {
+    backgroundColor: '#fff3e0',
+  },
+  estadoSinStock: {
+    backgroundColor: '#ffebee',
+  },
+  estadoInactivo: {
+    backgroundColor: '#eeeeee',
+  },
+  puntoEstado: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  puntoVerde: {
+    backgroundColor: '#2e7d32',
+  },
+  puntoNaranja: {
+    backgroundColor: '#f58220',
+  },
+  puntoRojo: {
+    backgroundColor: '#d32f2f',
+  },
+  puntoGris: {
+    backgroundColor: '#777',
+  },
+  estadoTexto: {
+    color: '#333',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   botonEditar: {
-    marginTop: 12,
-    backgroundColor: '#1b5e20',
-    padding: 12,
-    borderRadius: 12,
+    backgroundColor: '#0f4f24',
+    paddingVertical: 8,
+    paddingHorizontal: 13,
+    borderRadius: 10,
+  },
+  botonEditarTexto: {
+    color: '#ffffff',
+    fontWeight: 'bold',
+    fontSize: 12,
+  },
+  vacio: {
+    padding: 30,
     alignItems: 'center',
   },
-  textoEditar: {
-    color: '#fff',
+  vacioIcono: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  vacioTitulo: {
+    color: '#0f4f24',
+    fontSize: 18,
     fontWeight: 'bold',
   },
-  boton: {
-    backgroundColor: '#2e7d32',
-    padding: 14,
-    borderRadius: 12,
+  vacioTexto: {
+    color: '#777',
+    marginTop: 5,
+  },
+  footerResumen: {
+    marginTop: 18,
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#7cae36',
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
   },
-  textoBoton: {
-    color: '#fff',
+  footerItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  footerIcono: {
+    fontSize: 31,
+  },
+  footerLabel: {
+    color: '#333',
     fontWeight: 'bold',
+  },
+  footerValor: {
+    color: '#0f4f24',
+    fontWeight: 'bold',
+    fontSize: 18,
+    marginTop: 3,
+  },
+  footerSeparador: {
+    width: 1,
+    height: 55,
+    backgroundColor: '#9ccc65',
+    marginHorizontal: 16,
   },
 });

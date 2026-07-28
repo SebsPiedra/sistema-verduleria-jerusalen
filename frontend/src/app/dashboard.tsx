@@ -2,415 +2,674 @@ import { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  ScrollView,
-  StyleSheet,
   Pressable,
-  ActivityIndicator,
-  Alert,
+  StyleSheet,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function DashboardScreen() {
-  const router = useRouter();
+  const [productos, setProductos] = useState<any[]>([]);
+  const [ventas, setVentas] = useState<any[]>([]);
+  const [pedidos, setPedidos] = useState<any[]>([]);
+  const [desechos, setDesechos] = useState<any[]>([]);
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [cargando, setCargando] = useState(false);
+  const [mensaje, setMensaje] = useState('');
 
-  const [resumen, setResumen] = useState<any>(null);
-  const [cargando, setCargando] = useState(true);
+  useEffect(() => {
+    cargarDashboard();
+  }, []);
 
-  const cargarResumen = async () => {
+  const cargarDashboard = async () => {
     try {
       setCargando(true);
-      const respuesta = await api.get('/dashboard/resumen');
-      setResumen(respuesta.data);
-    } catch (error) {
-      console.log('Error al cargar dashboard:', error);
-      Alert.alert('Error', 'No se pudo cargar el resumen general');
+      setMensaje('');
+
+      const respuestas = await Promise.allSettled([
+        api.get('/productos'),
+        api.get('/ventas'),
+        api.get('/pedidos'),
+        api.get('/desechos'),
+        api.get('/clientes'),
+      ]);
+
+      const obtenerDatos = (respuesta: any, propiedad: string) => {
+        if (respuesta.status !== 'fulfilled') return [];
+
+        const data = respuesta.value.data;
+
+        if (Array.isArray(data)) return data;
+
+        return data?.[propiedad] || [];
+      };
+
+      setProductos(obtenerDatos(respuestas[0], 'productos'));
+      setVentas(obtenerDatos(respuestas[1], 'ventas'));
+      setPedidos(obtenerDatos(respuestas[2], 'pedidos'));
+      setDesechos(obtenerDatos(respuestas[3], 'desechos'));
+      setClientes(obtenerDatos(respuestas[4], 'clientes'));
+    } catch (error: any) {
+      console.log('Error dashboard:', error?.response?.data || error);
+      setMensaje('No se pudo cargar toda la información del dashboard.');
     } finally {
       setCargando(false);
     }
   };
 
-  useEffect(() => {
-    cargarResumen();
-  }, []);
+  const formatoColones = (valor: any) => {
+    const numero = Number(valor || 0);
 
-  if (cargando) {
+    return `₡${numero.toLocaleString('es-CR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  const obtenerCantidadProducto = (producto: any) => {
+    return Number(producto.cantidad ?? producto.stock ?? 0);
+  };
+
+  const obtenerStockMinimo = (producto: any) => {
+    return Number(producto.stock_minimo || 5);
+  };
+
+  const obtenerPrecioVenta = (producto: any) => {
+    return Number(producto.precio_venta || producto.precio || 0);
+  };
+
+  const obtenerPrecioCompra = (producto: any) => {
+    return Number(producto.precio_compra || 0);
+  };
+
+  const obtenerTotalVenta = (venta: any) => {
+    return Number(venta.total || venta.monto_total || venta.total_venta || 0);
+  };
+
+  const obtenerTotalPedido = (pedido: any) => {
+    const totalPedido = Number(pedido.total || pedido.total_pedido || pedido.monto_total || 0);
+
+    if (totalPedido > 0) return totalPedido;
+
+    const detalles = pedido.detalles || pedido.detalle || pedido.productos || [];
+
+    if (!Array.isArray(detalles)) return 0;
+
+    return detalles.reduce((total: number, item: any) => {
+      return total + Number(item.subtotal || 0);
+    }, 0);
+  };
+
+  const obtenerEstadoPedido = (pedido: any) => {
+    return String(pedido.estado || 'Pendiente');
+  };
+
+  const obtenerPerdidaDesecho = (desecho: any) => {
+    const perdida = Number(desecho.perdida_total || desecho.total_perdida || 0);
+
+    if (perdida > 0) return perdida;
+
+    return Number(desecho.cantidad || 0) * Number(desecho.precio_compra || 0);
+  };
+
+  const productosActivos = productos.filter(
+    (producto) => String(producto.estado || 'Activo').toLowerCase() !== 'inactivo'
+  );
+
+  const productosSinStock = productosActivos.filter(
+    (producto) => obtenerCantidadProducto(producto) <= 0
+  );
+
+  const productosStockBajo = productosActivos.filter((producto) => {
+    const cantidad = obtenerCantidadProducto(producto);
+    const minimo = obtenerStockMinimo(producto);
+
+    return cantidad > 0 && cantidad <= minimo;
+  });
+
+  const productosBuenEstado = productosActivos.filter((producto) => {
+    const cantidad = obtenerCantidadProducto(producto);
+    const minimo = obtenerStockMinimo(producto);
+
+    return cantidad > minimo;
+  });
+
+  const valorInventarioVenta = productosActivos.reduce((total, producto) => {
+    return total + obtenerCantidadProducto(producto) * obtenerPrecioVenta(producto);
+  }, 0);
+
+  const valorInventarioCompra = productosActivos.reduce((total, producto) => {
+    return total + obtenerCantidadProducto(producto) * obtenerPrecioCompra(producto);
+  }, 0);
+
+  const totalVentas = ventas.reduce((total, venta) => {
+    return total + obtenerTotalVenta(venta);
+  }, 0);
+
+  const totalPedidos = pedidos.reduce((total, pedido) => {
+    return total + obtenerTotalPedido(pedido);
+  }, 0);
+
+  const pedidosPendientes = pedidos.filter(
+    (pedido) => obtenerEstadoPedido(pedido).toLowerCase() === 'pendiente'
+  );
+
+  const pedidosAceptados = pedidos.filter(
+    (pedido) => obtenerEstadoPedido(pedido).toLowerCase() === 'aceptado'
+  );
+
+  const pedidosEntregados = pedidos.filter(
+    (pedido) => obtenerEstadoPedido(pedido).toLowerCase() === 'entregado'
+  );
+
+  const totalPerdidas = desechos.reduce((total, desecho) => {
+    return total + obtenerPerdidaDesecho(desecho);
+  }, 0);
+
+  const totalAlertas =
+    productosStockBajo.length +
+    productosSinStock.length +
+    pedidosPendientes.length;
+
+  const porcentajeBuenEstado =
+    productosActivos.length > 0
+      ? Math.round((productosBuenEstado.length / productosActivos.length) * 100)
+      : 0;
+
+  const porcentajeStockBajo =
+    productosActivos.length > 0
+      ? Math.round((productosStockBajo.length / productosActivos.length) * 100)
+      : 0;
+
+  const porcentajeSinStock =
+    productosActivos.length > 0
+      ? Math.round((productosSinStock.length / productosActivos.length) * 100)
+      : 0;
+
+  const barra = (porcentaje: number) => {
+    const ancho = Math.max(4, Math.min(100, porcentaje));
+
     return (
-      <View style={styles.centro}>
-        <ActivityIndicator size="large" />
-        <Text>Cargando resumen...</Text>
+      <View style={styles.barraFondo}>
+        <View style={[styles.barraRelleno, { width: `${ancho}%` }]} />
       </View>
     );
-  }
+  };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.titulo}>Dashboard</Text>
-      <Text style={styles.subtitulo}>Resumen general de la verdulería</Text>
-
-      <View style={styles.cardPrincipal}>
-        <Text style={styles.cardPrincipalTitulo}>Ventas totales internas</Text>
-        <Text style={styles.cardPrincipalMonto}>
-          ₡{Number(resumen?.monto_total_ventas || 0).toFixed(2)}
-        </Text>
-        <Text style={styles.cardPrincipalTexto}>
-          {resumen?.total_ventas || 0} ventas registradas
-        </Text>
-      </View>
-
-      <View style={styles.cardPedidoPrincipal}>
-        <Text style={styles.cardPrincipalTitulo}>Pedidos de clientes</Text>
-        <Text style={styles.cardPrincipalMonto}>
-          ₡{Number(resumen?.monto_total_pedidos || 0).toFixed(2)}
-        </Text>
-        <Text style={styles.cardPrincipalTexto}>
-          {resumen?.total_pedidos || 0} pedidos registrados
-        </Text>
-      </View>
-
-      <Text style={styles.seccionTituloGrande}>Inventario</Text>
-
-      <View style={styles.grid}>
-        <View style={styles.card}>
-          <Text style={styles.icono}>🥬</Text>
-          <Text style={styles.numero}>{resumen?.total_productos || 0}</Text>
-          <Text style={styles.label}>Productos</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.icono}>📦</Text>
-          <Text style={styles.numero}>{resumen?.productos_stock_bajo || 0}</Text>
-          <Text style={styles.label}>Stock bajo</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.icono}>⚠️</Text>
-          <Text style={styles.numero}>{resumen?.productos_sin_precio || 0}</Text>
-          <Text style={styles.label}>Sin precio</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.icono}>👥</Text>
-          <Text style={styles.numero}>{resumen?.total_clientes || 0}</Text>
-          <Text style={styles.label}>Clientes</Text>
-        </View>
-      </View>
-
-      <Text style={styles.seccionTituloGrande}>Pedidos</Text>
-
-      <View style={styles.grid}>
-        <View style={styles.cardPedido}>
-          <Text style={styles.icono}>🛍️</Text>
-          <Text style={styles.numeroPedido}>{resumen?.total_pedidos || 0}</Text>
-          <Text style={styles.labelPedido}>Pedidos totales</Text>
-        </View>
-
-        <View style={styles.cardPendiente}>
-          <Text style={styles.icono}>⏳</Text>
-          <Text style={styles.numeroPendiente}>{resumen?.pedidos_pendientes || 0}</Text>
-          <Text style={styles.labelPendiente}>Pendientes</Text>
-        </View>
-
-        <View style={styles.card}>
-          <Text style={styles.icono}>✅</Text>
-          <Text style={styles.numero}>{resumen?.pedidos_aceptados || 0}</Text>
-          <Text style={styles.label}>Aceptados</Text>
-        </View>
-
-        <View style={styles.cardEntregado}>
-          <Text style={styles.icono}>🚚</Text>
-          <Text style={styles.numeroEntregado}>{resumen?.pedidos_entregados || 0}</Text>
-          <Text style={styles.labelEntregado}>Entregados</Text>
-        </View>
-
-        <View style={styles.cardPerdida}>
-          <Text style={styles.icono}>❌</Text>
-          <Text style={styles.numeroPerdida}>{resumen?.pedidos_rechazados || 0}</Text>
-          <Text style={styles.labelPerdida}>Rechazados</Text>
-        </View>
-
-        <View style={styles.cardPedido}>
-          <Text style={styles.icono}>💰</Text>
-          <Text style={styles.numeroPedido}>
-            ₡{Number(resumen?.monto_total_pedidos || 0).toFixed(2)}
+    <AdminLayout
+      titulo="Dashboard"
+      subtitulo="Resumen gerencial de inventario, pedidos, ventas y pérdidas"
+    >
+      <View style={styles.hero}>
+        <View>
+          <Text style={styles.titulo}>Dashboard general 📊</Text>
+          <Text style={styles.subtitulo}>
+            Indicadores principales para tomar decisiones rápidas del negocio.
           </Text>
-          <Text style={styles.labelPedido}>Total pedidos</Text>
-        </View>
-      </View>
-
-      <Text style={styles.seccionTituloGrande}>Ventas y pérdidas</Text>
-
-      <View style={styles.grid}>
-        <View style={styles.card}>
-          <Text style={styles.icono}>🧾</Text>
-          <Text style={styles.numero}>{resumen?.total_ventas || 0}</Text>
-          <Text style={styles.label}>Ventas</Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.icono}>💵</Text>
-          <Text style={styles.numero}>
-            ₡{Number(resumen?.monto_total_ventas || 0).toFixed(2)}
+        <Pressable style={styles.botonActualizar} onPress={cargarDashboard}>
+          <Text style={styles.textoActualizar}>
+            {cargando ? 'Actualizando...' : 'Actualizar dashboard'}
           </Text>
-          <Text style={styles.label}>Monto ventas</Text>
+        </Pressable>
+      </View>
+
+      {mensaje !== '' && (
+        <View style={styles.mensajeError}>
+          <Text style={styles.mensajeTexto}>{mensaje}</Text>
+        </View>
+      )}
+
+      <View style={styles.tarjetas}>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIcono}>📦</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Productos activos</Text>
+            <Text style={styles.tarjetaNumero}>{productosActivos.length}</Text>
+            <Text style={styles.tarjetaDetalle}>En inventario</Text>
+          </View>
         </View>
 
-        <View style={styles.cardPerdida}>
-          <Text style={styles.icono}>🗑️</Text>
-          <Text style={styles.numeroPerdida}>{resumen?.total_desechos || 0}</Text>
-          <Text style={styles.labelPerdida}>Desechos</Text>
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoVerde}>₡</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Ventas registradas</Text>
+            <Text style={styles.tarjetaNumero}>{formatoColones(totalVentas)}</Text>
+            <Text style={styles.tarjetaDetalle}>{ventas.length} ventas</Text>
+          </View>
         </View>
 
-        <View style={styles.cardPerdida}>
-          <Text style={styles.icono}>💸</Text>
-          <Text style={styles.numeroPerdida}>
-            ₡{Number(resumen?.monto_total_perdidas || 0).toFixed(2)}
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoNaranja}>⏳</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Pedidos pendientes</Text>
+            <Text style={styles.tarjetaNumeroNaranja}>{pedidosPendientes.length}</Text>
+            <Text style={styles.tarjetaDetalle}>Por revisar</Text>
+          </View>
+        </View>
+
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIconoRojo}>!</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Alertas activas</Text>
+            <Text style={styles.tarjetaNumeroRojo}>{totalAlertas}</Text>
+            <Text style={styles.tarjetaDetalle}>Requieren atención</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.contenidoGrid}>
+        <View style={styles.cardGrande}>
+          <Text style={styles.cardTitulo}>Estado del inventario</Text>
+          <Text style={styles.cardSubtitulo}>
+            Distribución de productos según disponibilidad.
           </Text>
-          <Text style={styles.labelPerdida}>Pérdidas</Text>
+
+          <View style={styles.indicadorFila}>
+            <View style={styles.indicadorTextoArea}>
+              <Text style={styles.indicadorTitulo}>En buen estado</Text>
+              <Text style={styles.indicadorDetalle}>
+                {productosBuenEstado.length} productos
+              </Text>
+            </View>
+
+            <Text style={styles.indicadorPorcentaje}>{porcentajeBuenEstado}%</Text>
+          </View>
+          {barra(porcentajeBuenEstado)}
+
+          <View style={styles.indicadorFila}>
+            <View style={styles.indicadorTextoArea}>
+              <Text style={styles.indicadorTitulo}>Stock bajo</Text>
+              <Text style={styles.indicadorDetalle}>
+                {productosStockBajo.length} productos
+              </Text>
+            </View>
+
+            <Text style={styles.indicadorPorcentajeNaranja}>{porcentajeStockBajo}%</Text>
+          </View>
+          {barra(porcentajeStockBajo)}
+
+          <View style={styles.indicadorFila}>
+            <View style={styles.indicadorTextoArea}>
+              <Text style={styles.indicadorTitulo}>Sin stock</Text>
+              <Text style={styles.indicadorDetalle}>
+                {productosSinStock.length} productos
+              </Text>
+            </View>
+
+            <Text style={styles.indicadorPorcentajeRojo}>{porcentajeSinStock}%</Text>
+          </View>
+          {barra(porcentajeSinStock)}
+        </View>
+
+        <View style={styles.cardGrande}>
+          <Text style={styles.cardTitulo}>Resumen financiero</Text>
+          <Text style={styles.cardSubtitulo}>
+            Montos estimados según registros actuales.
+          </Text>
+
+          <View style={styles.montoFila}>
+            <Text style={styles.montoLabel}>Valor inventario venta</Text>
+            <Text style={styles.montoValor}>{formatoColones(valorInventarioVenta)}</Text>
+          </View>
+
+          <View style={styles.montoFila}>
+            <Text style={styles.montoLabel}>Valor inventario compra</Text>
+            <Text style={styles.montoValor}>{formatoColones(valorInventarioCompra)}</Text>
+          </View>
+
+          <View style={styles.montoFila}>
+            <Text style={styles.montoLabel}>Total pedidos</Text>
+            <Text style={styles.montoValor}>{formatoColones(totalPedidos)}</Text>
+          </View>
+
+          <View style={styles.montoFilaRoja}>
+            <Text style={styles.montoLabelRojo}>Pérdidas por desechos</Text>
+            <Text style={styles.montoValorRojo}>{formatoColones(totalPerdidas)}</Text>
+          </View>
         </View>
       </View>
 
-      <View style={styles.seccion}>
-        <Text style={styles.seccionTitulo}>Accesos rápidos</Text>
+      <View style={styles.contenidoGrid}>
+        <View style={styles.cardGrande}>
+          <Text style={styles.cardTitulo}>Pedidos</Text>
+          <Text style={styles.cardSubtitulo}>
+            Estado actual de los pedidos de clientes.
+          </Text>
 
-        <Pressable style={styles.boton} onPress={() => router.push('/productos' as any)}>
-          <Text style={styles.textoBoton}>Ver productos</Text>
-        </Pressable>
+          <View style={styles.estadoPedidoGrid}>
+            <View style={styles.estadoPedidoCard}>
+              <Text style={styles.estadoPedidoNumeroNaranja}>{pedidosPendientes.length}</Text>
+              <Text style={styles.estadoPedidoTexto}>Pendientes</Text>
+            </View>
 
-        <Pressable style={styles.boton} onPress={() => router.push('/ventas' as any)}>
-          <Text style={styles.textoBoton}>Registrar venta</Text>
-        </Pressable>
+            <View style={styles.estadoPedidoCard}>
+              <Text style={styles.estadoPedidoNumeroVerde}>{pedidosAceptados.length}</Text>
+              <Text style={styles.estadoPedidoTexto}>Aceptados</Text>
+            </View>
 
-        <Pressable style={styles.boton} onPress={() => router.push('/pedidos-admin' as any)}>
-          <Text style={styles.textoBoton}>Gestionar pedidos</Text>
-        </Pressable>
+            <View style={styles.estadoPedidoCard}>
+              <Text style={styles.estadoPedidoNumeroAzul}>{pedidosEntregados.length}</Text>
+              <Text style={styles.estadoPedidoTexto}>Entregados</Text>
+            </View>
+          </View>
+        </View>
 
-        <Pressable style={styles.boton} onPress={() => router.push('/desechos' as any)}>
-          <Text style={styles.textoBoton}>Registrar desecho</Text>
-        </Pressable>
+        <View style={styles.cardGrande}>
+          <Text style={styles.cardTitulo}>Clientes y operación</Text>
+          <Text style={styles.cardSubtitulo}>
+            Resumen de registros operativos del sistema.
+          </Text>
 
-        <Pressable style={styles.botonSecundario} onPress={cargarResumen}>
-          <Text style={styles.textoSecundario}>Actualizar resumen</Text>
-        </Pressable>
+          <View style={styles.operacionFila}>
+            <Text style={styles.operacionIcono}>👥</Text>
+            <View>
+              <Text style={styles.operacionTitulo}>{clientes.length}</Text>
+              <Text style={styles.operacionTexto}>Clientes registrados</Text>
+            </View>
+          </View>
+
+          <View style={styles.operacionFila}>
+            <Text style={styles.operacionIcono}>🧾</Text>
+            <View>
+              <Text style={styles.operacionTitulo}>{ventas.length}</Text>
+              <Text style={styles.operacionTexto}>Ventas en historial</Text>
+            </View>
+          </View>
+
+          <View style={styles.operacionFila}>
+            <Text style={styles.operacionIcono}>🗑️</Text>
+            <View>
+              <Text style={styles.operacionTitulo}>{desechos.length}</Text>
+              <Text style={styles.operacionTexto}>Desechos registrados</Text>
+            </View>
+          </View>
+        </View>
       </View>
-
-      <Pressable style={styles.botonVolver} onPress={() => router.push('/home' as any)}>
-        <Text style={styles.textoVolver}>Volver al inicio</Text>
-      </Pressable>
-    </ScrollView>
+    </AdminLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    padding: 16,
-    backgroundColor: '#eef8ef',
-  },
-  centro: {
-    flex: 1,
-    justifyContent: 'center',
+  hero: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 24,
   },
   titulo: {
-    fontSize: 32,
+    color: '#063f22',
+    fontSize: 40,
     fontWeight: 'bold',
-    color: '#1b5e20',
-    textAlign: 'center',
   },
   subtitulo: {
-    textAlign: 'center',
-    color: '#555',
-    marginBottom: 18,
-  },
-  cardPrincipal: {
-    backgroundColor: '#1b5e20',
-    padding: 22,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  cardPedidoPrincipal: {
-    backgroundColor: '#0d47a1',
-    padding: 22,
-    borderRadius: 20,
-    marginBottom: 16,
-  },
-  cardPrincipalTitulo: {
-    color: '#e8f5e9',
+    color: '#666',
     fontSize: 16,
-  },
-  cardPrincipalMonto: {
-    color: '#fff',
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginTop: 5,
-  },
-  cardPrincipalTexto: {
-    color: '#e8f5e9',
     marginTop: 6,
   },
-  seccionTituloGrande: {
-    fontSize: 22,
+  botonActualizar: {
+    backgroundColor: '#7bb51e',
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+  },
+  textoActualizar: {
+    color: '#ffffff',
     fontWeight: 'bold',
-    color: '#1b5e20',
-    marginBottom: 10,
-    marginTop: 4,
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    marginBottom: 16,
-  },
-  card: {
-    backgroundColor: '#fff',
-    width: '48%',
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#d7ead8',
-    alignItems: 'center',
-  },
-  cardPedido: {
-    backgroundColor: '#e3f2fd',
-    width: '48%',
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#bbdefb',
-    alignItems: 'center',
-  },
-  cardPendiente: {
-    backgroundColor: '#fff8e1',
-    width: '48%',
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#ffe082',
-    alignItems: 'center',
-  },
-  cardEntregado: {
-    backgroundColor: '#e8f5e9',
-    width: '48%',
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#c8e6c9',
-    alignItems: 'center',
-  },
-  cardPerdida: {
+  mensajeError: {
     backgroundColor: '#ffebee',
-    width: '48%',
-    padding: 16,
-    borderRadius: 18,
+    borderColor: '#c62828',
     borderWidth: 1,
-    borderColor: '#ffcdd2',
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 18,
+  },
+  mensajeTexto: {
+    color: '#c62828',
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
+  tarjetas: {
+    flexDirection: 'row',
+    gap: 16,
+    flexWrap: 'wrap',
+    marginBottom: 24,
+  },
+  tarjeta: {
+    flex: 1,
+    minWidth: 210,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 18,
+    padding: 18,
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 15,
   },
-  icono: {
+  tarjetaIcono: {
+    fontSize: 36,
+  },
+  tarjetaIconoVerde: {
+    color: '#2e7d32',
+    borderWidth: 3,
+    borderColor: '#2e7d32',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 25,
+    fontWeight: 'bold',
+  },
+  tarjetaIconoNaranja: {
+    color: '#f58220',
+    borderWidth: 3,
+    borderColor: '#f58220',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  tarjetaIconoRojo: {
+    color: '#c62828',
+    borderWidth: 3,
+    borderColor: '#c62828',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    textAlign: 'center',
+    lineHeight: 42,
     fontSize: 28,
-    marginBottom: 5,
-  },
-  numero: {
-    fontSize: 23,
     fontWeight: 'bold',
-    color: '#1b5e20',
-    textAlign: 'center',
   },
-  numeroPedido: {
-    fontSize: 22,
+  tarjetaLabel: {
+    color: '#333',
     fontWeight: 'bold',
-    color: '#0d47a1',
-    textAlign: 'center',
   },
-  numeroPendiente: {
-    fontSize: 23,
+  tarjetaNumero: {
+    color: '#0f4f24',
+    fontSize: 25,
     fontWeight: 'bold',
-    color: '#f57f17',
-    textAlign: 'center',
   },
-  numeroEntregado: {
-    fontSize: 23,
+  tarjetaNumeroNaranja: {
+    color: '#f58220',
+    fontSize: 30,
     fontWeight: 'bold',
-    color: '#2e7d32',
-    textAlign: 'center',
   },
-  numeroPerdida: {
-    fontSize: 22,
+  tarjetaNumeroRojo: {
+    color: '#c62828',
+    fontSize: 30,
     fontWeight: 'bold',
-    color: '#b71c1c',
-    textAlign: 'center',
   },
-  label: {
-    color: '#555',
-    marginTop: 4,
-    textAlign: 'center',
+  tarjetaDetalle: {
+    color: '#777',
+    fontSize: 12,
   },
-  labelPedido: {
-    color: '#0d47a1',
-    marginTop: 4,
-    textAlign: 'center',
+  contenidoGrid: {
+    flexDirection: 'row',
+    gap: 18,
+    marginBottom: 18,
   },
-  labelPendiente: {
-    color: '#f57f17',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  labelEntregado: {
-    color: '#2e7d32',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  labelPerdida: {
-    color: '#b71c1c',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  seccion: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 18,
+  cardGrande: {
+    flex: 1,
+    backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#d7ead8',
-    marginBottom: 14,
+    borderColor: '#ebe4d3',
+    borderRadius: 20,
+    padding: 22,
   },
-  seccionTitulo: {
+  cardTitulo: {
+    color: '#0f4f24',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  cardSubtitulo: {
+    color: '#666',
+    marginTop: 5,
+    marginBottom: 18,
+  },
+  indicadorFila: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  indicadorTextoArea: {
+    flex: 1,
+  },
+  indicadorTitulo: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  indicadorDetalle: {
+    color: '#777',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  indicadorPorcentaje: {
+    color: '#2e7d32',
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1b5e20',
-    marginBottom: 12,
   },
-  boton: {
-    backgroundColor: '#2e7d32',
+  indicadorPorcentajeNaranja: {
+    color: '#f58220',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  indicadorPorcentajeRojo: {
+    color: '#c62828',
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  barraFondo: {
+    height: 12,
+    backgroundColor: '#f7f2dc',
+    borderRadius: 10,
+    marginTop: 8,
+    overflow: 'hidden',
+  },
+  barraRelleno: {
+    height: 12,
+    backgroundColor: '#7bb51e',
+    borderRadius: 10,
+  },
+  montoFila: {
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 14,
     padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
     marginBottom: 10,
   },
-  textoBoton: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  botonSecundario: {
-    backgroundColor: '#e8f5e9',
+  montoFilaRoja: {
+    backgroundColor: '#ffebee',
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
+    borderRadius: 14,
     padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
     marginTop: 4,
   },
-  textoSecundario: {
-    color: '#1b5e20',
+  montoLabel: {
+    color: '#555',
     fontWeight: 'bold',
   },
-  botonVolver: {
-    backgroundColor: '#757575',
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
+  montoValor: {
+    color: '#0f4f24',
+    fontSize: 22,
+    fontWeight: 'bold',
     marginTop: 4,
   },
-  textoVolver: {
-    color: '#fff',
+  montoLabelRojo: {
+    color: '#c62828',
+    fontWeight: 'bold',
+  },
+  montoValorRojo: {
+    color: '#c62828',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  estadoPedidoGrid: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  estadoPedidoCard: {
+    flex: 1,
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+  },
+  estadoPedidoNumeroNaranja: {
+    color: '#f58220',
+    fontSize: 34,
+    fontWeight: 'bold',
+  },
+  estadoPedidoNumeroVerde: {
+    color: '#2e7d32',
+    fontSize: 34,
+    fontWeight: 'bold',
+  },
+  estadoPedidoNumeroAzul: {
+    color: '#1565c0',
+    fontSize: 34,
+    fontWeight: 'bold',
+  },
+  estadoPedidoTexto: {
+    color: '#555',
+    fontWeight: 'bold',
+    marginTop: 4,
+  },
+  operacionFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: '#fffdf6',
+    borderWidth: 1,
+    borderColor: '#ebe4d3',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
+  },
+  operacionIcono: {
+    fontSize: 32,
+  },
+  operacionTitulo: {
+    color: '#0f4f24',
+    fontSize: 24,
+    fontWeight: 'bold',
+  },
+  operacionTexto: {
+    color: '#666',
     fontWeight: 'bold',
   },
 });
