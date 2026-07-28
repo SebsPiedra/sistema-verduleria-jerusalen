@@ -6,114 +6,195 @@ const obtenerVariables = require('../config/variables');
 const router = express.Router();
 const variables = obtenerVariables();
 
-// Registrar cliente
-router.post('/registrar', (req, res) => {
-  const { nombre, telefono, correo, clave, direccion } = req.body;
+function ejecutar(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    conexion.query(sql, params, (error, resultado) => {
+      if (error) {
+        reject(error);
+      } else {
+        resolve(resultado);
+      }
+    });
+  });
+}
 
-  if (!nombre || !correo || !clave) {
-    return res.status(400).json({
-      mensaje: 'Debe ingresar nombre, correo y contraseña'
+function obtenerFilas(resultado) {
+  if (Array.isArray(resultado)) return resultado;
+  if (resultado?.rows) return resultado.rows;
+  return [];
+}
+
+function obtenerPrimero(resultado) {
+  const filas = obtenerFilas(resultado);
+  return filas[0] || null;
+}
+
+async function obtenerSiguienteId(tabla, columna) {
+  const resultado = await ejecutar(
+    `SELECT COALESCE(MAX(${columna}), 0) + 1 AS siguiente FROM ${tabla}`
+  );
+
+  const fila = obtenerPrimero(resultado);
+
+  return Number(fila?.siguiente || 1);
+}
+
+router.post('/registrar', async (req, res) => {
+  try {
+    const { nombre, telefono, correo, clave, direccion } = req.body;
+
+    const nombreLimpio = String(nombre || '').trim();
+    const telefonoLimpio = String(telefono || '').trim();
+    const correoLimpio = String(correo || '').trim().toLowerCase();
+    const claveLimpia = String(clave || '').trim();
+    const direccionLimpia = String(direccion || '').trim();
+
+    if (!nombreLimpio || !correoLimpio || !claveLimpia) {
+      return res.status(400).json({
+        mensaje: 'Debe ingresar nombre, correo y contraseña.',
+      });
+    }
+
+    if (nombreLimpio.length < 3) {
+      return res.status(400).json({
+        mensaje: 'El nombre debe tener al menos 3 caracteres.',
+      });
+    }
+
+    if (!correoLimpio.includes('@')) {
+      return res.status(400).json({
+        mensaje: 'Debe ingresar un correo válido.',
+      });
+    }
+
+    if (claveLimpia.length < 6) {
+      return res.status(400).json({
+        mensaje: 'La contraseña debe tener mínimo 6 caracteres.',
+      });
+    }
+
+    const resultadoValidar = await ejecutar(
+      `
+        SELECT id_cliente
+        FROM clientes
+        WHERE LOWER(COALESCE(correo, email, '')) = LOWER(?)
+        LIMIT 1
+      `,
+      [correoLimpio]
+    );
+
+    const clienteExiste = obtenerPrimero(resultadoValidar);
+
+    if (clienteExiste) {
+      return res.status(400).json({
+        mensaje: 'Ya existe un cliente registrado con ese correo.',
+      });
+    }
+
+    const idCliente = await obtenerSiguienteId('clientes', 'id_cliente');
+
+    await ejecutar(
+      `
+        INSERT INTO clientes
+        (
+          id_cliente,
+          nombre,
+          telefono,
+          correo,
+          email,
+          clave,
+          password,
+          direccion,
+          estado,
+          fecha_registro
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Activo', CURRENT_TIMESTAMP)
+      `,
+      [
+        idCliente,
+        nombreLimpio,
+        telefonoLimpio,
+        correoLimpio,
+        correoLimpio,
+        claveLimpia,
+        claveLimpia,
+        direccionLimpia,
+      ]
+    );
+
+    return res.json({
+      mensaje: 'Cliente registrado correctamente.',
+      id_cliente: idCliente,
+      cliente: {
+        id_cliente: idCliente,
+        nombre: nombreLimpio,
+        telefono: telefonoLimpio,
+        correo: correoLimpio,
+        direccion: direccionLimpia,
+        estado: 'Activo',
+      },
+    });
+  } catch (error) {
+    console.log('Error al registrar cliente:', error);
+
+    return res.status(500).json({
+      mensaje: 'Error al registrar cliente.',
+      error: error.message || error,
     });
   }
-
-  const sqlValidar = `
-    SELECT id_cliente
-    FROM clientes
-    WHERE LOWER(COALESCE(correo, email)) = LOWER(?)
-    LIMIT 1
-  `;
-
-  conexion.query(sqlValidar, [correo], (errorValidar, resultados) => {
-    if (errorValidar) {
-      return res.status(500).json({
-        mensaje: 'Error al validar cliente',
-        error: errorValidar
-      });
-    }
-
-    if (resultados.length > 0) {
-      return res.status(400).json({
-        mensaje: 'Ya existe un cliente registrado con ese correo'
-      });
-    }
-
-    const sqlInsertar = `
-      INSERT INTO clientes
-      (nombre, telefono, correo, email, clave, direccion, estado)
-      VALUES (?, ?, ?, ?, ?, ?, 'Activo')
-    `;
-
-    conexion.query(
-      sqlInsertar,
-      [
-        nombre,
-        telefono || null,
-        correo,
-        correo,
-        clave,
-        direccion || null
-      ],
-      (error, resultado) => {
-        if (error) {
-          return res.status(500).json({
-            mensaje: 'Error al registrar cliente',
-            error
-          });
-        }
-
-        res.json({
-          mensaje: 'Cliente registrado correctamente',
-          id_cliente: resultado.insertId
-        });
-      }
-    );
-  });
 });
 
-// Login cliente
-router.post('/login', (req, res) => {
-  const { correo, clave } = req.body;
+router.post('/login', async (req, res) => {
+  try {
+    const { correo, clave } = req.body;
 
-  if (!correo || !clave) {
-    return res.status(400).json({
-      mensaje: 'Debe ingresar correo y contraseña'
-    });
-  }
+    const correoLimpio = String(correo || '').trim().toLowerCase();
+    const claveLimpia = String(clave || '').trim();
 
-  const sql = `
-    SELECT *
-    FROM clientes
-    WHERE LOWER(COALESCE(correo, email)) = LOWER(?)
-    LIMIT 1
-  `;
-
-  conexion.query(sql, [correo], (error, resultados) => {
-    if (error) {
-      return res.status(500).json({
-        mensaje: 'Error en el servidor',
-        error
+    if (!correoLimpio || !claveLimpia) {
+      return res.status(400).json({
+        mensaje: 'Debe ingresar correo y contraseña.',
       });
     }
 
-    if (resultados.length === 0) {
+    const resultadoClientes = await ejecutar(
+      `
+        SELECT
+          id_cliente,
+          nombre,
+          telefono,
+          COALESCE(correo, email, '') AS correo,
+          email,
+          clave,
+          password,
+          direccion,
+          COALESCE(estado, 'Activo') AS estado
+        FROM clientes
+        WHERE LOWER(COALESCE(correo, email, '')) = LOWER(?)
+        LIMIT 1
+      `,
+      [correoLimpio]
+    );
+
+    const cliente = obtenerPrimero(resultadoClientes);
+
+    if (!cliente) {
       return res.status(401).json({
-        mensaje: 'Correo o contraseña incorrectos'
+        mensaje: 'Correo o contraseña incorrectos.',
       });
     }
 
-    const cliente = resultados[0];
-
-    if (cliente.estado && cliente.estado !== 'Activo') {
+    if (String(cliente.estado || 'Activo') !== 'Activo') {
       return res.status(401).json({
-        mensaje: 'El cliente se encuentra inactivo'
+        mensaje: 'El cliente se encuentra inactivo.',
       });
     }
 
     const claveGuardada = cliente.clave || cliente.password;
 
-    if (!claveGuardada || clave !== claveGuardada) {
+    if (!claveGuardada || claveGuardada !== claveLimpia) {
       return res.status(401).json({
-        mensaje: 'Correo o contraseña incorrectos'
+        mensaje: 'Correo o contraseña incorrectos.',
       });
     }
 
@@ -121,14 +202,14 @@ router.post('/login', (req, res) => {
       {
         id_cliente: cliente.id_cliente,
         correo: cliente.correo || cliente.email,
-        tipo: 'cliente'
+        tipo: 'cliente',
       },
       variables.JWT_SECRET,
       { expiresIn: '8h' }
     );
 
-    res.json({
-      mensaje: 'Inicio de sesión de cliente correcto',
+    return res.json({
+      mensaje: 'Inicio de sesión de cliente correcto.',
       token,
       cliente: {
         id_cliente: cliente.id_cliente,
@@ -136,37 +217,75 @@ router.post('/login', (req, res) => {
         correo: cliente.correo || cliente.email,
         telefono: cliente.telefono,
         direccion: cliente.direccion,
-        tipo: 'cliente'
-      }
+        tipo: 'cliente',
+      },
     });
-  });
+  } catch (error) {
+    console.log('Error login cliente:', error);
+
+    return res.status(500).json({
+      mensaje: 'Error en el servidor.',
+      error: error.message || error,
+    });
+  }
 });
 
-// Listar clientes
-router.get('/', (req, res) => {
-  const sql = `
-    SELECT
-      id_cliente,
-      nombre,
-      telefono,
-      COALESCE(correo, email) AS correo,
-      direccion,
-      COALESCE(fecha_registro, fecha_creacion) AS fecha_registro,
-      COALESCE(estado, 'Activo') AS estado
-    FROM clientes
-    ORDER BY COALESCE(fecha_registro, fecha_creacion) DESC
-  `;
+router.get('/', async (req, res) => {
+  try {
+    const resultadoClientes = await ejecutar(`
+      SELECT
+        id_cliente,
+        nombre,
+        telefono,
+        COALESCE(correo, email, '') AS correo,
+        direccion,
+        COALESCE(fecha_registro, fecha_creacion, CURRENT_TIMESTAMP) AS fecha_registro,
+        COALESCE(estado, 'Activo') AS estado
+      FROM clientes
+      ORDER BY id_cliente DESC
+    `);
 
-  conexion.query(sql, (error, resultados) => {
-    if (error) {
-      return res.status(500).json({
-        mensaje: 'Error al obtener clientes',
-        error
-      });
-    }
+    const clientes = obtenerFilas(resultadoClientes);
 
-    res.json(resultados);
-  });
+    return res.json(clientes);
+  } catch (error) {
+    console.log('Error al obtener clientes:', error);
+
+    return res.status(500).json({
+      mensaje: 'Error al obtener clientes.',
+      error: error.message || error,
+    });
+  }
+});
+
+router.patch('/:id/estado', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { estado } = req.body;
+
+    const estadoNuevo = estado === 'Inactivo' ? 'Inactivo' : 'Activo';
+
+    await ejecutar(
+      `
+        UPDATE clientes
+        SET estado = ?
+        WHERE id_cliente = ?
+      `,
+      [estadoNuevo, id]
+    );
+
+    return res.json({
+      mensaje: `Cliente actualizado a ${estadoNuevo}.`,
+      estado: estadoNuevo,
+    });
+  } catch (error) {
+    console.log('Error al actualizar cliente:', error);
+
+    return res.status(500).json({
+      mensaje: 'Error al actualizar cliente.',
+      error: error.message || error,
+    });
+  }
 });
 
 module.exports = router;
