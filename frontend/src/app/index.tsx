@@ -186,6 +186,10 @@ export default function LoginScreen() {
     router.push('/cliente-registro' as any);
   };
 
+  const irRecuperarPassword = () => {
+    router.push('/recuperar-password' as any);
+  };
+
   const irCatalogo = () => {
     router.push('/catalogo' as any);
   };
@@ -255,6 +259,14 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
           </View>
+
+          <Pressable
+            style={styles.botonOlvido}
+            onPress={irRecuperarPassword}
+            disabled={cargando}
+          >
+            <Text style={styles.textoOlvido}>¿Olvidó su contraseña?</Text>
+          </Pressable>
 
           <Pressable
             style={[
@@ -414,6 +426,16 @@ const styles = StyleSheet.create({
   textoMostrar: {
     color: '#1b5e20',
     fontWeight: 'bold',
+  },
+  botonOlvido: {
+    alignSelf: 'flex-end',
+    paddingVertical: 10,
+    paddingLeft: 12,
+  },
+  textoOlvido: {
+    color: '#1b5e20',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
   },
   botonPrincipal: {
     backgroundColor: '#f58220',

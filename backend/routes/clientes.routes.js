@@ -1,5 +1,6 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const conexion = require('../db');
 const obtenerVariables = require('../config/variables');
 
@@ -93,6 +94,8 @@ router.post('/registrar', async (req, res) => {
 
     const idCliente = await obtenerSiguienteId('clientes', 'id_cliente');
 
+    const claveHash = await bcrypt.hash(claveLimpia, 12);
+
     await ejecutar(
       `
         INSERT INTO clientes
@@ -116,8 +119,8 @@ router.post('/registrar', async (req, res) => {
         telefonoLimpio,
         correoLimpio,
         correoLimpio,
-        claveLimpia,
-        claveLimpia,
+        claveHash,
+        claveHash,
         direccionLimpia,
       ]
     );
@@ -192,7 +195,11 @@ router.post('/login', async (req, res) => {
 
     const claveGuardada = cliente.clave || cliente.password;
 
-    if (!claveGuardada || claveGuardada !== claveLimpia) {
+    const claveCorrecta = String(claveGuardada || '').startsWith('$2')
+      ? await bcrypt.compare(claveLimpia, claveGuardada)
+      : claveGuardada === claveLimpia;
+
+    if (!claveCorrecta) {
       return res.status(401).json({
         mensaje: 'Correo o contraseña incorrectos.',
       });
