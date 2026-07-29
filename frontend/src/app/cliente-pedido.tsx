@@ -9,6 +9,7 @@ import {
   TextInput,
   Alert,
   Platform,
+  Linking,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -182,6 +183,62 @@ export default function ClientePedidoScreen() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  };
+
+  const abrirPedidoEnWhatsApp = async ({
+    numeroPedido,
+    direccionFinal,
+    productosPedido,
+  }: {
+    numeroPedido: number | string;
+    direccionFinal: string;
+    productosPedido: any[];
+  }) => {
+    const nombreCliente =
+      cliente?.nombre ||
+      cliente?.nombre_cliente ||
+      cliente?.cliente ||
+      'Cliente';
+    const telefonoCliente = cliente?.telefono || 'No indicado';
+
+    const detalleProductos = productosPedido
+      .map(
+        (item) =>
+          `• ${item.nombre}: ${item.cantidad} ${item.unidad_medida} × ${formatoColones(
+            item.precio
+          )} = ${formatoColones(item.subtotal)}`
+      )
+      .join('\n');
+
+    const mensajeWhatsApp = [
+      'Hola, ya realicé un pedido en Verdulería Jerusalén.',
+      '',
+      `*Pedido #${numeroPedido}*`,
+      `Cliente: ${nombreCliente}`,
+      `Teléfono: ${telefonoCliente}`,
+      `Tipo de entrega: ${tipoEntrega}`,
+      `Dirección: ${direccionFinal}`,
+      `Método de pago: ${metodoPago}`,
+      '',
+      '*Productos:*',
+      detalleProductos,
+      '',
+      `*Total: ${formatoColones(totalPedido)}*`,
+      observacion.trim() ? `Observaciones: ${observacion.trim()}` : '',
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const enlace = `https://wa.me/50685205023?text=${encodeURIComponent(
+      mensajeWhatsApp
+    )}`;
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.location.assign(enlace);
+      return;
+    }
+
+    await Linking.openURL(enlace);
   };
 
   const obtenerNombre = (producto: any) => {
@@ -389,6 +446,14 @@ export default function ClientePedidoScreen() {
         cantidad: Number(item.cantidad),
       }));
 
+      const productosParaWhatsApp = carrito.map((item) => ({
+        nombre: item.nombre || 'Producto',
+        cantidad: Number(item.cantidad),
+        unidad_medida: item.unidad_medida || 'unidad',
+        precio: Number(item.precio || 0),
+        subtotal: Number(item.subtotal || 0),
+      }));
+
       const respuesta = await api.post('/pedidos', {
         id_cliente: Number(cliente.id_cliente),
         metodo_pago: metodoPago,
@@ -398,9 +463,6 @@ export default function ClientePedidoScreen() {
         productos: productosPedido,
       });
 
-      await borrarCarrito();
-      setObservacion('');
-
       const numeroPedido = respuesta.data?.id_pedido || '';
 
       mostrarMensaje(
@@ -408,11 +470,23 @@ export default function ClientePedidoScreen() {
         'ok'
       );
 
-      if (typeof window !== 'undefined') {
-        window.alert(
-          `Pedido registrado correctamente${numeroPedido ? ` #${numeroPedido}` : ''}.`
+      await borrarCarrito();
+
+      try {
+        await abrirPedidoEnWhatsApp({
+          numeroPedido: numeroPedido || 'sin número',
+          direccionFinal,
+          productosPedido: productosParaWhatsApp,
+        });
+      } catch (errorWhatsApp) {
+        console.log('No se pudo abrir WhatsApp:', errorWhatsApp);
+        mostrarMensaje(
+          `Pedido #${numeroPedido || ''} registrado, pero no se pudo abrir WhatsApp.`,
+          'info'
         );
       }
+
+      setObservacion('');
 
       setTimeout(() => {
         router.replace('/cliente-mis-pedidos' as any);
