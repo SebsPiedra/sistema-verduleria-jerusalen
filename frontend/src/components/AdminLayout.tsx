@@ -6,6 +6,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { usePathname, useRouter } from 'expo-router';
 
@@ -18,8 +19,32 @@ type AdminLayoutProps = {
 export default function AdminLayout({ children, titulo, subtitulo }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { width } = useWindowDimensions();
 
+  const [anchoPantalla, setAnchoPantalla] = useState(width);
   const [usuario, setUsuario] = useState<any>(null);
+
+  useEffect(() => {
+    const actualizarAncho = () => {
+      if (typeof window !== 'undefined') {
+        setAnchoPantalla(window.innerWidth);
+      } else {
+        setAnchoPantalla(width);
+      }
+    };
+
+    actualizarAncho();
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('resize', actualizarAncho);
+
+      return () => {
+        window.removeEventListener('resize', actualizarAncho);
+      };
+    }
+  }, [width]);
+
+  const esTelefono = anchoPantalla < 900;
 
   useEffect(() => {
     cargarUsuario();
@@ -55,7 +80,6 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
       }
 
       setUsuario(null);
-
       router.replace('/' as any);
 
       if (typeof window !== 'undefined') {
@@ -85,21 +109,17 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
       return;
     }
 
-    Alert.alert(
-      'Cerrar sesión',
-      '¿Desea salir del sistema?',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Salir',
-          style: 'destructive',
-          onPress: limpiarSesion,
-        },
-      ]
-    );
+    Alert.alert('Cerrar sesión', '¿Desea salir del sistema?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Salir',
+        style: 'destructive',
+        onPress: limpiarSesion,
+      },
+    ]);
   };
 
   const irA = (ruta: string) => {
@@ -136,62 +156,93 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
     : 'A';
 
   return (
-    <View style={styles.pagina}>
-      <View style={styles.sidebar}>
-        <View style={styles.logoCaja}>
-          <Text style={styles.logoTexto}>VERDULERÍA</Text>
-          <Text style={styles.logoNombre}>JERUSALÉN</Text>
-          <Text style={styles.logoSubtitulo}>
-            FRUTAS · VERDURAS · JUGOS NATURALES
+    <View style={[styles.pagina, esTelefono && styles.paginaMovil]}>
+      <View style={[styles.sidebar, esTelefono && styles.sidebarMovil]}>
+        <View style={[styles.logoCaja, esTelefono && styles.logoCajaMovil]}>
+          <Text style={[styles.logoTexto, esTelefono && styles.logoTextoMovil]}>
+            VERDULERÍA
           </Text>
+
+          <Text style={[styles.logoNombre, esTelefono && styles.logoNombreMovil]}>
+            JERUSALÉN
+          </Text>
+
+          {!esTelefono && (
+            <Text style={styles.logoSubtitulo}>
+              FRUTAS · VERDURAS · JUGOS NATURALES
+            </Text>
+          )}
         </View>
 
-        <ScrollView
-          style={styles.menuScroll}
-          contentContainerStyle={styles.menuContenido}
-          showsVerticalScrollIndicator={false}
-        >
-          {menu.map((item) => {
-            const activo = pathname === item.ruta;
+        {esTelefono ? (
+          <View style={styles.menuMovilGrid}>
+            {menu.map((item) => {
+              const activo = pathname === item.ruta;
 
-            return (
-              <Pressable
-                key={item.ruta}
-                style={[styles.menuItem, activo && styles.menuItemActivo]}
-                onPress={() => irA(item.ruta)}
-              >
-                <Text style={styles.menuIcono}>{item.icono}</Text>
-                <Text style={[styles.menuTexto, activo && styles.menuTextoActivo]}>
-                  {item.texto}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+              return (
+                <Pressable
+                  key={item.ruta}
+                  style={[
+                    styles.menuItemMovilGrid,
+                    activo && styles.menuItemActivo,
+                  ]}
+                  onPress={() => irA(item.ruta)}
+                >
+                  <Text style={styles.menuIconoMovil}>{item.icono}</Text>
+                  <Text style={styles.menuTextoMovilGrid}>{item.texto}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.menuScroll}
+            contentContainerStyle={styles.menuContenido}
+            showsVerticalScrollIndicator={false}
+          >
+            {menu.map((item) => {
+              const activo = pathname === item.ruta;
 
-        <View style={styles.fraseCaja}>
-          <Text style={styles.fraseIcono}>🌿</Text>
-          <Text style={styles.fraseTexto}>
-            Frescura que se siente,{'\n'}calidad que te acompaña.
-          </Text>
-        </View>
+              return (
+                <Pressable
+                  key={item.ruta}
+                  style={[styles.menuItem, activo && styles.menuItemActivo]}
+                  onPress={() => irA(item.ruta)}
+                >
+                  <Text style={styles.menuIcono}>{item.icono}</Text>
+
+                  <Text style={[styles.menuTexto, activo && styles.menuTextoActivo]}>
+                    {item.texto}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        )}
+
+        {!esTelefono && (
+          <View style={styles.fraseCaja}>
+            <Text style={styles.fraseIcono}>🌿</Text>
+            <Text style={styles.fraseTexto}>
+              Frescura que se siente,{'\n'}calidad que te acompaña.
+            </Text>
+          </View>
+        )}
       </View>
 
-      <View style={styles.contenidoDerecha}>
-        <View style={styles.topbar}>
+      <View style={[styles.contenidoDerecha, esTelefono && styles.contenidoDerechaMovil]}>
+        <View style={[styles.topbar, esTelefono && styles.topbarMovil]}>
           <View style={styles.titulosTop}>
-            <Text style={styles.topTitulo}>
+            <Text style={[styles.topTitulo, esTelefono && styles.topTituloMovil]}>
               {titulo || 'Centro de Control Fresco'}
             </Text>
 
-            <Text style={styles.topSubtitulo}>
+            <Text style={[styles.topSubtitulo, esTelefono && styles.topSubtituloMovil]}>
               {subtitulo || `Hoy es ${fechaActual}`}
             </Text>
           </View>
 
-          <View style={styles.usuarioCaja}>
-            <Text style={styles.notificacion}>🔔</Text>
-
+          <View style={[styles.usuarioCaja, esTelefono && styles.usuarioCajaMovil]}>
             <View style={styles.avatar}>
               <Text style={styles.avatarTexto}>{iniciales}</Text>
             </View>
@@ -212,7 +263,15 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
           </View>
         </View>
 
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContenido}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={[
+            styles.scrollContenido,
+            esTelefono && styles.scrollContenidoMovil,
+          ]}
+          showsVerticalScrollIndicator={true}
+          showsHorizontalScrollIndicator={false}
+        >
           {children}
         </ScrollView>
       </View>
@@ -226,11 +285,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#f7f5ee',
     flexDirection: 'row',
   },
+  paginaMovil: {
+    flexDirection: 'column',
+  },
   sidebar: {
     width: 244,
     backgroundColor: '#003f22',
     paddingHorizontal: 9,
     paddingTop: 20,
+    paddingBottom: 12,
+  },
+  sidebarMovil: {
+    width: '100%',
+    backgroundColor: '#003f22',
+    paddingHorizontal: 10,
+    paddingTop: 10,
     paddingBottom: 12,
   },
   logoCaja: {
@@ -241,17 +310,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 14,
   },
+  logoCajaMovil: {
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
   logoTexto: {
     color: '#0f4f24',
     fontSize: 12,
     letterSpacing: 3,
     fontWeight: 'bold',
   },
+  logoTextoMovil: {
+    fontSize: 10,
+    letterSpacing: 3,
+  },
   logoNombre: {
     color: '#0f4f24',
     fontSize: 27,
     fontWeight: 'bold',
     lineHeight: 31,
+  },
+  logoNombreMovil: {
+    fontSize: 25,
+    lineHeight: 28,
   },
   logoSubtitulo: {
     color: '#e07b18',
@@ -266,6 +347,12 @@ const styles = StyleSheet.create({
     gap: 7,
     paddingBottom: 12,
   },
+  menuMovilGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    justifyContent: 'center',
+  },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -274,17 +361,38 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 12,
   },
+  menuItemMovilGrid: {
+    width: '31%',
+    minHeight: 42,
+    backgroundColor: '#064b29',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 7,
+    paddingHorizontal: 4,
+  },
   menuItemActivo: {
     backgroundColor: '#8fbd3a',
   },
   menuIcono: {
     fontSize: 20,
     width: 24,
+    textAlign: 'center',
+  },
+  menuIconoMovil: {
+    fontSize: 17,
+    marginBottom: 1,
   },
   menuTexto: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  menuTextoMovilGrid: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   menuTextoActivo: {
     color: '#ffffff',
@@ -309,6 +417,11 @@ const styles = StyleSheet.create({
   contenidoDerecha: {
     flex: 1,
     backgroundColor: '#fffdf6',
+    minWidth: 0,
+  },
+  contenidoDerechaMovil: {
+    width: '100%',
+    maxWidth: '100%',
   },
   topbar: {
     minHeight: 88,
@@ -322,6 +435,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 18,
   },
+  topbarMovil: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
   titulosTop: {
     flex: 1,
   },
@@ -330,17 +450,25 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
   },
+  topTituloMovil: {
+    fontSize: 20,
+  },
   topSubtitulo: {
     color: '#777',
     marginTop: 4,
+  },
+  topSubtituloMovil: {
+    fontSize: 13,
   },
   usuarioCaja: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  notificacion: {
-    fontSize: 23,
+  usuarioCajaMovil: {
+    width: '100%',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
   },
   avatar: {
     width: 42,
@@ -356,6 +484,7 @@ const styles = StyleSheet.create({
   },
   usuarioInfo: {
     minWidth: 100,
+    flex: 1,
   },
   usuarioNombre: {
     color: '#0f4f24',
@@ -380,8 +509,15 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+    width: '100%',
   },
   scrollContenido: {
     padding: 28,
+    width: '100%',
+    maxWidth: '100%',
+  },
+  scrollContenidoMovil: {
+    padding: 12,
+    paddingBottom: 24,
   },
 });

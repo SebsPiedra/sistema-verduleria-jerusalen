@@ -7,11 +7,14 @@ import {
   TextInput,
   Alert,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function DesechosScreen() {
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
   const [desechos, setDesechos] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
@@ -39,6 +42,8 @@ export default function DesechosScreen() {
 
   useEffect(() => {
     cargarDatos();
+    // La carga inicial solo debe ejecutarse al montar la pantalla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mostrarMensaje = (
@@ -315,7 +320,7 @@ export default function DesechosScreen() {
       titulo="Desechos"
       subtitulo="Registro de productos dañados, vencidos o dados de baja"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Control de desechos 🗑️</Text>
           <Text style={styles.subtitulo}>
@@ -341,7 +346,7 @@ export default function DesechosScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>🗑️</Text>
           <View>
@@ -405,8 +410,8 @@ export default function DesechosScreen() {
             editable={!guardando}
           />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.productosFila}>
+          <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+            <View style={[styles.productosFila, esTelefono && styles.opcionesTelefono]}>
               {productosFiltrados.length === 0 ? (
                 <Text style={styles.sinProductosTexto}>
                   No hay productos disponibles.
@@ -486,8 +491,8 @@ export default function DesechosScreen() {
           </View>
 
           <Text style={styles.label}>Motivo</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.motivosFila}>
+          <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+            <View style={[styles.motivosFila, esTelefono && styles.opcionesTelefono]}>
               {motivos.map((item) => (
                 <Pressable
                   key={item}
@@ -544,7 +549,7 @@ export default function DesechosScreen() {
       )}
 
       <View style={styles.card}>
-        <View style={styles.filtrosFila}>
+        <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
           <TextInput
             style={styles.inputBuscar}
             placeholder="Buscar por producto, motivo u observación..."
@@ -655,6 +660,21 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  filtrosTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  opcionesTelefono: {
+    flexWrap: 'wrap',
   },
   botonAgregar: {
     backgroundColor: '#7bb51e',

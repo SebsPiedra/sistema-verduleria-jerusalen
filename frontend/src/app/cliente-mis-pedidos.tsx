@@ -7,6 +7,7 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
@@ -14,6 +15,8 @@ import { obtenerDato } from '../services/storage.js';
 
 export default function ClienteMisPedidosScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isPhone = width < 768;
 
   const [cliente, setCliente] = useState<any>(null);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -23,6 +26,8 @@ export default function ClienteMisPedidosScreen() {
 
   useEffect(() => {
     cargarClienteYPedidos();
+    // La consulta inicial se repite manualmente con el botón de actualización.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const cargarClienteYPedidos = async () => {
@@ -685,8 +690,8 @@ export default function ClienteMisPedidosScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.hero}>
+    <ScrollView contentContainerStyle={[styles.container, isPhone && styles.containerPhone]}>
+      <View style={[styles.hero, isPhone && styles.heroPhone]}>
         <View style={styles.heroTexto}>
           <Text style={styles.heroEtiqueta}>Seguimiento de compras</Text>
           <Text style={styles.titulo}>Mis pedidos</Text>
@@ -700,7 +705,7 @@ export default function ClienteMisPedidosScreen() {
         </View>
       </View>
 
-      <View style={styles.accionesSuperiores}>
+      <View style={[styles.accionesSuperiores, isPhone && styles.accionesSuperioresPhone]}>
         <Pressable style={styles.botonActualizar} onPress={cargarClienteYPedidos}>
           <Text style={styles.textoBotonClaro}>Actualizar seguimiento</Text>
         </Pressable>
@@ -763,7 +768,7 @@ export default function ClienteMisPedidosScreen() {
 
             return (
               <View key={pedido.id_pedido} style={styles.card}>
-                <View style={styles.cardHeader}>
+                <View style={[styles.cardHeader, isPhone && styles.cardHeaderPhone]}>
                   <View>
                     <Text style={styles.numeroPedido}>Pedido #{pedido.id_pedido}</Text>
                     <Text style={styles.fechaPedido}>
@@ -790,7 +795,7 @@ export default function ClienteMisPedidosScreen() {
                   </Text>
                 </View>
 
-                <View style={styles.infoGrid}>
+                <View style={[styles.infoGrid, isPhone && styles.infoGridPhone]}>
                   <View style={styles.infoItem}>
                     <Text style={styles.infoLabel}>Método de pago</Text>
                     <Text style={styles.infoValor}>
@@ -827,13 +832,13 @@ export default function ClienteMisPedidosScreen() {
                   </View>
                 ) : null}
 
-                <View style={styles.totalFila}>
+                <View style={[styles.totalFila, isPhone && styles.totalFilaPhone]}>
                   <View>
                     <Text style={styles.totalLabel}>Total del pedido</Text>
                     <Text style={styles.total}>{formatoColones(pedido.total)}</Text>
                   </View>
 
-                  <View style={styles.accionesPedido}>
+                  <View style={[styles.accionesPedido, isPhone && styles.accionesPedidoPhone]}>
                     <Pressable
                       style={[
                         styles.botonDetalle,
@@ -880,14 +885,14 @@ export default function ClienteMisPedidosScreen() {
                             key={item.id_detalle_pedido || item.id_detalle || index}
                             style={styles.productoDetalle}
                           >
-                            <View style={styles.productoHeader}>
+                            <View style={[styles.productoHeader, isPhone && styles.productoHeaderPhone]}>
                               <Text style={styles.productoNombre}>{nombre}</Text>
                               <Text style={styles.productoSubtotal}>
                                 {formatoColones(obtenerSubtotal(item))}
                               </Text>
                             </View>
 
-                            <View style={styles.productoInfoFila}>
+                            <View style={[styles.productoInfoFila, isPhone && styles.productoInfoFilaPhone]}>
                               <Text style={styles.productoTexto}>
                                 Cantidad: {obtenerCantidad(item)} {unidad}
                               </Text>
@@ -933,6 +938,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#f5f1df',
     padding: 22,
   },
+  containerPhone: { padding: 12 },
   centro: {
     flex: 1,
     justifyContent: 'center',
@@ -954,6 +960,7 @@ const styles = StyleSheet.create({
     gap: 18,
     marginBottom: 18,
   },
+  heroPhone: { padding: 18, borderRadius: 20 },
   heroTexto: {
     flex: 1,
   },
@@ -989,6 +996,7 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 18,
   },
+  accionesSuperioresPhone: { flexDirection: 'column' },
   botonActualizar: {
     flex: 1,
     backgroundColor: '#7bb51e',
@@ -1116,6 +1124,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: 14,
   },
+  cardHeaderPhone: { flexDirection: 'column' },
   numeroPedido: {
     fontSize: 24,
     fontWeight: 'bold',
@@ -1213,6 +1222,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     flexWrap: 'wrap',
   },
+  infoGridPhone: { flexDirection: 'column' },
   infoItem: {
     flex: 1,
     minWidth: 180,
@@ -1267,6 +1277,7 @@ const styles = StyleSheet.create({
     gap: 12,
     alignItems: 'center',
   },
+  totalFilaPhone: { flexDirection: 'column', alignItems: 'stretch' },
   totalLabel: {
     color: '#1b5e20',
     fontWeight: 'bold',
@@ -1283,6 +1294,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-end',
   },
+  accionesPedidoPhone: { flexDirection: 'column' },
   botonDetalle: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
@@ -1347,6 +1359,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 8,
   },
+  productoHeaderPhone: { flexDirection: 'column' },
   productoNombre: {
     flex: 1,
     fontWeight: 'bold',
@@ -1363,6 +1376,7 @@ const styles = StyleSheet.create({
     gap: 12,
     flexWrap: 'wrap',
   },
+  productoInfoFilaPhone: { flexDirection: 'column' },
   productoTexto: {
     color: '#555',
     fontWeight: 'bold',

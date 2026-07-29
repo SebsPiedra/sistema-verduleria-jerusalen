@@ -4,11 +4,14 @@ import {
   Text,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function DashboardScreen() {
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
   const [productos, setProductos] = useState<any[]>([]);
   const [ventas, setVentas] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -201,7 +204,7 @@ export default function DashboardScreen() {
       titulo="Dashboard"
       subtitulo="Resumen gerencial de inventario, pedidos, ventas y pérdidas"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Dashboard general 📊</Text>
           <Text style={styles.subtitulo}>
@@ -222,7 +225,7 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>📦</Text>
           <View>
@@ -260,7 +263,7 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <View style={styles.contenidoGrid}>
+      <View style={[styles.contenidoGrid, esTelefono && styles.contenidoGridTelefono]}>
         <View style={styles.cardGrande}>
           <Text style={styles.cardTitulo}>Estado del inventario</Text>
           <Text style={styles.cardSubtitulo}>
@@ -332,7 +335,7 @@ export default function DashboardScreen() {
         </View>
       </View>
 
-      <View style={styles.contenidoGrid}>
+      <View style={[styles.contenidoGrid, esTelefono && styles.contenidoGridTelefono]}>
         <View style={styles.cardGrande}>
           <Text style={styles.cardTitulo}>Pedidos</Text>
           <Text style={styles.cardSubtitulo}>
@@ -408,6 +411,17 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  contenidoGridTelefono: {
+    flexDirection: 'column',
   },
   botonActualizar: {
     backgroundColor: '#7bb51e',

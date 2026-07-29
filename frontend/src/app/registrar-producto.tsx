@@ -6,7 +6,6 @@ import {
   Pressable,
   StyleSheet,
   Image,
-  ScrollView,
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';

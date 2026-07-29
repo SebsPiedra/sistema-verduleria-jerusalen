@@ -1,5 +1,9 @@
 const express = require('express');
 const conexion = require('../db');
+const {
+  agregarCategoriaProducto,
+  obtenerCategoriaProducto
+} = require('../utils/productos');
 
 const router = express.Router();
 
@@ -44,7 +48,7 @@ router.get('/', (req, res) => {
       });
     }
 
-    res.json(resultados);
+    res.json(resultados.map(agregarCategoriaProducto));
   });
 });
 
@@ -76,7 +80,7 @@ router.get('/stock-bajo', (req, res) => {
       });
     }
 
-    res.json(resultados);
+    res.json(resultados.map(agregarCategoriaProducto));
   });
 });
 
@@ -146,7 +150,7 @@ router.get('/:id', (req, res) => {
       });
     }
 
-    res.json(resultados[0]);
+    res.json(agregarCategoriaProducto(resultados[0]));
   });
 });
 
@@ -212,7 +216,8 @@ router.post('/', (req, res) => {
 
       res.json({
         mensaje: 'Producto registrado correctamente',
-        id_producto: resultado.insertId
+        id_producto: resultado.insertId,
+        categoria: obtenerCategoriaProducto(nombre)
       });
     }
   );
@@ -288,7 +293,8 @@ router.put('/:id', (req, res) => {
       }
 
       res.json({
-        mensaje: 'Producto actualizado correctamente'
+        mensaje: 'Producto actualizado correctamente',
+        categoria: obtenerCategoriaProducto(nombre)
       });
     }
   );

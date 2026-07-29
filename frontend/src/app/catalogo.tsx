@@ -7,15 +7,24 @@ import {
   ScrollView,
   Image,
   TextInput,
+  useWindowDimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../services/api';
+import { eliminarDato, guardarDato, obtenerDato } from '../services/storage.js';
+import {
+  CATEGORIAS_PRODUCTOS,
+  obtenerCategoriaProducto,
+} from '../utils/productos';
 
 const CARRITO_KEY = 'carrito';
 const CARRITO_CLIENTE_KEY = 'carrito_cliente';
 
 export default function CatalogoScreen() {
   const router = useRouter();
+  const parametros = useLocalSearchParams<{ categoria?: string }>();
+  const { width } = useWindowDimensions();
+  const isPhone = width < 768;
 
   const [cliente, setCliente] = useState<any>(null);
   const [productos, setProductos] = useState<any[]>([]);
@@ -23,6 +32,7 @@ export default function CatalogoScreen() {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
   const [carritoCantidad, setCarritoCantidad] = useState(0);
   const [cargando, setCargando] = useState(false);
+  const [sesionCargada, setSesionCargada] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
 
@@ -30,7 +40,19 @@ export default function CatalogoScreen() {
     cargarCliente();
     cargarProductos();
     cargarCarrito();
+    // Estas tres cargas deben ejecutarse una sola vez al abrir la pantalla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const categoria = Array.isArray(parametros.categoria)
+      ? parametros.categoria[0]
+      : parametros.categoria;
+
+    if (categoria && CATEGORIAS_PRODUCTOS.includes(categoria as any)) {
+      setCategoriaSeleccionada(categoria);
+    }
+  }, [parametros.categoria]);
 
   const mostrarMensaje = (texto: string, tipo: 'ok' | 'error' | 'info' = 'info') => {
     setMensaje(texto);
@@ -41,25 +63,25 @@ export default function CatalogoScreen() {
     }, 3500);
   };
 
-  const cargarCliente = () => {
+  const cargarCliente = async () => {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const clienteGuardado = localStorage.getItem('cliente');
-
-        if (clienteGuardado) {
-          setCliente(JSON.parse(clienteGuardado));
-        }
+      const clienteGuardado = await obtenerDato('cliente');
+      if (clienteGuardado) {
+        setCliente(JSON.parse(clienteGuardado));
       }
     } catch (error) {
       console.log('Error al cargar cliente:', error);
+    } finally {
+      setSesionCargada(true);
     }
   };
 
-  const guardarCarrito = (carrito: any[]) => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem(CARRITO_KEY, JSON.stringify(carrito));
-      localStorage.setItem(CARRITO_CLIENTE_KEY, JSON.stringify(carrito));
-    }
+  const guardarCarrito = async (carrito: any[]) => {
+    const carritoSerializado = JSON.stringify(carrito);
+    await Promise.all([
+      guardarDato(CARRITO_KEY, carritoSerializado),
+      guardarDato(CARRITO_CLIENTE_KEY, carritoSerializado),
+    ]);
 
     const totalCantidad = carrito.reduce(
       (total, item) => total + Number(item.cantidad || 0),
@@ -69,25 +91,23 @@ export default function CatalogoScreen() {
     setCarritoCantidad(totalCantidad);
   };
 
-  const cargarCarrito = () => {
+  const cargarCarrito = async () => {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const carritoGuardado =
-          localStorage.getItem(CARRITO_CLIENTE_KEY) ||
-          localStorage.getItem(CARRITO_KEY);
+      const carritoGuardado =
+        (await obtenerDato(CARRITO_CLIENTE_KEY)) ||
+        (await obtenerDato(CARRITO_KEY));
 
-        if (carritoGuardado) {
-          const carrito = JSON.parse(carritoGuardado);
+      if (carritoGuardado) {
+        const carrito = JSON.parse(carritoGuardado);
 
-          const totalCantidad = carrito.reduce(
-            (total: number, item: any) => total + Number(item.cantidad || 0),
-            0
-          );
+        const totalCantidad = carrito.reduce(
+          (total: number, item: any) => total + Number(item.cantidad || 0),
+          0
+        );
 
-          setCarritoCantidad(totalCantidad);
-        } else {
-          setCarritoCantidad(0);
-        }
+        setCarritoCantidad(totalCantidad);
+      } else {
+        setCarritoCantidad(0);
       }
     } catch (error) {
       console.log('Error al cargar carrito:', error);
@@ -115,13 +135,13 @@ export default function CatalogoScreen() {
     }
   };
 
-  const cerrarSesion = () => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('token_cliente');
-      localStorage.removeItem('cliente');
-      localStorage.removeItem(CARRITO_KEY);
-      localStorage.removeItem(CARRITO_CLIENTE_KEY);
-    }
+  const cerrarSesion = async () => {
+    await Promise.all([
+      eliminarDato('token_cliente'),
+      eliminarDato('cliente'),
+      eliminarDato(CARRITO_KEY),
+      eliminarDato(CARRITO_CLIENTE_KEY),
+    ]);
 
     setCliente(null);
     setCarritoCantidad(0);
@@ -138,6 +158,8 @@ export default function CatalogoScreen() {
   };
 
   const irMisPedidos = () => {
+    if (!sesionCargada) return;
+
     if (!cliente) {
       mostrarMensaje('Debe iniciar sesión para ver sus pedidos.', 'info');
       router.push('/cliente-login' as any);
@@ -152,6 +174,8 @@ export default function CatalogoScreen() {
   };
 
   const irPedido = () => {
+    if (!sesionCargada) return;
+
     if (!cliente) {
       mostrarMensaje('Debe iniciar sesión para realizar un pedido.', 'info');
       router.push('/cliente-login' as any);
@@ -183,7 +207,7 @@ export default function CatalogoScreen() {
   };
 
   const obtenerCategoria = (producto: any) => {
-    return producto.categoria || producto.nombre_categoria || producto.categoria_nombre || 'General';
+    return obtenerCategoriaProducto(producto);
   };
 
   const obtenerDisponible = (producto: any) => {
@@ -195,7 +219,7 @@ export default function CatalogoScreen() {
     return estado !== 'inactivo';
   };
 
-  const agregarAlCarrito = (producto: any) => {
+  const agregarAlCarrito = async (producto: any) => {
     if (!cliente) {
       mostrarMensaje('Para agregar productos debe iniciar sesión como cliente.', 'info');
       router.push('/cliente-login' as any);
@@ -211,9 +235,8 @@ export default function CatalogoScreen() {
 
     try {
       const carritoGuardado =
-        typeof localStorage !== 'undefined'
-          ? localStorage.getItem(CARRITO_CLIENTE_KEY) || localStorage.getItem(CARRITO_KEY)
-          : null;
+        (await obtenerDato(CARRITO_CLIENTE_KEY)) ||
+        (await obtenerDato(CARRITO_KEY));
 
       const carrito = carritoGuardado ? JSON.parse(carritoGuardado) : [];
 
@@ -244,7 +267,7 @@ export default function CatalogoScreen() {
         });
       }
 
-      guardarCarrito(carrito);
+      await guardarCarrito(carrito);
       mostrarMensaje(`${obtenerNombre(producto)} fue agregado al carrito.`, 'ok');
     } catch (error) {
       console.log('Error al agregar al carrito:', error);
@@ -252,10 +275,11 @@ export default function CatalogoScreen() {
     }
   };
 
-  const categorias = [
-    'Todos',
-    ...Array.from(new Set(productos.map((producto) => obtenerCategoria(producto)))),
-  ];
+  const categorias = CATEGORIAS_PRODUCTOS.filter(
+    (categoria) =>
+      categoria === 'Todos' ||
+      productos.some((producto) => obtenerCategoria(producto) === categoria)
+  );
 
   const productosFiltrados = productos.filter((producto) => {
     const nombre = obtenerNombre(producto).toLowerCase();
@@ -271,16 +295,16 @@ export default function CatalogoScreen() {
   });
 
   return (
-    <ScrollView style={styles.pagina} contentContainerStyle={styles.contenido}>
+    <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]}>
       <View style={styles.contenedorPrincipal}>
-        <View style={styles.header}>
-          <Pressable onPress={irInicio} style={styles.logoArea}>
+        <View style={[styles.header, isPhone && styles.headerPhone]}>
+          <Pressable onPress={irInicio} style={[styles.logoArea, isPhone && styles.logoAreaPhone]}>
             <Text style={styles.logoTexto}>VERDULERÍA</Text>
             <Text style={styles.logoNombre}>JERUSALÉN</Text>
             <Text style={styles.logoSubtitulo}>FRUTAS · VERDURAS · JUGOS NATURALES</Text>
           </Pressable>
 
-          <View style={styles.menu}>
+          <View style={[styles.menu, isPhone && styles.menuPhone]}>
             <Pressable onPress={irInicio}>
               <Text style={styles.menuTexto}>Inicio</Text>
             </Pressable>
@@ -294,8 +318,13 @@ export default function CatalogoScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.acciones}>
-            {cliente ? (
+          <View style={[styles.acciones, isPhone && styles.accionesPhone]}>
+            {!sesionCargada ? (
+              <View style={styles.botonPerfil}>
+                <Text style={styles.perfilIcono}>👤</Text>
+                <Text style={styles.textoSalir}>Cargando...</Text>
+              </View>
+            ) : cliente ? (
               <Pressable onPress={cerrarSesion} style={styles.botonPerfil}>
                 <Text style={styles.perfilIcono}>👤</Text>
                 <Text style={styles.textoSalir}>Salir</Text>
@@ -317,7 +346,7 @@ export default function CatalogoScreen() {
           </View>
         </View>
 
-        <View style={styles.bannerCatalogo}>
+        <View style={[styles.bannerCatalogo, isPhone && styles.bannerCatalogoPhone]}>
           <Text style={styles.bannerTitulo}>Catálogo de productos</Text>
           <Text style={styles.bannerTexto}>
             Frutas, verduras y jugos naturales seleccionados para su hogar.
@@ -376,7 +405,7 @@ export default function CatalogoScreen() {
           ) : productosFiltrados.length === 0 ? (
             <Text style={styles.mensajeVacio}>No hay productos disponibles.</Text>
           ) : (
-            <View style={styles.productosGrid}>
+            <View style={[styles.productosGrid, isPhone && styles.productosGridPhone]}>
               {productosFiltrados.map((producto, index) => {
                 const imagen = obtenerImagen(producto);
                 const disponible = obtenerDisponible(producto);
@@ -385,7 +414,7 @@ export default function CatalogoScreen() {
                 return (
                   <View
                     key={producto.id_producto || producto.id || index}
-                    style={styles.productoCard}
+                    style={[styles.productoCard, isPhone && styles.productoCardPhone]}
                   >
                     {agotado && (
                       <View style={styles.etiquetaAgotado}>
@@ -450,6 +479,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  contenidoPhone: { padding: 0 },
   contenedorPrincipal: {
     width: '100%',
     maxWidth: 1200,
@@ -469,10 +499,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 20,
   },
+  headerPhone: { flexDirection: 'column', alignItems: 'stretch', paddingHorizontal: 16, gap: 14 },
   logoArea: {
     width: 280,
     justifyContent: 'center',
   },
+  logoAreaPhone: { width: '100%', alignItems: 'center' },
   logoTexto: {
     color: '#0f4f24',
     fontSize: 18,
@@ -496,6 +528,7 @@ const styles = StyleSheet.create({
     gap: 36,
     alignItems: 'center',
   },
+  menuPhone: { justifyContent: 'space-between', gap: 8, width: '100%' },
   menuTexto: {
     color: '#1e1e1e',
     fontSize: 16,
@@ -512,6 +545,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 18,
   },
+  accionesPhone: { justifyContent: 'center', width: '100%' },
   botonPerfil: {
     alignItems: 'center',
   },
@@ -551,6 +585,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     alignItems: 'center',
   },
+  bannerCatalogoPhone: { paddingVertical: 26, paddingHorizontal: 16 },
   bannerTitulo: {
     color: '#063f22',
     fontSize: 42,
@@ -637,6 +672,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 18,
   },
+  productosGridPhone: { flexDirection: 'column' },
   productoCard: {
     width: 200,
     backgroundColor: '#ffffff',
@@ -646,6 +682,7 @@ const styles = StyleSheet.create({
     borderColor: '#ebe4d3',
     position: 'relative',
   },
+  productoCardPhone: { width: '100%', minWidth: 0 },
   etiquetaAgotado: {
     position: 'absolute',
     top: 10,

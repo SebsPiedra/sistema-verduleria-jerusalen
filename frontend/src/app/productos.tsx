@@ -7,13 +7,17 @@ import {
   TextInput,
   Image,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
+import { obtenerCategoriaProducto } from '../utils/productos';
 import AdminLayout from '../components/AdminLayout';
 
 export default function ProductosScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
 
   const [productos, setProductos] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
@@ -25,6 +29,8 @@ export default function ProductosScreen() {
 
   useEffect(() => {
     cargarProductos();
+    // La lista se vuelve a cargar explícitamente después de cada acción.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mostrarMensaje = (
@@ -73,7 +79,7 @@ export default function ProductosScreen() {
   };
 
   const obtenerCategoria = (producto: any) => {
-    return producto.categoria || producto.nombre_categoria || producto.categoria_nombre || 'General';
+    return obtenerCategoriaProducto(producto);
   };
 
   const obtenerPrecio = (producto: any) => {
@@ -217,7 +223,7 @@ export default function ProductosScreen() {
       titulo="Inventario"
       subtitulo="Control de productos, cantidades, precios y estado del inventario"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Inventario de productos 📦</Text>
           <Text style={styles.subtitulo}>
@@ -243,7 +249,7 @@ export default function ProductosScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>🧺</Text>
           <View>
@@ -282,7 +288,7 @@ export default function ProductosScreen() {
       </View>
 
       <View style={styles.cardInventario}>
-        <View style={styles.filtrosFila}>
+        <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
           <TextInput
             style={styles.inputBuscar}
             placeholder="Buscar producto o categoría..."
@@ -290,8 +296,8 @@ export default function ProductosScreen() {
             onChangeText={setBusqueda}
           />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filtrosHorizontales}>
+          <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+            <View style={[styles.filtrosHorizontales, esTelefono && styles.opcionesTelefono]}>
               {['Todos', 'En buen estado', 'Stock bajo', 'Sin stock', 'Inactivo'].map((estado) => (
                 <Pressable
                   key={estado}
@@ -315,8 +321,8 @@ export default function ProductosScreen() {
           </ScrollView>
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-          <View style={styles.categoriasFila}>
+        <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+          <View style={[styles.categoriasFila, esTelefono && styles.opcionesTelefono]}>
             {categorias.map((categoria) => (
               <Pressable
                 key={categoria}
@@ -339,7 +345,7 @@ export default function ProductosScreen() {
           </View>
         </ScrollView>
 
-        <View style={styles.accionesFila}>
+        <View style={[styles.accionesFila, esTelefono && styles.accionesTelefono]}>
           <Text style={styles.resultadoTexto}>
             Mostrando {productosFiltrados.length} de {productos.length} productos
           </Text>
@@ -440,7 +446,7 @@ export default function ProductosScreen() {
         )}
       </View>
 
-      <View style={styles.footerResumen}>
+      <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
         <View style={styles.footerItem}>
           <Text style={styles.footerIcono}>🌿</Text>
           <View>
@@ -449,7 +455,7 @@ export default function ProductosScreen() {
           </View>
         </View>
 
-        <View style={styles.footerSeparador} />
+        <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
           <Text style={styles.footerIcono}>⚠️</Text>
@@ -459,7 +465,7 @@ export default function ProductosScreen() {
           </View>
         </View>
 
-        <View style={styles.footerSeparador} />
+        <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
           <Text style={styles.footerIcono}>💰</Text>
@@ -489,6 +495,22 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  filtrosTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  accionesTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   botonAgregar: {
     backgroundColor: '#7bb51e',
@@ -625,6 +647,9 @@ const styles = StyleSheet.create({
   filtrosHorizontales: {
     flexDirection: 'row',
     gap: 10,
+  },
+  opcionesTelefono: {
+    flexWrap: 'wrap',
   },
   filtroBoton: {
     backgroundColor: '#f7f2dc',
@@ -853,6 +878,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  footerResumenTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 14,
+  },
   footerItem: {
     flex: 1,
     flexDirection: 'row',
@@ -877,5 +907,10 @@ const styles = StyleSheet.create({
     height: 55,
     backgroundColor: '#9ccc65',
     marginHorizontal: 16,
+  },
+  footerSeparadorTelefono: {
+    width: '100%',
+    height: 1,
+    marginHorizontal: 0,
   },
 });

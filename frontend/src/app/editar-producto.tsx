@@ -40,6 +40,8 @@ export default function EditarProductoScreen() {
 
   useEffect(() => {
     cargarProducto();
+    // El producto se hidrata una vez a partir del parámetro de la ruta.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mostrarMensaje = (
@@ -76,7 +78,7 @@ export default function EditarProductoScreen() {
       try {
         const respuesta = await api.get(`/productos/${idProducto}`);
         productoEncontrado = respuesta.data?.producto || respuesta.data;
-      } catch (error) {
+      } catch {
         const respuestaLista = await api.get('/productos');
 
         const productos = Array.isArray(respuestaLista.data)

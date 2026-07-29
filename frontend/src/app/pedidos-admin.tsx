@@ -7,11 +7,14 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function PedidosAdminScreen() {
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
   const [pedidos, setPedidos] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [filtroEstado, setFiltroEstado] = useState('Todos');
@@ -23,6 +26,8 @@ export default function PedidosAdminScreen() {
 
   useEffect(() => {
     cargarPedidos();
+    // La actualización posterior se realiza mediante la acción de la pantalla.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mostrarMensaje = (
@@ -357,7 +362,7 @@ export default function PedidosAdminScreen() {
         await api.patch(`/pedidos/${idPedido}/estado`, {
           estado: nuevoEstado,
         });
-      } catch (errorPatch) {
+      } catch {
         const accion =
           nuevoEstado === 'Aceptado'
             ? 'aceptar'
@@ -373,7 +378,7 @@ export default function PedidosAdminScreen() {
 
         try {
           await api.patch(`/pedidos/${idPedido}/${accion}`);
-        } catch (errorPatchAccion) {
+        } catch {
           await api.put(`/pedidos/${idPedido}/${accion}`);
         }
       }
@@ -451,7 +456,7 @@ export default function PedidosAdminScreen() {
       titulo="Pedidos"
       subtitulo="Control de pedidos de clientes, estados y detalle de productos"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Pedidos de clientes 📋</Text>
           <Text style={styles.subtitulo}>
@@ -479,7 +484,7 @@ export default function PedidosAdminScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>📋</Text>
           <View>
@@ -528,8 +533,8 @@ export default function PedidosAdminScreen() {
             onChangeText={setBusqueda}
           />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filtrosFila}>
+          <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+            <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
               {estados.map((estado) => (
                 <Pressable
                   key={estado}
@@ -826,6 +831,18 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  filtrosTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   botonActualizar: {
     backgroundColor: '#7bb51e',

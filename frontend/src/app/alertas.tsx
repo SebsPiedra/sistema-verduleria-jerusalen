@@ -6,13 +6,17 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
+import { obtenerCategoriaProducto as inferirCategoriaProducto } from '../utils/productos';
 
 export default function AlertasScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
 
   const [productos, setProductos] = useState<any[]>([]);
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -88,7 +92,7 @@ export default function AlertasScreen() {
   };
 
   const obtenerCategoriaProducto = (producto: any) => {
-    return producto.categoria || producto.nombre_categoria || producto.categoria_nombre || 'General';
+    return inferirCategoriaProducto(producto);
   };
 
   const obtenerCantidadProducto = (producto: any) => {
@@ -285,7 +289,7 @@ export default function AlertasScreen() {
       titulo="Alertas"
       subtitulo="Avisos importantes de inventario, pedidos y pérdidas"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Centro de alertas 🔔</Text>
           <Text style={styles.subtitulo}>
@@ -306,7 +310,7 @@ export default function AlertasScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>🔔</Text>
           <View>
@@ -353,8 +357,8 @@ export default function AlertasScreen() {
             onChangeText={setBusqueda}
           />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.filtrosFila}>
+          <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+            <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
               {tipos.map((tipo) => (
                 <Pressable
                   key={tipo}
@@ -396,14 +400,17 @@ export default function AlertasScreen() {
               const estilos = obtenerEstilos(alerta.color);
 
               return (
-                <View key={`${alerta.tipo}-${alerta.titulo}-${index}`} style={[styles.alertaCard, estilos.card]}>
+                <View
+                  key={`${alerta.tipo}-${alerta.titulo}-${index}`}
+                  style={[styles.alertaCard, estilos.card, esTelefono && styles.alertaCardTelefono]}
+                >
                   <View style={styles.alertaIconoCaja}>
                     <Text style={styles.alertaIcono}>{alerta.icono}</Text>
                   </View>
 
                   <View style={styles.alertaContenido}>
-                    <View style={styles.alertaHeader}>
-                      <View>
+                    <View style={[styles.alertaHeader, esTelefono && styles.alertaHeaderTelefono]}>
+                      <View style={styles.alertaTexto}>
                         <Text style={styles.alertaTitulo}>{alerta.titulo}</Text>
                         <Text style={styles.alertaDescripcion}>{alerta.descripcion}</Text>
                       </View>
@@ -417,7 +424,7 @@ export default function AlertasScreen() {
 
                     <Text style={styles.alertaDetalle}>{alerta.detalle}</Text>
 
-                    <View style={styles.alertaFooter}>
+                    <View style={[styles.alertaFooter, esTelefono && styles.alertaFooterTelefono]}>
                       <View style={styles.tipoBadge}>
                         <Text style={styles.tipoBadgeTexto}>{alerta.tipo}</Text>
                       </View>
@@ -462,6 +469,18 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  filtrosTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   botonActualizar: {
     backgroundColor: '#7bb51e',
@@ -617,6 +636,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 14,
   },
+  alertaCardTelefono: {
+    flexDirection: 'column',
+  },
   alertaRoja: {
     backgroundColor: '#ffebee',
     borderColor: '#ef9a9a',
@@ -642,11 +664,19 @@ const styles = StyleSheet.create({
   },
   alertaContenido: {
     flex: 1,
+    minWidth: 0,
+  },
+  alertaTexto: {
+    flex: 1,
+    minWidth: 0,
   },
   alertaHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
+  },
+  alertaHeaderTelefono: {
+    flexDirection: 'column',
   },
   alertaTitulo: {
     color: '#0f4f24',
@@ -694,6 +724,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 14,
+  },
+  alertaFooterTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   tipoBadge: {
     backgroundColor: '#ffffff',

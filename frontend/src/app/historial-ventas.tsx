@@ -7,11 +7,14 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function HistorialVentasScreen() {
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
   const [ventas, setVentas] = useState<any[]>([]);
   const [detalles, setDetalles] = useState<any>({});
   const [ventaSeleccionada, setVentaSeleccionada] = useState<any>(null);
@@ -582,7 +585,7 @@ export default function HistorialVentasScreen() {
       titulo="Historial de ventas"
       subtitulo="Consulta de ventas registradas y vista previa de facturas"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Historial y facturas 🧾</Text>
           <Text style={styles.subtitulo}>
@@ -603,7 +606,7 @@ export default function HistorialVentasScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>🧾</Text>
           <View>
@@ -646,8 +649,8 @@ export default function HistorialVentasScreen() {
               onChangeText={setBusqueda}
             />
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.filtrosFila}>
+            <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+              <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
                 {metodos.map((metodo) => (
                   <Pressable
                     key={metodo}
@@ -868,6 +871,18 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  filtrosTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   botonActualizar: {
     backgroundColor: '#7bb51e',

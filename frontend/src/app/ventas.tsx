@@ -7,13 +7,17 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
+import { obtenerCategoriaProducto as inferirCategoriaProducto } from '../utils/productos';
 
 export default function VentasScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
 
   const [ventas, setVentas] = useState<any[]>([]);
   const [productos, setProductos] = useState<any[]>([]);
@@ -35,6 +39,8 @@ export default function VentasScreen() {
 
   useEffect(() => {
     cargarDatos();
+    // La pantalla controla manualmente cuándo refrescar sus datos.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const mostrarMensaje = (
@@ -151,7 +157,7 @@ export default function VentasScreen() {
   };
 
   const obtenerCategoriaProducto = (producto: any) => {
-    return producto.categoria || producto.nombre_categoria || producto.categoria_nombre || 'General';
+    return inferirCategoriaProducto(producto);
   };
 
   const obtenerCantidadProducto = (producto: any) => {
@@ -413,7 +419,7 @@ export default function VentasScreen() {
       titulo="Ventas"
       subtitulo="Registro manual de ventas, facturas y control de historial"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Ventas manuales 📈</Text>
           <Text style={styles.subtitulo}>
@@ -442,7 +448,7 @@ export default function VentasScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>🧾</Text>
           <View>
@@ -501,8 +507,8 @@ export default function VentasScreen() {
             <View style={styles.campo}>
               <Text style={styles.label}>Método de pago</Text>
 
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.metodosFila}>
+              <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+                <View style={[styles.metodosFila, esTelefono && styles.opcionesTelefono]}>
                   {metodosPago.map((metodo) => (
                     <Pressable
                       key={metodo}
@@ -537,8 +543,8 @@ export default function VentasScreen() {
             editable={!guardando}
           />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.productosFila}>
+          <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
+            <View style={[styles.productosFila, esTelefono && styles.opcionesTelefono]}>
               {productosDisponibles.length === 0 ? (
                 <Text style={styles.sinProductosTexto}>
                   No hay productos disponibles para vender.
@@ -651,7 +657,7 @@ export default function VentasScreen() {
       )}
 
       <View style={styles.card}>
-        <View style={styles.filtrosFila}>
+        <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
           <TextInput
             style={styles.inputBuscar}
             placeholder="Buscar venta por factura, cliente o método de pago..."
@@ -718,7 +724,7 @@ export default function VentasScreen() {
               </Text>
 
               <View style={styles.colEstado}>
-                <View style={styles.estadoBadge}>
+                <View style={[styles.estadoBadge, esTelefono && styles.estadoBadgeTelefono]}>
                   <View style={styles.puntoVerde} />
                   <Text style={styles.estadoTexto}>
                     {venta.estado || 'Completada'}
@@ -755,6 +761,21 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  filtrosTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+  },
+  opcionesTelefono: {
+    flexWrap: 'wrap',
   },
   botonAgregar: {
     backgroundColor: '#7bb51e',
@@ -1219,6 +1240,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     paddingHorizontal: 10,
     borderRadius: 10,
+  },
+  estadoBadgeTelefono: {
+    gap: 3,
+    paddingHorizontal: 4,
   },
   puntoVerde: {
     width: 7,

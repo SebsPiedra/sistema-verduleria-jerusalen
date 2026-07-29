@@ -1,8 +1,8 @@
-import axios from 'axios';
+import { create } from 'axios';
 
 const API_URL = 'https://backend-verduleria.vercel.app/api';
 
-const api = axios.create({
+const api = create({
   baseURL: API_URL,
   timeout: 20000,
   headers: {

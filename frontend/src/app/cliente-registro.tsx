@@ -7,12 +7,15 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 
 export default function ClienteRegistroScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isPhone = width < 768;
 
   const [nombre, setNombre] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -164,7 +167,7 @@ export default function ClienteRegistroScreen() {
   };
 
   return (
-    <ScrollView style={styles.pagina} contentContainerStyle={styles.contenido}>
+    <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]} keyboardShouldPersistTaps="handled">
       <View style={styles.contenedor}>
         <View style={styles.logoArea}>
           <Text style={styles.logoTexto}>VERDULERÍA</Text>
@@ -172,7 +175,7 @@ export default function ClienteRegistroScreen() {
           <Text style={styles.logoSubtitulo}>REGISTRO DE CLIENTES</Text>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, isPhone && styles.cardPhone]}>
           <Text style={styles.titulo}>Crear cuenta</Text>
 
           <Text style={styles.descripcion}>
@@ -317,6 +320,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 20,
   },
+  contenidoPhone: { justifyContent: 'flex-start', padding: 12 },
   contenedor: {
     width: '100%',
     maxWidth: 560,
@@ -352,6 +356,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ebe4d3',
   },
+  cardPhone: { padding: 18, borderRadius: 18 },
   titulo: {
     color: '#063f22',
     fontSize: 32,

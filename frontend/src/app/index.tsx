@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
+import { eliminarDato, guardarDato, obtenerDato } from '../services/storage.js';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -38,30 +39,37 @@ export default function LoginScreen() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoTexto);
   };
 
-  const limpiarSesiones = () => {
-    if (typeof localStorage !== 'undefined') {
-      localStorage.removeItem('token');
-      localStorage.removeItem('usuario');
-      localStorage.removeItem('token_cliente');
-      localStorage.removeItem('cliente');
-    }
+  const limpiarSesiones = async () => {
+    await Promise.all([
+      eliminarDato('token'),
+      eliminarDato('usuario'),
+      eliminarDato('token_cliente'),
+      eliminarDato('cliente'),
+    ]);
   };
 
-  const guardarSesionAdmin = (token: string, usuario: any) => {
-    limpiarSesiones();
-
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('token', token);
-      localStorage.setItem('usuario', JSON.stringify(usuario));
-    }
+  const guardarSesionAdmin = async (token: string, usuario: any) => {
+    await limpiarSesiones();
+    await Promise.all([
+      guardarDato('token', token),
+      guardarDato('usuario', JSON.stringify(usuario)),
+    ]);
   };
 
-  const guardarSesionCliente = (token: string, cliente: any) => {
-    limpiarSesiones();
+  const guardarSesionCliente = async (token: string, cliente: any) => {
+    await limpiarSesiones();
+    await Promise.all([
+      guardarDato('token_cliente', token),
+      guardarDato('cliente', JSON.stringify(cliente)),
+    ]);
 
-    if (typeof localStorage !== 'undefined') {
-      localStorage.setItem('token_cliente', token);
-      localStorage.setItem('cliente', JSON.stringify(cliente));
+    const [tokenGuardado, clienteGuardado] = await Promise.all([
+      obtenerDato('token_cliente'),
+      obtenerDato('cliente'),
+    ]);
+
+    if (!tokenGuardado || !clienteGuardado) {
+      throw new Error('No se pudo conservar la sesión del cliente.');
     }
   };
 
@@ -133,7 +141,7 @@ export default function LoginScreen() {
         const usuario = respuestaAdmin.data?.usuario;
 
         if (token && usuario) {
-          guardarSesionAdmin(token, usuario);
+          await guardarSesionAdmin(token, usuario);
           mostrarMensaje('Inicio de sesión correcto.', 'ok');
           router.replace('/home' as any);
           return;
@@ -152,7 +160,7 @@ export default function LoginScreen() {
         const cliente = respuestaCliente.data?.cliente;
 
         if (token && cliente) {
-          guardarSesionCliente(token, cliente);
+          await guardarSesionCliente(token, cliente);
           mostrarMensaje('Inicio de sesión correcto.', 'ok');
           router.replace('/cliente-home' as any);
           return;

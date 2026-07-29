@@ -5,11 +5,14 @@ import {
   StyleSheet,
   TextInput,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function ClientesScreen() {
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
   const [clientes, setClientes] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(false);
@@ -54,7 +57,7 @@ export default function ClientesScreen() {
       titulo="Clientes"
       subtitulo="Consulta de clientes registrados en la verdulería"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Clientes registrados 👥</Text>
           <Text style={styles.subtitulo}>
@@ -160,6 +163,11 @@ const styles = StyleSheet.create({
   subtitulo: {
     color: '#666',
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
   },
   botonActualizar: {
     backgroundColor: '#7bb51e',

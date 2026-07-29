@@ -29,7 +29,7 @@ export default function StockBajoScreen() {
         } else {
           setProductos([]);
         }
-      } catch (errorStockBajo) {
+      } catch {
         console.log('No existe /productos/stock-bajo, se filtra desde /productos');
 
         const respuestaProductos = await api.get('/productos');

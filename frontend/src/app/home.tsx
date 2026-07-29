@@ -6,13 +6,17 @@ import {
   StyleSheet,
   TextInput,
   Image,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
+import { obtenerCategoriaProducto } from '../utils/productos';
 import AdminLayout from '../components/AdminLayout';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
 
   const [productos, setProductos] = useState<any[]>([]);
   const [resumen, setResumen] = useState<any>({});
@@ -65,7 +69,7 @@ export default function HomeScreen() {
   };
 
   const obtenerCategoria = (producto: any) => {
-    return producto.categoria || producto.nombre_categoria || producto.categoria_nombre || 'General';
+    return obtenerCategoriaProducto(producto);
   };
 
   const obtenerPrecio = (producto: any) => {
@@ -153,7 +157,7 @@ export default function HomeScreen() {
       titulo="Centro de Control Fresco"
       subtitulo="Resumen de inventario, ventas, clientes y pedidos"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Todo bajo control 🌿</Text>
           <Text style={styles.subtitulo}>
@@ -175,10 +179,10 @@ export default function HomeScreen() {
         </View>
       )}
 
-      <View style={styles.tarjetas}>
+      <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>🧺</Text>
-          <View>
+          <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Productos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
             <Text style={styles.tarjetaDetalle}>Activos en inventario</Text>
@@ -187,7 +191,7 @@ export default function HomeScreen() {
 
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIconoVerde}>✓</Text>
-          <View>
+          <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>En buen estado</Text>
             <Text style={styles.tarjetaNumero}>{enBuenEstado}</Text>
             <Text style={styles.tarjetaDetalle}>Disponibles para venta</Text>
@@ -196,7 +200,7 @@ export default function HomeScreen() {
 
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIconoNaranja}>⚠</Text>
-          <View>
+          <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Stock bajo</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{stockBajo}</Text>
             <Text style={styles.tarjetaDetalle}>Requieren reposición</Text>
@@ -205,7 +209,7 @@ export default function HomeScreen() {
 
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIconoRojo}>!</Text>
-          <View>
+          <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Sin stock</Text>
             <Text style={styles.tarjetaNumeroRojo}>{sinStock}</Text>
             <Text style={styles.tarjetaDetalle}>Agotados</Text>
@@ -214,7 +218,7 @@ export default function HomeScreen() {
       </View>
 
       <View style={styles.tablaCaja}>
-        <View style={styles.filtrosFila}>
+        <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
           <TextInput
             style={styles.inputBuscar}
             placeholder="Buscar producto..."
@@ -310,7 +314,7 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      <View style={styles.footerResumen}>
+      <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
         <View style={styles.footerItem}>
           <Text style={styles.footerIcono}>🚚</Text>
           <View>
@@ -321,7 +325,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.footerSeparador} />
+        <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
           <Text style={styles.footerIcono}>🌿</Text>
@@ -331,7 +335,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={styles.footerSeparador} />
+        <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
           <Text style={styles.footerIcono}>🧺</Text>
@@ -361,6 +365,18 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
     marginTop: 6,
+  },
+  heroTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 12,
+  },
+  tarjetasTelefono: {
+    flexDirection: 'column',
+  },
+  filtrosTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
   },
   botonAgregar: {
     backgroundColor: '#7bb51e',
@@ -403,6 +419,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 15,
+  },
+  tarjetaContenido: {
+    flex: 1,
+    minWidth: 0,
   },
   tarjetaIcono: {
     fontSize: 35,
@@ -638,6 +658,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
+  footerResumenTelefono: {
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    gap: 14,
+  },
   footerItem: {
     flex: 1,
     flexDirection: 'row',
@@ -662,5 +687,10 @@ const styles = StyleSheet.create({
     height: 55,
     backgroundColor: '#9ccc65',
     marginHorizontal: 16,
+  },
+  footerSeparadorTelefono: {
+    width: '100%',
+    height: 1,
+    marginHorizontal: 0,
   },
 });

@@ -7,9 +7,11 @@ import {
   ScrollView,
   Image,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
+import { eliminarDato, guardarDato, obtenerDato } from '../services/storage.js';
 
 const BANNER_CLIENTE = 'https://verduleria-sebas.sirv.com/logos/logo.png';
 
@@ -19,11 +21,14 @@ const IMG_JUGOS = 'https://verduleria-sebas.sirv.com/productos/jugos.png';
 
 export default function ClienteHomeScreen() {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isPhone = width < 768;
 
   const [cliente, setCliente] = useState<any>(null);
   const [productos, setProductos] = useState<any[]>([]);
   const [carritoCantidad, setCarritoCantidad] = useState(0);
   const [cargando, setCargando] = useState(false);
+  const [sesionCargada, setSesionCargada] = useState(false);
 
   useEffect(() => {
     cargarCliente();
@@ -31,29 +36,35 @@ export default function ClienteHomeScreen() {
     cargarCarrito();
   }, []);
 
-  const cargarCliente = () => {
+  const cargarCliente = async () => {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const clienteGuardado = localStorage.getItem('cliente');
-
-        if (clienteGuardado) {
-          setCliente(JSON.parse(clienteGuardado));
-        }
+      const clienteGuardado = await obtenerDato('cliente');
+      if (clienteGuardado) {
+        setCliente(JSON.parse(clienteGuardado));
       }
     } catch (error) {
       console.log('Error al cargar cliente:', error);
+    } finally {
+      setSesionCargada(true);
     }
   };
 
-  const cargarCarrito = () => {
+  const cargarCarrito = async () => {
     try {
-      if (typeof localStorage !== 'undefined') {
-        const carritoGuardado = localStorage.getItem('carrito');
-
-        if (carritoGuardado) {
-          const carrito = JSON.parse(carritoGuardado);
-          setCarritoCantidad(carrito.length);
-        }
+      const carritoGuardado =
+        (await obtenerDato('carrito_cliente')) ||
+        (await obtenerDato('carrito'));
+      if (carritoGuardado) {
+        const carrito = JSON.parse(carritoGuardado);
+        const totalCantidad = Array.isArray(carrito)
+          ? carrito.reduce(
+              (total: number, item: any) => total + Number(item.cantidad || 0),
+              0
+            )
+          : 0;
+        setCarritoCantidad(totalCantidad);
+      } else {
+        setCarritoCantidad(0);
       }
     } catch (error) {
       console.log('Error al cargar carrito:', error);
@@ -79,17 +90,19 @@ export default function ClienteHomeScreen() {
     }
   };
 
-  const cerrarSesion = () => {
+  const cerrarSesion = async () => {
     try {
-      if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem('token_cliente');
-        localStorage.removeItem('cliente');
-      }
+      await Promise.all([
+        eliminarDato('token_cliente'),
+        eliminarDato('cliente'),
+        eliminarDato('carrito'),
+        eliminarDato('carrito_cliente'),
+      ]);
 
       setCliente(null);
       Alert.alert('Sesión cerrada', 'Has cerrado sesión correctamente.');
       router.replace('/' as any);
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'No se pudo cerrar sesión.');
     }
   };
@@ -98,11 +111,21 @@ export default function ClienteHomeScreen() {
     router.push('/cliente-home' as any);
   };
 
-  const irCatalogo = () => {
+  const irCatalogo = (categoria?: string) => {
+    if (categoria) {
+      router.push({
+        pathname: '/catalogo',
+        params: { categoria },
+      } as any);
+      return;
+    }
+
     router.push('/catalogo' as any);
   };
 
   const irMisPedidos = () => {
+    if (!sesionCargada) return;
+
     if (!cliente) {
       router.push('/cliente-login' as any);
       return;
@@ -116,6 +139,8 @@ export default function ClienteHomeScreen() {
   };
 
   const irPedido = () => {
+    if (!sesionCargada) return;
+
     if (!cliente) {
       router.push('/cliente-login' as any);
       return;
@@ -145,7 +170,7 @@ export default function ClienteHomeScreen() {
     return producto.unidad_medida || producto.unidad || 'unidad';
   };
 
-  const agregarAlCarrito = (producto: any) => {
+  const agregarAlCarrito = async (producto: any) => {
     if (!cliente) {
       Alert.alert(
         'Inicio de sesión requerido',
@@ -157,30 +182,46 @@ export default function ClienteHomeScreen() {
 
     try {
       const carritoGuardado =
-        typeof localStorage !== 'undefined'
-          ? localStorage.getItem('carrito')
-          : null;
+        (await obtenerDato('carrito_cliente')) ||
+        (await obtenerDato('carrito'));
 
       const carrito = carritoGuardado ? JSON.parse(carritoGuardado) : [];
+      const idProducto = Number(producto.id_producto || producto.id);
+      const productoExistente = carrito.find(
+        (item: any) => Number(item.id_producto) === idProducto
+      );
 
-      const nuevoProducto = {
-        id_producto: producto.id_producto || producto.id,
-        nombre: obtenerNombre(producto),
-        precio: obtenerPrecio(producto),
-        cantidad: 1,
-        imagen_url: obtenerImagen(producto),
-      };
-
-      carrito.push(nuevoProducto);
-
-      if (typeof localStorage !== 'undefined') {
-        localStorage.setItem('carrito', JSON.stringify(carrito));
+      if (productoExistente) {
+        productoExistente.cantidad = Number(productoExistente.cantidad || 0) + 1;
+        productoExistente.subtotal =
+          productoExistente.cantidad * Number(productoExistente.precio || 0);
+      } else {
+        carrito.push({
+          id_producto: idProducto,
+          nombre: obtenerNombre(producto),
+          precio: Number(obtenerPrecio(producto)),
+          cantidad: 1,
+          subtotal: Number(obtenerPrecio(producto)),
+          imagen_url: obtenerImagen(producto),
+          unidad_medida: obtenerUnidad(producto),
+        });
       }
 
-      setCarritoCantidad(carrito.length);
+      const carritoSerializado = JSON.stringify(carrito);
+      await Promise.all([
+        guardarDato('carrito', carritoSerializado),
+        guardarDato('carrito_cliente', carritoSerializado),
+      ]);
+
+      setCarritoCantidad(
+        carrito.reduce(
+          (total: number, item: any) => total + Number(item.cantidad || 0),
+          0
+        )
+      );
 
       Alert.alert('Producto agregado', 'El producto fue agregado al carrito.');
-    } catch (error) {
+    } catch {
       Alert.alert('Error', 'No se pudo agregar el producto al carrito.');
     }
   };
@@ -195,10 +236,10 @@ export default function ClienteHomeScreen() {
     .slice(0, 6);
 
   return (
-    <ScrollView style={styles.pagina} contentContainerStyle={styles.contenido}>
+    <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]}>
       <View style={styles.contenedorPrincipal}>
-        <View style={styles.header}>
-          <Pressable onPress={irInicio} style={styles.logoArea}>
+        <View style={[styles.header, isPhone && styles.headerPhone]}>
+          <Pressable onPress={irInicio} style={[styles.logoArea, isPhone && styles.logoAreaPhone]}>
   <View>
     <Text style={styles.logoTexto}>VERDULERÍA</Text>
     <Text style={styles.logoNombre}>JERUSALÉN</Text>
@@ -206,12 +247,12 @@ export default function ClienteHomeScreen() {
   </View>
 </Pressable>
 
-          <View style={styles.menu}>
+          <View style={[styles.menu, isPhone && styles.menuPhone]}>
             <Pressable onPress={irInicio}>
               <Text style={[styles.menuTexto, styles.menuActivo]}>Inicio</Text>
             </Pressable>
 
-            <Pressable onPress={irCatalogo}>
+            <Pressable onPress={() => irCatalogo()}>
               <Text style={styles.menuTexto}>Catálogo</Text>
             </Pressable>
 
@@ -220,8 +261,13 @@ export default function ClienteHomeScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.acciones}>
-            {cliente ? (
+          <View style={[styles.acciones, isPhone && styles.accionesPhone]}>
+            {!sesionCargada ? (
+              <View style={styles.botonPerfil}>
+                <Text style={styles.perfilIcono}>👤</Text>
+                <Text style={styles.textoSalir}>Cargando...</Text>
+              </View>
+            ) : cliente ? (
               <Pressable onPress={cerrarSesion} style={styles.botonPerfil}>
                 <Text style={styles.perfilIcono}>👤</Text>
                 <Text style={styles.textoSalir}>Salir</Text>
@@ -243,7 +289,10 @@ export default function ClienteHomeScreen() {
           </View>
         </View>
 
-        <Pressable style={styles.bannerArea} onPress={irCatalogo}>
+        <Pressable
+          style={[styles.bannerArea, isPhone && styles.bannerAreaPhone]}
+          onPress={() => irCatalogo()}
+        >
           <Image
             source={{ uri: BANNER_CLIENTE }}
             style={styles.bannerImagen}
@@ -251,8 +300,8 @@ export default function ClienteHomeScreen() {
           />
         </Pressable>
 
-        <View style={styles.categorias}>
-          <Pressable style={styles.categoriaCard} onPress={irCatalogo}>
+        <View style={[styles.categorias, isPhone && styles.categoriasPhone]}>
+          <Pressable style={styles.categoriaCard} onPress={() => irCatalogo('Frutas')}>
             <Image
               source={{ uri: IMG_FRUTAS }}
               style={styles.categoriaImagen}
@@ -265,9 +314,9 @@ export default function ClienteHomeScreen() {
             <Text style={styles.categoriaFlecha}>›</Text>
           </Pressable>
 
-          <View style={styles.separador} />
+          {!isPhone && <View style={styles.separador} />}
 
-          <Pressable style={styles.categoriaCard} onPress={irCatalogo}>
+          <Pressable style={styles.categoriaCard} onPress={() => irCatalogo('Verduras')}>
             <Image
               source={{ uri: IMG_VERDURAS }}
               style={styles.categoriaImagen}
@@ -280,9 +329,12 @@ export default function ClienteHomeScreen() {
             <Text style={styles.categoriaFlecha}>›</Text>
           </Pressable>
 
-          <View style={styles.separador} />
+          {!isPhone && <View style={styles.separador} />}
 
-          <Pressable style={styles.categoriaCard} onPress={irCatalogo}>
+          <Pressable
+            style={styles.categoriaCard}
+            onPress={() => irCatalogo('Jugos naturales')}
+          >
             <Image
               source={{ uri: IMG_JUGOS }}
               style={styles.categoriaImagen}
@@ -297,10 +349,10 @@ export default function ClienteHomeScreen() {
         </View>
 
         <View style={styles.seccionProductos}>
-          <View style={styles.tituloFila}>
+          <View style={[styles.tituloFila, isPhone && styles.tituloFilaPhone]}>
             <Text style={styles.tituloSeccion}>Productos destacados</Text>
 
-            <Pressable onPress={irCatalogo}>
+            <Pressable onPress={() => irCatalogo()}>
               <Text style={styles.verTodo}>Ver catálogo completo ›</Text>
             </Pressable>
           </View>
@@ -310,14 +362,14 @@ export default function ClienteHomeScreen() {
           ) : productosDestacados.length === 0 ? (
             <Text style={styles.mensaje}>No hay productos disponibles todavía.</Text>
           ) : (
-            <View style={styles.productosFila}>
+            <View style={[styles.productosFila, isPhone && styles.productosFilaPhone]}>
               {productosDestacados.map((producto, index) => {
                 const imagen = obtenerImagen(producto);
 
                 return (
                   <View
                     key={producto.id_producto || producto.id || index}
-                    style={styles.productoCard}
+                    style={[styles.productoCard, isPhone && styles.productoCardPhone]}
                   >
                     <View style={styles.imagenProductoArea}>
                       {imagen ? (
@@ -384,6 +436,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
   },
+  contenidoPhone: { padding: 0 },
   contenedorPrincipal: {
     width: '100%',
     maxWidth: 1200,
@@ -403,10 +456,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 20,
   },
+  headerPhone: { flexDirection: 'column', alignItems: 'stretch', paddingHorizontal: 16, gap: 14 },
 logoArea: {
   width: 280,
   justifyContent: 'center',
 },
+logoAreaPhone: { width: '100%', alignItems: 'center' },
 logoTexto: {
   color: '#0f4f24',
   fontSize: 18,
@@ -430,6 +485,7 @@ logoSubtitulo: {
     gap: 36,
     alignItems: 'center',
   },
+  menuPhone: { justifyContent: 'space-between', gap: 8, width: '100%' },
   menuTexto: {
     color: '#1e1e1e',
     fontSize: 16,
@@ -446,6 +502,7 @@ logoSubtitulo: {
     alignItems: 'center',
     gap: 18,
   },
+  accionesPhone: { justifyContent: 'center', width: '100%' },
   botonPerfil: {
     alignItems: 'center',
   },
@@ -484,6 +541,7 @@ logoSubtitulo: {
     height: 400,
     backgroundColor: '#f4f1dc',
   },
+  bannerAreaPhone: { height: 210 },
   bannerImagen: {
     width: '100%',
     height: '100%',
@@ -497,6 +555,7 @@ logoSubtitulo: {
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  categoriasPhone: { margin: 14, flexDirection: 'column', alignItems: 'stretch', gap: 14 },
   categoriaCard: {
     flex: 1,
     flexDirection: 'row',
@@ -536,6 +595,7 @@ logoSubtitulo: {
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  tituloFilaPhone: { flexDirection: 'column', alignItems: 'flex-start', gap: 10 },
   tituloSeccion: {
     color: '#1b5e20',
     fontSize: 26,
@@ -560,12 +620,14 @@ logoSubtitulo: {
     gap: 18,
     marginTop: 24,
   },
+  productosFilaPhone: { flexDirection: 'column' },
   productoCard: {
     width: 190,
     backgroundColor: '#fffdf6',
     borderRadius: 16,
     padding: 12,
   },
+  productoCardPhone: { width: '100%' },
   imagenProductoArea: {
     height: 110,
     alignItems: 'center',
