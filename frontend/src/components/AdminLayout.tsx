@@ -23,6 +23,7 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
 
   const [anchoPantalla, setAnchoPantalla] = useState(width);
   const [usuario, setUsuario] = useState<any>(null);
+  const [menuMovilAbierto, setMenuMovilAbierto] = useState(false);
 
   useEffect(() => {
     const actualizarAncho = () => {
@@ -44,7 +45,7 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
     }
   }, [width]);
 
-  const esTelefono = anchoPantalla < 900;
+  const esTelefono = anchoPantalla < 768;
 
   useEffect(() => {
     cargarUsuario();
@@ -146,6 +147,8 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
     { texto: 'Desechos', icono: '🗑️', ruta: '/desechos' },
   ];
 
+  const opcionActiva = menu.find((item) => pathname === item.ruta) || menu[0];
+
   const iniciales = usuario?.nombre
     ? usuario.nombre
         .split(' ')
@@ -175,24 +178,54 @@ export default function AdminLayout({ children, titulo, subtitulo }: AdminLayout
         </View>
 
         {esTelefono ? (
-          <View style={styles.menuMovilGrid}>
-            {menu.map((item) => {
-              const activo = pathname === item.ruta;
+          <View>
+            <Pressable
+              style={styles.botonMenuMovil}
+              onPress={() => setMenuMovilAbierto((abierto) => !abierto)}
+              accessibilityRole="button"
+              accessibilityLabel={
+                menuMovilAbierto
+                  ? 'Ocultar menú administrativo'
+                  : 'Mostrar menú administrativo'
+              }
+            >
+              <View style={styles.menuMovilActual}>
+                <Text style={styles.menuMovilActualIcono}>{opcionActiva.icono}</Text>
+                <View>
+                  <Text style={styles.menuMovilEtiqueta}>MENÚ ADMINISTRATIVO</Text>
+                  <Text style={styles.menuMovilActualTexto}>{opcionActiva.texto}</Text>
+                </View>
+              </View>
 
-              return (
-                <Pressable
-                  key={item.ruta}
-                  style={[
-                    styles.menuItemMovilGrid,
-                    activo && styles.menuItemActivo,
-                  ]}
-                  onPress={() => irA(item.ruta)}
-                >
-                  <Text style={styles.menuIconoMovil}>{item.icono}</Text>
-                  <Text style={styles.menuTextoMovilGrid}>{item.texto}</Text>
-                </Pressable>
-              );
-            })}
+              <Text style={styles.menuMovilIndicador}>
+                {menuMovilAbierto ? '▲ Ocultar' : '☰ Ver opciones'}
+              </Text>
+            </Pressable>
+
+            {menuMovilAbierto && (
+              <View style={styles.menuMovilGrid}>
+                {menu.map((item) => {
+                  const activo = pathname === item.ruta;
+
+                  return (
+                    <Pressable
+                      key={item.ruta}
+                      style={[
+                        styles.menuItemMovilGrid,
+                        activo && styles.menuItemActivo,
+                      ]}
+                      onPress={() => {
+                        setMenuMovilAbierto(false);
+                        irA(item.ruta);
+                      }}
+                    >
+                      <Text style={styles.menuIconoMovil}>{item.icono}</Text>
+                      <Text style={styles.menuTextoMovilGrid}>{item.texto}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
           </View>
         ) : (
           <ScrollView
@@ -352,6 +385,47 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 7,
     justifyContent: 'center',
+    paddingTop: 8,
+  },
+  botonMenuMovil: {
+    minHeight: 58,
+    backgroundColor: '#064b29',
+    borderWidth: 1,
+    borderColor: '#2f744b',
+    borderRadius: 13,
+    paddingVertical: 9,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  menuMovilActual: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    gap: 9,
+  },
+  menuMovilActualIcono: {
+    fontSize: 22,
+  },
+  menuMovilEtiqueta: {
+    color: '#bddd94',
+    fontSize: 9,
+    fontWeight: 'bold',
+    letterSpacing: 0.8,
+  },
+  menuMovilActualTexto: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginTop: 1,
+  },
+  menuMovilIndicador: {
+    color: '#ffffff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   menuItem: {
     flexDirection: 'row',
