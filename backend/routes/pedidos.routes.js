@@ -438,17 +438,37 @@ router.post('/', async (req, res) => {
     });
   }
 
-  const tipoEntrega =
-    tipo_entrega === 'Retiro en tienda' ? 'Retiro en tienda' : 'Entrega';
+  const tiposEntregaPermitidos = ['Entrega', 'Retiro en tienda'];
+  const metodosPagoPermitidos = [
+    'Efectivo',
+    'SINPE Móvil',
+    'Tarjeta',
+    'Transferencia',
+  ];
+  const tipoEntrega = String(tipo_entrega || '').trim();
+  const metodoPago = String(metodo_pago || '').trim();
+
+  if (!tiposEntregaPermitidos.includes(tipoEntrega)) {
+    return res.status(400).json({
+      mensaje: 'Debe seleccionar un tipo de entrega válido',
+    });
+  }
+
+  if (!metodosPagoPermitidos.includes(metodoPago)) {
+    return res.status(400).json({
+      mensaje: 'Debe seleccionar un método de pago válido',
+    });
+  }
 
   const direccionFinal =
     tipoEntrega === 'Retiro en tienda'
       ? 'Retiro en tienda'
       : String(direccion_entrega || '').trim();
 
-  if (tipoEntrega === 'Entrega' && !direccionFinal) {
+  if (tipoEntrega === 'Entrega' && direccionFinal.length < 20) {
     return res.status(400).json({
-      mensaje: 'Debe indicar la dirección de entrega',
+      mensaje:
+        'Debe indicar una dirección exacta de al menos 20 caracteres, incluyendo localidad y señas',
     });
   }
 
@@ -570,7 +590,7 @@ router.post('/', async (req, res) => {
         idPedido,
         Number(id_cliente),
         total,
-        metodo_pago || 'Efectivo',
+        metodoPago,
         tipoEntrega,
         direccionFinal,
         observacionLimpia,
@@ -619,7 +639,7 @@ router.post('/', async (req, res) => {
       mensaje: 'Pedido registrado correctamente',
       id_pedido: idPedido,
       estado: 'Pendiente',
-      metodo_pago: metodo_pago || 'Efectivo',
+      metodo_pago: metodoPago,
       tipo_entrega: tipoEntrega,
       direccion_entrega: direccionFinal,
       observacion: observacionLimpia,

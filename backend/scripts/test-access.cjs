@@ -28,8 +28,11 @@ const server=app.listen(3099,'127.0.0.1');
   assert.equal((await request('/pedidos/cliente/'+(Number(client.id_cliente)+100000),clientToken)).status,403);
   assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:Number(client.id_cliente)+1})).status,403);
   assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:client.id_cliente,productos:[],tipo_entrega:'Retiro en tienda'})).status,400);
+  assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:client.id_cliente,productos:[{id_producto:1,cantidad:1}],metodo_pago:'Efectivo',direccion_entrega:'Dirección suficientemente detallada'})).status,400);
+  assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:client.id_cliente,productos:[{id_producto:1,cantidad:1}],tipo_entrega:'Retiro en tienda'})).status,400);
+  assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:client.id_cliente,productos:[{id_producto:1,cantidad:1}],tipo_entrega:'Entrega',metodo_pago:'Efectivo',direccion_entrega:'Muy corta'})).status,400);
   const pairs=await Promise.all([1,2,3].map(()=>fetch('http://127.0.0.1:3099/__transaction-test').then(r=>r.json())));
   for(const pair of pairs){assert.deepEqual(pair.first,pair.second);assert.ok(pair.first?.tx);}
   assert.equal(new Set(pairs.map(p=>p.first.tx)).size,3);
-  console.log('PASS: 6 admin modules; anonymous and client denied; own orders allowed; cross-account denied; invalid order rejected; 3 concurrent transactions isolated.');
+  console.log('PASS: access controls, mandatory delivery and payment fields, detailed address validation, and concurrent transactions verified.');
 })().then(()=>{server.close();process.exit(0);}).catch(e=>{console.error(e);server.close();process.exit(1);});

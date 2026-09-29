@@ -24,6 +24,7 @@ import {
 
 const CARRITO_KEY = 'carrito';
 const CARRITO_CLIENTE_KEY = 'carrito_cliente';
+const LONGITUD_MINIMA_DIRECCION = 20;
 
 function ContenidoPedidoResponsivo({ children, isPhone, style }: any) {
   const columnas = Children.toArray(children);
@@ -42,9 +43,9 @@ export default function ClientePedidoScreen() {
   const [carrito, setCarrito] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
-  const [tipoEntrega, setTipoEntrega] = useState('Entrega');
+  const [tipoEntrega, setTipoEntrega] = useState('');
   const [direccionEntrega, setDireccionEntrega] = useState('');
-  const [metodoPago, setMetodoPago] = useState('Efectivo');
+  const [metodoPago, setMetodoPago] = useState('');
   const [observacion, setObservacion] = useState('');
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -414,13 +415,29 @@ export default function ClientePedidoScreen() {
       return;
     }
 
+    if (!tipoEntrega) {
+      mostrarMensaje('Seleccione el tipo de entrega.', 'error');
+      return;
+    }
+
+    if (!metodoPago) {
+      mostrarMensaje('Seleccione el método de pago.', 'error');
+      return;
+    }
+
     const direccionFinal =
       tipoEntrega === 'Retiro en tienda'
         ? 'Retiro en tienda'
         : direccionEntrega.trim();
 
-    if (tipoEntrega === 'Entrega' && !direccionFinal) {
-      mostrarMensaje('Debe indicar la dirección de entrega.', 'error');
+    if (
+      tipoEntrega === 'Entrega' &&
+      direccionFinal.length < LONGITUD_MINIMA_DIRECCION
+    ) {
+      mostrarMensaje(
+        'Ingrese una dirección exacta de al menos 20 caracteres, incluyendo localidad y señas.',
+        'error'
+      );
       return;
     }
 
@@ -736,7 +753,10 @@ export default function ClientePedidoScreen() {
               <Text style={styles.totalMonto}>{formatoColones(totalPedido)}</Text>
             </View>
 
-            <Text style={styles.label}>Tipo de entrega</Text>
+            <Text style={styles.label}>Tipo de entrega *</Text>
+            <Text style={styles.ayudaRequerida}>
+              Seleccione cómo desea recibir el pedido.
+            </Text>
 
             <View style={styles.metodosPago}>
               {['Entrega', 'Retiro en tienda'].map((tipo) => (
@@ -748,6 +768,7 @@ export default function ClientePedidoScreen() {
                   ]}
                   onPress={() => setTipoEntrega(tipo)}
                   disabled={guardando}
+                  accessibilityState={{ selected: tipoEntrega === tipo }}
                 >
                   <Text
                     style={[
@@ -763,16 +784,21 @@ export default function ClientePedidoScreen() {
 
             {tipoEntrega === 'Entrega' ? (
               <>
-                <Text style={styles.label}>Dirección de entrega</Text>
+                <Text style={styles.label}>Dirección exacta *</Text>
 
                 <TextInput
                   style={styles.input}
-                  placeholder="Ingrese la dirección de entrega"
+                  placeholder="Provincia, cantón, distrito y señas exactas"
                   value={direccionEntrega}
                   onChangeText={setDireccionEntrega}
                   multiline
                   editable={!guardando}
+                  accessibilityLabel="Dirección exacta de entrega"
                 />
+
+                <Text style={styles.ayudaRequerida}>
+                  Incluya la localidad y puntos de referencia. Mínimo 20 caracteres.
+                </Text>
 
                 <Pressable accessibilityRole="button"
                   style={styles.botonDireccion}
@@ -791,7 +817,10 @@ export default function ClientePedidoScreen() {
               </View>
             )}
 
-            <Text style={styles.label}>Método de pago</Text>
+            <Text style={styles.label}>Método de pago *</Text>
+            <Text style={styles.ayudaRequerida}>
+              Seleccione una opción para continuar.
+            </Text>
 
             <View style={styles.metodosPago}>
               {['Efectivo', 'SINPE Móvil', 'Tarjeta', 'Transferencia'].map((metodo) => (
@@ -803,6 +832,7 @@ export default function ClientePedidoScreen() {
                   ]}
                   onPress={() => setMetodoPago(metodo)}
                   disabled={guardando}
+                  accessibilityState={{ selected: metodoPago === metodo }}
                 >
                   <Text
                     style={[
@@ -826,6 +856,8 @@ export default function ClientePedidoScreen() {
               multiline
               editable={!guardando}
             />
+
+            <Text style={styles.camposObligatorios}>* Campos obligatorios</Text>
 
             {mensaje !== '' && (
               <View
@@ -1260,6 +1292,17 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
     marginTop: 10,
     marginBottom: 6,
+  },
+  ayudaRequerida: {
+    color: '#5f6f66',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 8,
+  },
+  camposObligatorios: {
+    color: '#5f6f66',
+    fontSize: 13,
+    marginTop: 10,
   },
   input: {
     backgroundColor: '#fffdf6',
