@@ -1,3 +1,5 @@
+import ClientHeader from '../components/ClientHeader';
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -20,6 +22,7 @@ const IMG_VERDURAS = 'https://verduleria-sebas.sirv.com/productos/lechuga.jpg';
 const IMG_JUGOS = 'https://verduleria-sebas.sirv.com/productos/jugos.png';
 
 export default function ClienteHomeScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isPhone = width < 768;
@@ -29,6 +32,7 @@ export default function ClienteHomeScreen() {
   const [carritoCantidad, setCarritoCantidad] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [sesionCargada, setSesionCargada] = useState(false);
+  const [mensaje,setMensaje] = useState('');
 
   useEffect(() => {
     cargarCliente();
@@ -181,6 +185,8 @@ export default function ClienteHomeScreen() {
     }
 
     try {
+      const disponible=Number(producto.cantidad ?? producto.stock ?? 0);
+      if(disponible < 1){setMensaje('Este producto no tiene suficiente stock.');return;}
       const carritoGuardado =
         (await obtenerDato('carrito_cliente')) ||
         (await obtenerDato('carrito'));
@@ -192,6 +198,7 @@ export default function ClienteHomeScreen() {
       );
 
       if (productoExistente) {
+        if(Number(productoExistente.cantidad || 0)+1>disponible){setMensaje('Ya agregaste todo el stock disponible.');return;}
         productoExistente.cantidad = Number(productoExistente.cantidad || 0) + 1;
         productoExistente.subtotal =
           productoExistente.cantidad * Number(productoExistente.precio || 0);
@@ -204,6 +211,7 @@ export default function ClienteHomeScreen() {
           subtotal: Number(obtenerPrecio(producto)),
           imagen_url: obtenerImagen(producto),
           unidad_medida: obtenerUnidad(producto),
+          disponible,
         });
       }
 
@@ -220,7 +228,7 @@ export default function ClienteHomeScreen() {
         )
       );
 
-      Alert.alert('Producto agregado', 'El producto fue agregado al carrito.');
+      setMensaje('Agregado al carrito ✓');
     } catch {
       Alert.alert('Error', 'No se pudo agregar el producto al carrito.');
     }
@@ -231,65 +239,17 @@ export default function ClienteHomeScreen() {
       const precio = Number(obtenerPrecio(producto));
       const estado = String(producto.estado || 'Activo').toLowerCase();
 
-      return precio > 0 && estado !== 'inactivo';
+      return precio > 0 && estado !== 'inactivo' && Number(producto.cantidad ?? producto.stock ?? 0) > 0;
     })
     .slice(0, 6);
 
   return (
     <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]}>
       <View style={styles.contenedorPrincipal}>
-        <View style={[styles.header, isPhone && styles.headerPhone]}>
-          <Pressable onPress={irInicio} style={[styles.logoArea, isPhone && styles.logoAreaPhone]}>
-  <View>
-    <Text style={styles.logoTexto}>VERDULERÍA</Text>
-    <Text style={styles.logoNombre}>JERUSALÉN</Text>
-    <Text style={styles.logoSubtitulo}>FRUTAS · VERDURAS · JUGOS NATURALES</Text>
-  </View>
-</Pressable>
+        {!!mensaje&&<Text accessibilityRole="alert" style={{padding:14,color:'#075e58',backgroundColor:'#e0f4ec'}}>{mensaje}</Text>}
+        <ClientHeader />
 
-          <View style={[styles.menu, isPhone && styles.menuPhone]}>
-            <Pressable onPress={irInicio}>
-              <Text style={[styles.menuTexto, styles.menuActivo]}>Inicio</Text>
-            </Pressable>
-
-            <Pressable onPress={() => irCatalogo()}>
-              <Text style={styles.menuTexto}>Catálogo</Text>
-            </Pressable>
-
-            <Pressable onPress={irMisPedidos}>
-              <Text style={styles.menuTexto}>Mis pedidos</Text>
-            </Pressable>
-          </View>
-
-          <View style={[styles.acciones, isPhone && styles.accionesPhone]}>
-            {!sesionCargada ? (
-              <View style={styles.botonPerfil}>
-                <Text style={styles.perfilIcono}>👤</Text>
-                <Text style={styles.textoSalir}>Cargando...</Text>
-              </View>
-            ) : cliente ? (
-              <Pressable onPress={cerrarSesion} style={styles.botonPerfil}>
-                <Text style={styles.perfilIcono}>👤</Text>
-                <Text style={styles.textoSalir}>Salir</Text>
-              </Pressable>
-            ) : (
-              <Pressable onPress={irLoginCliente} style={styles.botonPerfil}>
-                <Text style={styles.perfilIcono}>👤</Text>
-                <Text style={styles.textoSalir}>Entrar</Text>
-              </Pressable>
-            )}
-
-            <Pressable onPress={irPedido} style={styles.carritoBoton}>
-              <Text style={styles.carritoIcono}>🛒</Text>
-
-              <View style={styles.carritoNumero}>
-                <Text style={styles.carritoNumeroTexto}>{carritoCantidad}</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
-
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={[styles.bannerArea, isPhone && styles.bannerAreaPhone]}
           onPress={() => irCatalogo()}
         >
@@ -301,7 +261,7 @@ export default function ClienteHomeScreen() {
         </Pressable>
 
         <View style={[styles.categorias, isPhone && styles.categoriasPhone]}>
-          <Pressable style={styles.categoriaCard} onPress={() => irCatalogo('Frutas')}>
+          <Pressable accessibilityRole="button" style={styles.categoriaCard} onPress={() => irCatalogo('Frutas')}>
             <Image
               source={{ uri: IMG_FRUTAS }}
               style={styles.categoriaImagen}
@@ -316,7 +276,7 @@ export default function ClienteHomeScreen() {
 
           {!isPhone && <View style={styles.separador} />}
 
-          <Pressable style={styles.categoriaCard} onPress={() => irCatalogo('Verduras')}>
+          <Pressable accessibilityRole="button" style={styles.categoriaCard} onPress={() => irCatalogo('Verduras')}>
             <Image
               source={{ uri: IMG_VERDURAS }}
               style={styles.categoriaImagen}
@@ -331,7 +291,7 @@ export default function ClienteHomeScreen() {
 
           {!isPhone && <View style={styles.separador} />}
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.categoriaCard}
             onPress={() => irCatalogo('Jugos naturales')}
           >
@@ -352,7 +312,7 @@ export default function ClienteHomeScreen() {
           <View style={[styles.tituloFila, isPhone && styles.tituloFilaPhone]}>
             <Text style={styles.tituloSeccion}>Productos destacados</Text>
 
-            <Pressable onPress={() => irCatalogo()}>
+            <Pressable accessibilityRole="button" onPress={() => irCatalogo()}>
               <Text style={styles.verTodo}>Ver catálogo completo ›</Text>
             </Pressable>
           </View>
@@ -401,7 +361,7 @@ export default function ClienteHomeScreen() {
                         <Text style={styles.cantidadTexto}>1</Text>
                       </View>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={styles.botonCarritoProducto}
                         onPress={() => agregarAlCarrito(producto)}
                       >
@@ -427,7 +387,7 @@ export default function ClienteHomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   pagina: {
     flex: 1,
     backgroundColor: '#f7f5ee',

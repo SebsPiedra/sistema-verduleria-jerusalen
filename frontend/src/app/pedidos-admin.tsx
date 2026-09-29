@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -13,6 +15,7 @@ import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function PedidosAdminScreen() {
+  const styles = useAppStyles(baseStyles);
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
   const [pedidos, setPedidos] = useState<any[]>([]);
@@ -263,9 +266,12 @@ export default function PedidosAdminScreen() {
 
   const puedeEnviar = (pedido: any) => {
     const estado = obtenerEstado(pedido).toLowerCase();
-    const tipoEntrega = obtenerTipoEntrega(pedido);
+    const tipoEntrega = obtenerTipoEntrega(pedido).trim().toLowerCase();
 
-    return estado === 'en preparación' && tipoEntrega === 'Entrega';
+    return (
+      (estado === 'aceptado' || estado === 'en preparación') &&
+      tipoEntrega !== 'retiro en tienda'
+    );
   };
 
   const puedeEntregar = (pedido: any) => {
@@ -459,12 +465,10 @@ export default function PedidosAdminScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Pedidos de clientes 📋</Text>
-          <Text style={styles.subtitulo}>
-            Revise, acepte, prepare, envíe o entregue pedidos registrados por clientes.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonActualizar} onPress={cargarPedidos}>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarPedidos}>
           <Text style={styles.textoActualizar}>
             {cargando ? 'Actualizando...' : 'Actualizar pedidos'}
           </Text>
@@ -490,7 +494,7 @@ export default function PedidosAdminScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Pedidos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalPedidos}</Text>
-            <Text style={styles.tarjetaDetalle}>Registrados</Text>
+            
           </View>
         </View>
 
@@ -499,7 +503,7 @@ export default function PedidosAdminScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Pendientes</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{totalPendientes}</Text>
-            <Text style={styles.tarjetaDetalle}>Por revisar</Text>
+            
           </View>
         </View>
 
@@ -508,7 +512,7 @@ export default function PedidosAdminScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Aceptados</Text>
             <Text style={styles.tarjetaNumero}>{totalAceptados}</Text>
-            <Text style={styles.tarjetaDetalle}>Inventario descontado</Text>
+            
           </View>
         </View>
 
@@ -536,7 +540,7 @@ export default function PedidosAdminScreen() {
           <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
             <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
               {estados.map((estado) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={estado}
                   style={[
                     styles.filtroBoton,
@@ -558,7 +562,7 @@ export default function PedidosAdminScreen() {
           </ScrollView>
         </View>
 
-        <View style={styles.tablaHeader}>
+        <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colPedido]}>Pedido</Text>
           <Text style={[styles.th, styles.colCliente]}>Cliente</Text>
           <Text style={[styles.th, styles.colFecha]}>Fecha</Text>
@@ -632,7 +636,7 @@ export default function PedidosAdminScreen() {
                   </View>
 
                   <View style={styles.colAccion}>
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       style={styles.botonDetalle}
                       onPress={() => setPedidoAbierto(abierto ? null : idPedido)}
                     >
@@ -730,7 +734,7 @@ export default function PedidosAdminScreen() {
                     )}
 
                     <View style={styles.accionesPedido}>
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={[
                           styles.botonAceptar,
                           (!puedeAceptar(pedido) || actualizando) && styles.botonDesactivado,
@@ -741,7 +745,7 @@ export default function PedidosAdminScreen() {
                         <Text style={styles.textoBotonAccion}>Aceptar</Text>
                       </Pressable>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={[
                           styles.botonPreparar,
                           (!puedePreparar(pedido) || actualizando) && styles.botonDesactivado,
@@ -752,7 +756,7 @@ export default function PedidosAdminScreen() {
                         <Text style={styles.textoBotonAccion}>Preparar</Text>
                       </Pressable>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={[
                           styles.botonEnviar,
                           (!puedeEnviar(pedido) || actualizando) && styles.botonDesactivado,
@@ -763,7 +767,7 @@ export default function PedidosAdminScreen() {
                         <Text style={styles.textoBotonAccion}>En entrega</Text>
                       </Pressable>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={[
                           styles.botonEntregar,
                           (!puedeEntregar(pedido) || actualizando) && styles.botonDesactivado,
@@ -776,7 +780,7 @@ export default function PedidosAdminScreen() {
                     </View>
 
                     <View style={styles.accionesPedido}>
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={[
                           styles.botonRechazar,
                           (!puedeRechazar(pedido) || actualizando) && styles.botonDesactivado,
@@ -787,7 +791,7 @@ export default function PedidosAdminScreen() {
                         <Text style={styles.textoBotonAccion}>Rechazar</Text>
                       </Pressable>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={[
                           styles.botonCancelar,
                           (!puedeCancelar(pedido) || actualizando) && styles.botonDesactivado,
@@ -803,7 +807,7 @@ export default function PedidosAdminScreen() {
               </View>
             );
           })
-        )}
+        )}</ResponsiveTable>
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -815,7 +819,7 @@ export default function PedidosAdminScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -1,0 +1,27 @@
+const assert=require('node:assert/strict');const path=require('path');const {randomUUID}=require('node:crypto');
+require('dotenv').config({path:path.join(__dirname,'../.vercel/monthly-test.env'),quiet:true});
+assert.equal(new URL(process.env.DATABASE_URL).hostname,'ep-fancy-hat-ax2dcn2i-pooler.c-4.us-east-2.aws.neon.tech');
+process.env.JWT_SECRET=randomUUID();const app=require('../server');const {pool}=require('../utils/mensual');const jwt=require('jsonwebtoken');
+const server=app.listen(3099,'127.0.0.1');
+(async()=>{
+ const admin=(await pool.query("SELECT id FROM usuarios WHERE rol='admin' LIMIT 1")).rows[0];
+ const token=jwt.sign({id_usuario:admin.id,tipo:'admin'},process.env.JWT_SECRET,{expiresIn:'5m'});
+ const req=async(route,method='GET',body,auth=token)=>{const response=await fetch('http://127.0.0.1:3099/api'+route,{method,headers:{'Content-Type':'application/json',...(auth?{Authorization:'Bearer '+auth}:{})},body:body?JSON.stringify(body):undefined});return {status:response.status,data:await response.json()};};
+ const correo=`review-${randomUUID()}@example.invalid`,clave=randomUUID();
+ const register=await req('/clientes/registrar','POST',{nombre:'Prueba de revisión web',telefono:'00000000',direccion:'Solo base de prueba',correo,clave},null);assert.equal(register.status,200);
+ const login=await req('/clientes/login','POST',{correo,clave},null);assert.equal(login.status,200);assert.ok(login.data.token);
+ const id=register.data.id_cliente;const clientToken=login.data.token;
+ const product=(await pool.query("SELECT id_producto,cantidad FROM productos WHERE cantidad>5 AND lower(estado)='activo' ORDER BY id_producto LIMIT 1")).rows[0];
+ const body={id_cliente:id,cliente:'Prueba de revisión web',metodo_pago:'Efectivo',tipo_entrega:'Entrega',direccion_entrega:'Dirección de prueba aislada',productos:[{id_producto:product.id_producto,cantidad:1}]};
+ const sale=await req('/ventas','POST',body);assert.equal(sale.status,200);assert.ok(sale.data.id_venta);
+ const invoice=await req('/facturas/'+sale.data.id_venta);assert.equal(invoice.status,200);
+ const order=await req('/pedidos','POST',body,clientToken);assert.equal(order.status,200);assert.ok(order.data.id_pedido);
+ const own=await req('/pedidos/'+order.data.id_pedido,'GET',undefined,clientToken);assert.equal(own.status,200);
+ const accepted=await req('/pedidos/'+order.data.id_pedido+'/aceptar','PATCH',{});assert.equal(accepted.status,200);
+ const stored=(await pool.query('SELECT id_venta FROM pedidos WHERE id_pedido=$1',[order.data.id_pedido])).rows[0];assert.ok(stored.id_venta);
+ const shipping=await req('/pedidos/'+order.data.id_pedido+'/estado','PATCH',{estado:'En entrega'});assert.equal(shipping.status,200);assert.equal(shipping.data.estado,'En entrega');
+ const again=await req('/pedidos/'+order.data.id_pedido+'/estado','PATCH',{estado:'En entrega'});assert.ok([200,400].includes(again.status));
+ const final=(await pool.query('SELECT cantidad FROM productos WHERE id_producto=$1',[product.id_producto])).rows[0];assert.equal(Number(final.cantidad),Number(product.cantidad)-2);
+ const duplicate=await req('/ventas','POST',{...body,productos:[body.productos[0],body.productos[0]]});assert.equal(duplicate.status,400);
+ console.log('PASS: customer registration/login, manual sale, invoice data, customer order, admin acceptance, En entrega transition, no double inventory discount, duplicate lines rejected. Fixtures retained only on isolated branch.');
+})().then(()=>{server.close();process.exit(0);}).catch(e=>{console.error(e);server.close();process.exit(1);});

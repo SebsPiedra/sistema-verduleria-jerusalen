@@ -197,6 +197,10 @@ router.post('/', async (req, res) => {
       });
     }
 
+    if (new Set(productos.map(p=>Number(p.id_producto))).size !== productos.length) {
+      return res.status(400).json({mensaje:'Agrupa las cantidades de cada producto en una sola línea.'});
+    }
+    await new Promise((resolve,reject)=>conexion.beginTransaction(e=>e?reject(e):resolve()));
     let totalVenta = 0;
     const detallesVenta = [];
 
@@ -204,7 +208,7 @@ router.post('/', async (req, res) => {
       const idProducto = Number(item.id_producto);
       const cantidad = Number(item.cantidad);
 
-      if (!idProducto || !cantidad || cantidad <= 0) {
+      if (!Number.isSafeInteger(idProducto) || idProducto<=0 || !Number.isFinite(cantidad) || cantidad <= 0) {
         return res.status(400).json({
           mensaje: 'Hay un producto con cantidad inválida.',
         });
@@ -262,7 +266,7 @@ router.post('/', async (req, res) => {
         0
       );
 
-      if (precioUnitario <= 0) {
+      if (!Number.isFinite(precioUnitario) || precioUnitario <= 0) {
         return res.status(400).json({
           mensaje: `El producto ${nombreProducto} no tiene precio válido.`,
         });
@@ -337,6 +341,7 @@ router.post('/', async (req, res) => {
       );
     }
 
+    await new Promise((resolve,reject)=>conexion.commit(e=>e?reject(e):resolve()));
     res.json({
       mensaje: 'Venta registrada correctamente.',
       id_venta: idVenta,
@@ -349,6 +354,7 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.log('ERROR POST /ventas:', error);
+    await new Promise(resolve=>conexion.rollback(()=>resolve()));
 
     res.status(500).json({
       mensaje: 'No se pudo registrar la venta.',

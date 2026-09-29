@@ -62,7 +62,7 @@ router.post('/registrar', async (req, res) => {
       });
     }
 
-    if (!correoLimpio.includes('@')) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correoLimpio)) {
       return res.status(400).json({
         mensaje: 'Debe ingresar un correo válido.',
       });
@@ -74,6 +74,7 @@ router.post('/registrar', async (req, res) => {
       });
     }
 
+    await new Promise((resolve,reject)=>conexion.beginTransaction(e=>e?reject(e):resolve()));
     const resultadoValidar = await ejecutar(
       `
         SELECT id_cliente
@@ -125,6 +126,7 @@ router.post('/registrar', async (req, res) => {
       ]
     );
 
+    await new Promise((resolve,reject)=>conexion.commit(e=>e?reject(e):resolve()));
     return res.json({
       mensaje: 'Cliente registrado correctamente.',
       id_cliente: idCliente,
@@ -139,6 +141,7 @@ router.post('/registrar', async (req, res) => {
     });
   } catch (error) {
     console.log('Error al registrar cliente:', error);
+    await new Promise(resolve=>conexion.rollback(()=>resolve()));
 
     return res.status(500).json({
       mensaje: 'Error al registrar cliente.',

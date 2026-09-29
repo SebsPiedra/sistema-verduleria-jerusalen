@@ -1,3 +1,5 @@
+import HelpText from '../components/HelpText';
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useState } from 'react';
 import {
   Alert,
@@ -13,6 +15,7 @@ import { useRouter } from 'expo-router';
 import api from '../services/api';
 
 export default function RecuperarPasswordScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
@@ -66,7 +69,7 @@ export default function RecuperarPasswordScreen() {
       keyboardShouldPersistTaps="handled"
     >
       <View style={styles.contenedor}>
-        <Pressable style={styles.volver} onPress={() => router.replace('/' as any)}>
+        <Pressable accessibilityRole="button" style={styles.volver} onPress={() => router.replace('/' as any)}>
           <Text style={styles.volverTexto}>← Volver al inicio de sesión</Text>
         </Pressable>
 
@@ -79,10 +82,10 @@ export default function RecuperarPasswordScreen() {
           <Text style={[styles.titulo, esTelefono && styles.tituloTelefono]}>
             Recuperar contraseña
           </Text>
-          <Text style={styles.descripcion}>
+          <HelpText>
             Escriba el correo de su cuenta. Le enviaremos un enlace seguro para
             crear una contraseña nueva.
-          </Text>
+          </HelpText>
 
           {mensaje !== '' && (
             <View style={[styles.mensaje, esError ? styles.error : styles.info]}>
@@ -103,7 +106,7 @@ export default function RecuperarPasswordScreen() {
             onSubmitEditing={enviarEnlace}
           />
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={[styles.boton, enviando && styles.botonDesactivado]}
             onPress={enviarEnlace}
             disabled={enviando}
@@ -122,7 +125,7 @@ export default function RecuperarPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   pagina: { flex: 1, backgroundColor: '#f7f5ee' },
   contenido: {
     flexGrow: 1,

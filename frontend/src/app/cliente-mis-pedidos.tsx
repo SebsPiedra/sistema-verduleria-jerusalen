@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ClientHeader from '../components/ClientHeader';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -14,6 +16,7 @@ import api from '../services/api';
 import { obtenerDato } from '../services/storage.js';
 
 export default function ClienteMisPedidosScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isPhone = width < 768;
@@ -23,6 +26,9 @@ export default function ClienteMisPedidosScreen() {
   const [cargando, setCargando] = useState(true);
   const [detalleAbierto, setDetalleAbierto] = useState<number | null>(null);
   const [detallePedido, setDetallePedido] = useState<any>(null);
+  const [cargandoDetalle, setCargandoDetalle] = useState<number | null>(null);
+  const [filtroEstado, setFiltroEstado] = useState('Todos');
+  const [errorVisible,setErrorVisible] = useState('');
 
   useEffect(() => {
     cargarClienteYPedidos();
@@ -33,6 +39,7 @@ export default function ClienteMisPedidosScreen() {
   const cargarClienteYPedidos = async () => {
     try {
       setCargando(true);
+      setErrorVisible('');
 
       const clienteGuardado = await obtenerDato('cliente');
 
@@ -55,6 +62,7 @@ export default function ClienteMisPedidosScreen() {
     } catch (error: any) {
       console.log('Error al cargar pedidos del cliente:', error?.response?.data || error);
       Alert.alert('Error', 'No se pudieron cargar sus pedidos.');
+      setErrorVisible('No se pudieron cargar tus pedidos. Pulsa Actualizar para reintentar.');
     } finally {
       setCargando(false);
     }
@@ -68,12 +76,16 @@ export default function ClienteMisPedidosScreen() {
         return;
       }
 
+      setCargandoDetalle(idPedido);
       const respuesta = await api.get(`/pedidos/${idPedido}`);
       setDetallePedido(respuesta.data);
       setDetalleAbierto(idPedido);
     } catch (error: any) {
       console.log('Error al cargar detalle del pedido:', error?.response?.data || error);
       Alert.alert('Error', 'No se pudo cargar el detalle del pedido.');
+      setErrorVisible('No se pudo abrir el detalle. Intenta nuevamente.');
+    } finally {
+      setCargandoDetalle(null);
     }
   };
 
@@ -676,9 +688,20 @@ export default function ClienteMisPedidosScreen() {
     (pedido) => obtenerEstado(pedido.estado) === 'Aceptado'
   ).length;
 
-  const totalComprado = pedidos.reduce((total, pedido) => {
-    return total + Number(pedido.total || 0);
-  }, 0);
+  const estadosDisponibles = [
+    'Todos',
+    ...Array.from(new Set(pedidos.map((pedido) => obtenerEstado(pedido.estado)))),
+  ];
+
+  const pedidosFiltrados = filtroEstado === 'Todos'
+    ? pedidos
+    : pedidos.filter((pedido) => obtenerEstado(pedido.estado) === filtroEstado);
+
+  const pedidosVisibles = [...pedidosFiltrados].sort((a, b) => {
+    const fechaA = new Date(a.fecha_pedido || a.fecha || a.created_at || 0).getTime();
+    const fechaB = new Date(b.fecha_pedido || b.fecha || b.created_at || 0).getTime();
+    return fechaB - fechaA;
+  });
 
   if (cargando) {
     return (
@@ -691,26 +714,28 @@ export default function ClienteMisPedidosScreen() {
 
   return (
     <ScrollView contentContainerStyle={[styles.container, isPhone && styles.containerPhone]}>
+      <ClientHeader />
+      {!!errorVisible&&<Text accessibilityRole="alert" style={{padding:14,color:'#a02020',backgroundColor:'#fff0f0'}}>{errorVisible}</Text>}
       <View style={[styles.hero, isPhone && styles.heroPhone]}>
         <View style={styles.heroTexto}>
-          <Text style={styles.heroEtiqueta}>Seguimiento de compras</Text>
-          <Text style={styles.titulo}>Mis pedidos</Text>
+          <Text style={styles.heroEtiqueta}>TU CUENTA</Text>
+          <Text style={styles.titulo}>Pedidos recientes</Text>
           <Text style={styles.subtitulo}>
-            Hola, {cliente?.nombre || 'cliente'}. Aquí puede revisar el estado de sus pedidos.
+            Hola, {cliente?.nombre || 'cliente'}. Revisa el estado y los productos de cada compra.
           </Text>
         </View>
 
         <View style={styles.heroIconoCaja}>
-          <Text style={styles.heroIcono}>🛒</Text>
+          <Text style={styles.heroIcono}>📦</Text>
         </View>
       </View>
 
       <View style={[styles.accionesSuperiores, isPhone && styles.accionesSuperioresPhone]}>
-        <Pressable style={styles.botonActualizar} onPress={cargarClienteYPedidos}>
-          <Text style={styles.textoBotonClaro}>Actualizar seguimiento</Text>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarClienteYPedidos}>
+          <Text style={styles.textoBotonClaro}>Actualizar</Text>
         </Pressable>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={styles.botonNuevoSuperior}
           onPress={() => router.push('/cliente-pedido' as any)}
         >
@@ -720,28 +745,48 @@ export default function ClienteMisPedidosScreen() {
 
       <View style={styles.resumenFila}>
         <View style={styles.resumenCard}>
-          <Text style={styles.resumenIcono}>📋</Text>
           <Text style={styles.resumenLabel}>Pedidos</Text>
           <Text style={styles.resumenNumero}>{totalPedidos}</Text>
         </View>
 
         <View style={styles.resumenCard}>
-          <Text style={styles.resumenIcono}>⏳</Text>
           <Text style={styles.resumenLabel}>Pendientes</Text>
           <Text style={styles.resumenNumeroNaranja}>{pedidosPendientes}</Text>
         </View>
 
         <View style={styles.resumenCard}>
-          <Text style={styles.resumenIcono}>✅</Text>
           <Text style={styles.resumenLabel}>Aceptados</Text>
           <Text style={styles.resumenNumeroVerde}>{pedidosAceptados}</Text>
         </View>
 
-        <View style={styles.resumenCardGrande}>
-          <Text style={styles.resumenLabel}>Total en pedidos</Text>
-          <Text style={styles.resumenMonto}>{formatoColones(totalComprado)}</Text>
-        </View>
       </View>
+
+      {pedidos.length > 0 ? (
+        <View style={styles.filtrosArea}>
+          <View>
+            <Text style={styles.seccionTitulo}>Tus compras</Text>
+            <Text style={styles.seccionSubtitulo}>
+              {pedidosVisibles.length} {pedidosVisibles.length === 1 ? 'pedido' : 'pedidos'}
+            </Text>
+          </View>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtrosFila}>
+            {estadosDisponibles.map((estado) => {
+              const activo = filtroEstado === estado;
+              return (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: activo }}
+                  key={estado}
+                  onPress={() => setFiltroEstado(estado)}
+                  style={[styles.filtroBoton, activo && styles.filtroBotonActivo]}
+                >
+                  <Text style={[styles.filtroTexto, activo && styles.filtroTextoActivo]}>{estado}</Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {pedidos.length === 0 ? (
         <View style={styles.vacioBox}>
@@ -751,7 +796,7 @@ export default function ClienteMisPedidosScreen() {
             Cuando realice un pedido desde el catálogo, aparecerá aquí con su seguimiento.
           </Text>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.botonPedidoVacio}
             onPress={() => router.push('/cliente-home' as any)}
           >
@@ -760,7 +805,7 @@ export default function ClienteMisPedidosScreen() {
         </View>
       ) : (
         <View style={styles.listaPedidos}>
-          {pedidos.map((pedido) => {
+          {pedidosVisibles.map((pedido) => {
             const estado = obtenerEstado(pedido.estado);
             const estiloEstado = obtenerEstiloEstado(estado);
             const estaAbierto = detalleAbierto === pedido.id_pedido;
@@ -784,10 +829,10 @@ export default function ClienteMisPedidosScreen() {
                   </View>
                 </View>
 
-                <View style={styles.seguimientoBox}>
+                <View style={[styles.seguimientoBox, estiloEstado.caja]}>
                   <View style={styles.seguimientoTituloFila}>
-                    <Text style={styles.seguimientoIcono}>📍</Text>
-                    <Text style={styles.seguimientoTitulo}>Seguimiento</Text>
+                    <Text style={styles.seguimientoIcono}>{obtenerIconoEstado(estado)}</Text>
+                    <Text style={styles.seguimientoTitulo}>Ahora</Text>
                   </View>
 
                   <Text style={styles.seguimientoTexto}>
@@ -810,12 +855,6 @@ export default function ClienteMisPedidosScreen() {
                     </Text>
                   </View>
 
-                  <View style={styles.infoItem}>
-                    <Text style={styles.infoLabel}>Inventario descontado</Text>
-                    <Text style={styles.infoValor}>
-                      {Number(pedido.inventario_descontado) === 1 ? 'Sí' : 'No'}
-                    </Text>
-                  </View>
                 </View>
 
                 <View style={styles.direccionBox}>
@@ -839,7 +878,8 @@ export default function ClienteMisPedidosScreen() {
                   </View>
 
                   <View style={[styles.accionesPedido, isPhone && styles.accionesPedidoPhone]}>
-                    <Pressable
+                    <Pressable accessibilityRole="button"
+                      disabled={cargandoDetalle === pedido.id_pedido}
                       style={[
                         styles.botonDetalle,
                         estaAbierto && styles.botonDetalleActivo,
@@ -852,15 +892,17 @@ export default function ClienteMisPedidosScreen() {
                           estaAbierto && styles.textoDetalleActivo,
                         ]}
                       >
-                        {estaAbierto ? 'Ocultar detalle' : 'Ver detalle'}
+                        {cargandoDetalle === pedido.id_pedido
+                          ? 'Cargando...'
+                          : estaAbierto ? 'Ocultar productos' : 'Ver productos'}
                       </Text>
                     </Pressable>
 
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       style={styles.botonPDF}
                       onPress={() => prepararPDF(pedido)}
                     >
-                      <Text style={styles.textoPDF}>Preparar PDF</Text>
+                      <Text style={styles.textoPDF}>Comprobante PDF</Text>
                     </Pressable>
                   </View>
                 </View>
@@ -914,14 +956,14 @@ export default function ClienteMisPedidosScreen() {
       )}
 
       <View style={styles.botonesFinales}>
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={styles.botonNuevoPedido}
           onPress={() => router.push('/cliente-pedido' as any)}
         >
           <Text style={styles.textoBotonClaro}>Hacer nuevo pedido</Text>
         </Pressable>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={styles.botonVolver}
           onPress={() => router.push('/cliente-home' as any)}
         >
@@ -932,11 +974,14 @@ export default function ClienteMisPedidosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   container: {
     flexGrow: 1,
     backgroundColor: '#f5f1df',
     padding: 22,
+    width: '100%',
+    maxWidth: 1280,
+    alignSelf: 'center',
   },
   containerPhone: { padding: 12 },
   centro: {
@@ -951,9 +996,9 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   hero: {
-    backgroundColor: '#0f4f24',
+    backgroundColor: '#073f3d',
     borderRadius: 28,
-    padding: 26,
+    padding: 30,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -972,7 +1017,7 @@ const styles = StyleSheet.create({
   },
   titulo: {
     color: '#ffffff',
-    fontSize: 42,
+    fontSize: 36,
     fontWeight: 'bold',
   },
   subtitulo: {
@@ -981,15 +1026,15 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   heroIconoCaja: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#f7f2dc',
+    width: 76,
+    height: 76,
+    borderRadius: 24,
+    backgroundColor: '#dff7ed',
     alignItems: 'center',
     justifyContent: 'center',
   },
   heroIcono: {
-    fontSize: 45,
+    fontSize: 36,
   },
   accionesSuperiores: {
     flexDirection: 'row',
@@ -1029,21 +1074,12 @@ const styles = StyleSheet.create({
   },
   resumenCard: {
     flex: 1,
-    minWidth: 160,
+    minWidth: 140,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#ebe4d3',
-    borderRadius: 20,
-    padding: 18,
-  },
-  resumenCardGrande: {
-    flex: 1.4,
-    minWidth: 220,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#ebe4d3',
-    borderRadius: 20,
-    padding: 18,
+    borderRadius: 18,
+    padding: 16,
   },
   resumenIcono: {
     fontSize: 28,
@@ -1055,27 +1091,21 @@ const styles = StyleSheet.create({
   },
   resumenNumero: {
     color: '#0f4f24',
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     marginTop: 4,
   },
   resumenNumeroNaranja: {
     color: '#f58220',
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     marginTop: 4,
   },
   resumenNumeroVerde: {
     color: '#2e7d32',
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  resumenMonto: {
-    color: '#0f4f24',
     fontSize: 28,
     fontWeight: 'bold',
-    marginTop: 8,
+    marginTop: 4,
   },
   vacioBox: {
     backgroundColor: '#ffffff',
@@ -1108,14 +1138,18 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   listaPedidos: {
-    gap: 18,
+    gap: 14,
   },
   card: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#ebe4d3',
-    borderRadius: 24,
-    padding: 20,
+    borderRadius: 20,
+    padding: 18,
+    shadowColor: '#082f2d',
+    shadowOpacity: 0.05,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
   },
   cardHeader: {
     flexDirection: 'row',
@@ -1126,7 +1160,7 @@ const styles = StyleSheet.create({
   },
   cardHeaderPhone: { flexDirection: 'column' },
   numeroPedido: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: '#0f4f24',
   },
@@ -1192,11 +1226,11 @@ const styles = StyleSheet.create({
     color: '#424242',
   },
   seguimientoBox: {
-    backgroundColor: '#f7f2dc',
+    backgroundColor: '#eef8f5',
     borderWidth: 1,
     borderColor: '#ebe4d3',
-    padding: 15,
-    borderRadius: 18,
+    padding: 13,
+    borderRadius: 15,
     marginBottom: 14,
   },
   seguimientoTituloFila: {
@@ -1225,7 +1259,7 @@ const styles = StyleSheet.create({
   infoGridPhone: { flexDirection: 'column' },
   infoItem: {
     flex: 1,
-    minWidth: 180,
+    minWidth: 220,
     backgroundColor: '#fffdf6',
     borderWidth: 1,
     borderColor: '#ebe4d3',
@@ -1267,11 +1301,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   totalFila: {
-    backgroundColor: '#e8f5e9',
-    borderWidth: 1,
-    borderColor: '#2e7d32',
+    backgroundColor: '#eff9f5',
+    borderWidth: 0,
     borderRadius: 18,
-    padding: 16,
+    padding: 14,
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 12,
@@ -1285,7 +1318,7 @@ const styles = StyleSheet.create({
   total: {
     color: '#0f4f24',
     fontWeight: 'bold',
-    fontSize: 27,
+    fontSize: 25,
     marginTop: 4,
   },
   accionesPedido: {
@@ -1405,5 +1438,42 @@ const styles = StyleSheet.create({
   textoVolver: {
     color: '#0f4f24',
     fontWeight: 'bold',
+  },
+  filtrosArea: {
+    gap: 12,
+    marginBottom: 16,
+  },
+  seccionTitulo: {
+    color: '#073f3d',
+    fontSize: 24,
+    fontWeight: '800',
+  },
+  seccionSubtitulo: {
+    color: '#62716f',
+    marginTop: 3,
+  },
+  filtrosFila: {
+    gap: 8,
+    paddingRight: 8,
+  },
+  filtroBoton: {
+    minHeight: 42,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cfe1dd',
+  },
+  filtroBotonActivo: {
+    backgroundColor: '#087f73',
+    borderColor: '#087f73',
+  },
+  filtroTexto: {
+    color: '#0b625c',
+    fontWeight: '700',
+  },
+  filtroTextoActivo: {
+    color: '#ffffff',
   },
 });

@@ -1,3 +1,4 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import api from '../services/api';
 import AdminLayout from '../components/AdminLayout';
 
 export default function EditarProductoScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -231,12 +233,10 @@ export default function EditarProductoScreen() {
       <View style={styles.hero}>
         <View>
           <Text style={styles.titulo}>Editar producto ✏️</Text>
-          <Text style={styles.subtitulo}>
-            Modifique los datos necesarios y guarde los cambios.
-          </Text>
+          
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={styles.botonVolver}
           onPress={() => router.replace('/productos' as any)}
         >
@@ -288,7 +288,7 @@ export default function EditarProductoScreen() {
             <Text style={styles.label}>Categoría</Text>
             <View style={styles.opcionesFila}>
               {categorias.map((item) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={item}
                   style={[
                     styles.opcion,
@@ -364,7 +364,7 @@ export default function EditarProductoScreen() {
             <Text style={styles.label}>Unidad de medida</Text>
             <View style={styles.opcionesFila}>
               {unidades.map((item) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={item}
                   style={[
                     styles.opcion,
@@ -388,7 +388,7 @@ export default function EditarProductoScreen() {
             <Text style={styles.label}>Estado</Text>
             <View style={styles.opcionesFila}>
               {estados.map((item) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={item}
                   style={[
                     styles.opcion,
@@ -420,7 +420,7 @@ export default function EditarProductoScreen() {
             />
 
             <View style={styles.botonesFila}>
-              <Pressable
+              <Pressable accessibilityRole="button"
                 style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
                 onPress={actualizarProducto}
                 disabled={guardando}
@@ -430,7 +430,7 @@ export default function EditarProductoScreen() {
                 </Text>
               </Pressable>
 
-              <Pressable
+              <Pressable accessibilityRole="button"
                 style={styles.botonCancelar}
                 onPress={() => router.replace('/productos' as any)}
                 disabled={guardando}
@@ -503,7 +503,7 @@ export default function EditarProductoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

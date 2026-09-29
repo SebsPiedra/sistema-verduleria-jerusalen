@@ -5,6 +5,10 @@
   "installCommand": "npm install",
   "routes": [
     {
+      "src": "/resumen-mensual/?",
+      "dest": "/resumen-mensual.html"
+    },
+    {
       "handle": "filesystem"
     },
     {

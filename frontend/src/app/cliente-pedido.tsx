@@ -1,3 +1,5 @@
+import ClientHeader from '../components/ClientHeader';
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { Children, useEffect, useState } from 'react';
 import {
   View,
@@ -30,6 +32,7 @@ function ContenidoPedidoResponsivo({ children, isPhone, style }: any) {
 }
 
 export default function ClientePedidoScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isPhone = width < 768;
@@ -165,7 +168,7 @@ export default function ClientePedidoScreen() {
               Number(item.precio || item.precio_venta || item.precio_unitario || 0),
             imagen_url: item.imagen_url || item.imagen || '',
             unidad_medida: item.unidad_medida || item.unidad || 'kg',
-            disponible: Number(item.disponible || item.cantidad_disponible || 999999),
+            disponible: Number(item.disponible ?? item.cantidad_disponible ?? 0),
           }));
 
       await guardarCarrito(carritoNormalizado);
@@ -287,7 +290,7 @@ export default function ClientePedidoScreen() {
     }
 
     const idProducto = Number(producto.id_producto || producto.id);
-    const copia = [...carrito];
+    const copia = carrito.map(item => ({ ...item }));
 
     const existente = copia.find(
       (item) => Number(item.id_producto) === idProducto
@@ -318,17 +321,13 @@ export default function ClientePedidoScreen() {
     await guardarCarrito(copia);
     mostrarMensaje('El producto se agregó correctamente.', 'ok');
 
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.alert('El producto se agregó correctamente.');
-    } else {
-      Alert.alert('Producto agregado', 'El producto se agregó correctamente.');
-    }
   };
 
   const aumentarCantidad = (idProducto: any) => {
     const copia = carrito.map((item) => {
       if (Number(item.id_producto) === Number(idProducto)) {
-        const disponible = Number(item.disponible || 999999);
+        const productoActual = productos.find(p=>Number(p.id_producto || p.id)===Number(idProducto));
+        const disponible = productoActual ? obtenerDisponible(productoActual) : Number(item.disponible ?? 0);
 
         if (Number(item.cantidad) + 1 > disponible) {
           mostrarMensaje(`No hay más cantidad disponible de ${item.nombre}.`, 'error');
@@ -524,34 +523,7 @@ export default function ClientePedidoScreen() {
   return (
     <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]} keyboardShouldPersistTaps="handled">
       <View style={styles.contenedorPrincipal}>
-        <View style={[styles.header, isPhone && styles.headerPhone]}>
-          <Pressable onPress={() => router.push('/cliente-home' as any)} style={[styles.logoArea, isPhone && styles.logoAreaPhone]}>
-            <Text style={styles.logoTexto}>VERDULERÍA</Text>
-            <Text style={styles.logoNombre}>JERUSALÉN</Text>
-            <Text style={styles.logoSubtitulo}>FRUTAS · VERDURAS · JUGOS NATURALES</Text>
-          </Pressable>
-
-          <View style={[styles.menu, isPhone && styles.menuPhone]}>
-            <Pressable onPress={() => router.push('/cliente-home' as any)}>
-              <Text style={styles.menuTexto}>Inicio</Text>
-            </Pressable>
-
-            <Pressable onPress={() => router.push('/catalogo' as any)}>
-              <Text style={styles.menuTexto}>Catálogo</Text>
-            </Pressable>
-
-            <Pressable onPress={() => router.push('/cliente-mis-pedidos' as any)}>
-              <Text style={styles.menuTexto}>Mis pedidos</Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.carritoHeader}>
-            <Text style={styles.carritoIcono}>🛒</Text>
-            <View style={styles.carritoNumero}>
-              <Text style={styles.carritoNumeroTexto}>{cantidadCarrito}</Text>
-            </View>
-          </View>
-        </View>
+        <ClientHeader />
 
         <View style={styles.banner}>
           <Text style={styles.titulo}>Realizar pedido</Text>
@@ -592,7 +564,7 @@ export default function ClientePedidoScreen() {
             >
               <View style={styles.categoriasFila}>
                 {CATEGORIAS_PRODUCTOS.map((categoria) => (
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     key={categoria}
                     style={[
                       styles.categoriaBoton,
@@ -661,7 +633,7 @@ export default function ClientePedidoScreen() {
                         {formatoColones(obtenerPrecio(producto))}
                       </Text>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={[styles.botonAgregar, agotado && styles.botonAgotado]}
                         onPress={() => agregarProducto(producto)}
                         disabled={agotado || guardando}
@@ -687,7 +659,7 @@ export default function ClientePedidoScreen() {
               <Text style={styles.tituloSeccion}>Carrito del pedido</Text>
 
               {carrito.length > 0 && !guardando && (
-                <Pressable onPress={limpiarCarrito}>
+                <Pressable accessibilityRole="button" onPress={limpiarCarrito}>
                   <Text style={styles.limpiarTexto}>Limpiar</Text>
                 </Pressable>
               )}
@@ -728,7 +700,7 @@ export default function ClientePedidoScreen() {
                     </Text>
 
                     <View style={styles.cantidadFila}>
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={styles.botonCantidad}
                         onPress={() => disminuirCantidad(item.id_producto)}
                         disabled={guardando}
@@ -738,7 +710,7 @@ export default function ClientePedidoScreen() {
 
                       <Text style={styles.numeroCantidad}>{item.cantidad}</Text>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={styles.botonCantidad}
                         onPress={() => aumentarCantidad(item.id_producto)}
                         disabled={guardando}
@@ -746,7 +718,7 @@ export default function ClientePedidoScreen() {
                         <Text style={styles.textoCantidad}>+</Text>
                       </Pressable>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={styles.botonEliminar}
                         onPress={() => eliminarProducto(item.id_producto)}
                         disabled={guardando}
@@ -768,7 +740,7 @@ export default function ClientePedidoScreen() {
 
             <View style={styles.metodosPago}>
               {['Entrega', 'Retiro en tienda'].map((tipo) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={tipo}
                   style={[
                     styles.metodoBoton,
@@ -802,7 +774,7 @@ export default function ClientePedidoScreen() {
                   editable={!guardando}
                 />
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   style={styles.botonDireccion}
                   onPress={usarDireccionRegistrada}
                   disabled={guardando}
@@ -814,7 +786,7 @@ export default function ClientePedidoScreen() {
               <View style={styles.retiroCaja}>
                 <Text style={styles.retiroTitulo}>Retiro en tienda seleccionado</Text>
                 <Text style={styles.retiroTexto}>
-                  El pedido quedará registrado para ser retirado directamente en la verdulería.
+                  Recoge tu pedido en la verdulería.
                 </Text>
               </View>
             )}
@@ -823,7 +795,7 @@ export default function ClientePedidoScreen() {
 
             <View style={styles.metodosPago}>
               {['Efectivo', 'SINPE Móvil', 'Tarjeta', 'Transferencia'].map((metodo) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={metodo}
                   style={[
                     styles.metodoBoton,
@@ -868,7 +840,7 @@ export default function ClientePedidoScreen() {
               </View>
             )}
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={[
                 styles.botonConfirmar,
                 (guardando || carrito.length === 0) && styles.botonDesactivado,
@@ -881,7 +853,7 @@ export default function ClientePedidoScreen() {
               </Text>
             </Pressable>
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={styles.botonVolver}
               onPress={() => router.push('/catalogo' as any)}
               disabled={guardando}
@@ -895,7 +867,7 @@ export default function ClientePedidoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   pagina: {
     flex: 1,
     backgroundColor: '#f7f5ee',

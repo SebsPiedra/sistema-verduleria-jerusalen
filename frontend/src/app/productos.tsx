@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -15,6 +17,7 @@ import { obtenerCategoriaProducto } from '../utils/productos';
 import AdminLayout from '../components/AdminLayout';
 
 export default function ProductosScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
@@ -226,12 +229,10 @@ export default function ProductosScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Inventario de productos 📦</Text>
-          <Text style={styles.subtitulo}>
-            Administre productos, precios, imágenes y disponibilidad.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonAgregar} onPress={irRegistrar}>
+        <Pressable accessibilityRole="button" style={styles.botonAgregar} onPress={irRegistrar}>
           <Text style={styles.botonAgregarTexto}>＋ Agregar producto</Text>
         </Pressable>
       </View>
@@ -255,7 +256,7 @@ export default function ProductosScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Productos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
-            <Text style={styles.tarjetaDetalle}>Registrados</Text>
+            
           </View>
         </View>
 
@@ -264,7 +265,7 @@ export default function ProductosScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Activos</Text>
             <Text style={styles.tarjetaNumero}>{totalActivos}</Text>
-            <Text style={styles.tarjetaDetalle}>Disponibles en sistema</Text>
+            
           </View>
         </View>
 
@@ -273,7 +274,7 @@ export default function ProductosScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Stock bajo</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{totalStockBajo}</Text>
-            <Text style={styles.tarjetaDetalle}>Revisar reposición</Text>
+            
           </View>
         </View>
 
@@ -282,7 +283,7 @@ export default function ProductosScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Sin stock</Text>
             <Text style={styles.tarjetaNumeroRojo}>{totalSinStock}</Text>
-            <Text style={styles.tarjetaDetalle}>Agotados</Text>
+            
           </View>
         </View>
       </View>
@@ -299,7 +300,7 @@ export default function ProductosScreen() {
           <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
             <View style={[styles.filtrosHorizontales, esTelefono && styles.opcionesTelefono]}>
               {['Todos', 'En buen estado', 'Stock bajo', 'Sin stock', 'Inactivo'].map((estado) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={estado}
                   style={[
                     styles.filtroBoton,
@@ -324,7 +325,7 @@ export default function ProductosScreen() {
         <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
           <View style={[styles.categoriasFila, esTelefono && styles.opcionesTelefono]}>
             {categorias.map((categoria) => (
-              <Pressable
+              <Pressable accessibilityRole="button"
                 key={categoria}
                 style={[
                   styles.categoriaBoton,
@@ -350,14 +351,14 @@ export default function ProductosScreen() {
             Mostrando {productosFiltrados.length} de {productos.length} productos
           </Text>
 
-          <Pressable style={styles.botonActualizar} onPress={cargarProductos}>
+          <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarProductos}>
             <Text style={styles.botonActualizarTexto}>
               {cargando ? 'Actualizando...' : 'Actualizar'}
             </Text>
           </Pressable>
         </View>
 
-        <View style={styles.tablaHeader}>
+        <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
           <Text style={[styles.th, styles.colCategoria]}>Categoría</Text>
           <Text style={[styles.th, styles.colCantidad]}>Cantidad</Text>
@@ -433,7 +434,7 @@ export default function ProductosScreen() {
                 </View>
 
                 <View style={styles.colAcciones}>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     style={styles.botonEditar}
                     onPress={() => irEditar(producto)}
                   >
@@ -443,7 +444,7 @@ export default function ProductosScreen() {
               </View>
             );
           })
-        )}
+        )}</ResponsiveTable>
       </View>
 
       <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
@@ -479,7 +480,7 @@ export default function ProductosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

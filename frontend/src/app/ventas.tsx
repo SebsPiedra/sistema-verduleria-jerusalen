@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -15,6 +17,7 @@ import api from '../services/api';
 import { obtenerCategoriaProducto as inferirCategoriaProducto } from '../utils/productos';
 
 export default function VentasScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
@@ -422,12 +425,10 @@ export default function VentasScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Ventas manuales 📈</Text>
-          <Text style={styles.subtitulo}>
-            Registre ventas realizadas directamente por el administrador.
-          </Text>
+          
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={styles.botonAgregar}
           onPress={() => setMostrarFormulario(true)}
         >
@@ -454,7 +455,7 @@ export default function VentasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Ventas registradas</Text>
             <Text style={styles.tarjetaNumero}>{ventas.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Historial de ventas</Text>
+            
           </View>
         </View>
 
@@ -463,7 +464,7 @@ export default function VentasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Total vendido</Text>
             <Text style={styles.tarjetaNumero}>{formatoColones(totalVendido)}</Text>
-            <Text style={styles.tarjetaDetalle}>Monto acumulado</Text>
+            
           </View>
         </View>
 
@@ -472,7 +473,7 @@ export default function VentasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Productos disponibles</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{productosDisponibles.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Para vender</Text>
+            
           </View>
         </View>
       </View>
@@ -487,7 +488,7 @@ export default function VentasScreen() {
               </Text>
             </View>
 
-            <Pressable style={styles.botonCerrar} onPress={cerrarFormulario}>
+            <Pressable accessibilityRole="button" style={styles.botonCerrar} onPress={cerrarFormulario}>
               <Text style={styles.textoCerrar}>Cerrar</Text>
             </Pressable>
           </View>
@@ -510,7 +511,7 @@ export default function VentasScreen() {
               <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
                 <View style={[styles.metodosFila, esTelefono && styles.opcionesTelefono]}>
                   {metodosPago.map((metodo) => (
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       key={metodo}
                       style={[
                         styles.metodoBoton,
@@ -551,7 +552,7 @@ export default function VentasScreen() {
                 </Text>
               ) : (
                 productosDisponibles.slice(0, 30).map((producto, index) => (
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     key={obtenerIdProducto(producto) || index}
                     style={styles.productoCard}
                     onPress={() => agregarProducto(producto)}
@@ -607,7 +608,7 @@ export default function VentasScreen() {
                     {formatoColones(item.subtotal)}
                   </Text>
 
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     style={styles.botonQuitar}
                     onPress={() => quitarProducto(item.id_producto)}
                     disabled={guardando}
@@ -635,7 +636,7 @@ export default function VentasScreen() {
           />
 
           <View style={styles.botonesFila}>
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
               onPress={registrarVenta}
               disabled={guardando}
@@ -645,7 +646,7 @@ export default function VentasScreen() {
               </Text>
             </Pressable>
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={styles.botonLimpiar}
               onPress={limpiarVenta}
               disabled={guardando}
@@ -665,13 +666,13 @@ export default function VentasScreen() {
             onChangeText={setBusquedaVenta}
           />
 
-          <Pressable style={styles.botonActualizar} onPress={cargarDatos}>
+          <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarDatos}>
             <Text style={styles.textoActualizar}>
               {cargando ? 'Actualizando...' : 'Actualizar'}
             </Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.botonHistorial}
             onPress={() => router.push('/historial-ventas' as any)}
           >
@@ -679,7 +680,7 @@ export default function VentasScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.tablaHeader}>
+        <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colFactura]}>Factura</Text>
           <Text style={[styles.th, styles.colCliente]}>Cliente</Text>
           <Text style={[styles.th, styles.colFecha]}>Fecha</Text>
@@ -733,7 +734,7 @@ export default function VentasScreen() {
               </View>
             </View>
           ))
-        )}
+        )}</ResponsiveTable>
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -745,7 +746,7 @@ export default function VentasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

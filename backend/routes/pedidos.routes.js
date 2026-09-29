@@ -458,6 +458,10 @@ router.post('/', async (req, res) => {
     });
   }
 
+  if (new Set(productos.map(p=>Number(p.id_producto))).size !== productos.length) {
+    return res.status(400).json({mensaje:'Agrupa las cantidades de cada producto en una sola línea.'});
+  }
+
   try {
     await beginTransaction();
 
@@ -468,7 +472,7 @@ router.post('/', async (req, res) => {
       const idProducto = Number(item.id_producto);
       const cantidadPedida = formatoNumero(item.cantidad);
 
-      if (!idProducto || cantidadPedida <= 0) {
+      if (!Number.isSafeInteger(idProducto) || idProducto<=0 || !Number.isFinite(cantidadPedida) || cantidadPedida <= 0) {
         await rollbackSeguro();
 
         return res.status(400).json({

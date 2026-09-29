@@ -1,0 +1,33 @@
+name: Calidad y compilación
+
+on:
+  pull_request:
+  push:
+    branches: [main, master]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+      - name: Instalar frontend
+        working-directory: frontend
+        run: npm ci
+      - name: Revisar y exportar frontend
+        working-directory: frontend
+        run: npm run check
+      - name: Instalar backend
+        working-directory: backend
+        run: npm ci
+      - name: Revisar backend
+        working-directory: backend
+        run: npm run check
+

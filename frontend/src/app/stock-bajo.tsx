@@ -1,3 +1,4 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -12,6 +13,7 @@ import { useRouter } from 'expo-router';
 import api from '../services/api';
 
 export default function StockBajoScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
 
   const [productos, setProductos] = useState<any[]>([]);
@@ -82,9 +84,7 @@ export default function StockBajoScreen() {
     <View style={styles.container}>
       <Text style={styles.titulo}>Stock bajo</Text>
 
-      <Text style={styles.subtitulo}>
-        Productos faltantes o próximos a agotarse
-      </Text>
+      
 
       {productos.length === 0 ? (
         <View style={styles.sinDatos}>
@@ -135,7 +135,7 @@ export default function StockBajoScreen() {
                   Proveedor: {item.proveedor || 'No indicado'}
                 </Text>
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   style={styles.botonEditar}
                   onPress={() => irEditarProducto(item.id_producto)}
                 >
@@ -148,7 +148,7 @@ export default function StockBajoScreen() {
         />
       )}
 
-      <Pressable
+      <Pressable accessibilityRole="button"
         style={styles.botonVolver}
         onPress={() => router.push('/home' as any)}
       >
@@ -158,7 +158,7 @@ export default function StockBajoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   container: {
     flex: 1,
     padding: 16,

@@ -6,11 +6,24 @@ const variables = obtenerVariables();
 const pool = new Pool({
   connectionString: variables.DATABASE_URL,
   ssl: {
-    rejectUnauthorized: false
+    rejectUnauthorized: true
   }
 });
 
-let clienteTransaccion = null;
+const { AsyncLocalStorage } = require('node:async_hooks');
+const transactionScope = new AsyncLocalStorage();
+const transactionState = () => transactionScope.getStore() || { client: null };
+// Each HTTP request owns its connection; concurrent sales cannot share a transaction.
+const requestScope = (req, res, next) => transactionScope.run({ client: null }, () => {
+  const state = transactionScope.getStore();
+  res.once('finish', () => {
+    if (state.client) {
+      const client = state.client; state.client = null;
+      client.query('ROLLBACK').catch(() => {}).finally(() => client.release());
+    }
+  });
+  next();
+});
 
 const convertirPlaceholders = (sql) => {
   let contador = 0;
@@ -103,9 +116,10 @@ const ejecutarConsulta = (sql, params, callback) => {
 
   const consultaPostgres = prepararConsulta(sql);
   const valores = params || [];
-  const ejecutor = clienteTransaccion || pool;
+  const ejecutor = transactionState().client || pool;
 
   if (callback) {
+    callback = AsyncLocalStorage.bind(callback);
     ejecutor.query(consultaPostgres, valores, (error, resultado) => {
       if (error) {
         console.error('Error en consulta PostgreSQL:', error.message);
@@ -150,6 +164,10 @@ const conexion = {
   execute: ejecutarConsulta,
 
   beginTransaction: (callback) => {
+    if (!transactionScope.getStore()) return callback(new Error('Transaction requires request scope'));
+    if (transactionState().client) return callback(new Error('Transaction already active'));
+    const state = transactionState();
+    callback = AsyncLocalStorage.bind(callback);
     pool.connect((error, client) => {
       if (error) {
         console.error('Error al iniciar transacción:', error.message);
@@ -161,13 +179,13 @@ const conexion = {
         return;
       }
 
-      clienteTransaccion = client;
+      state.client = client;
 
-      clienteTransaccion.query('BEGIN', (errorBegin) => {
+      client.query('BEGIN', (errorBegin) => {
         if (errorBegin) {
           console.error('Error en BEGIN:', errorBegin.message);
-          clienteTransaccion.release();
-          clienteTransaccion = null;
+          client.release();
+          state.client = null;
 
           if (callback) {
             callback(errorBegin);
@@ -176,15 +194,21 @@ const conexion = {
           return;
         }
 
-        if (callback) {
-          callback(null);
-        }
+        // Legacy IDs use MAX + 1 across sales, orders and details. Serialize these
+        // transactions until that schema can be migrated to database sequences.
+        client.query('SELECT pg_advisory_xact_lock(20260904)', (lockError) => {
+          if (lockError) {
+            client.query('ROLLBACK', () => { client.release(); state.client = null; callback(lockError); });
+          } else if (callback) callback(null);
+        });
       });
     });
   },
 
   commit: (callback) => {
-    if (!clienteTransaccion) {
+    const state = transactionState();
+    if (callback) callback = AsyncLocalStorage.bind(callback);
+    if (!transactionState().client) {
       if (callback) {
         callback(null);
       }
@@ -192,7 +216,8 @@ const conexion = {
       return;
     }
 
-    clienteTransaccion.query('COMMIT', (error) => {
+    const client = state.client;
+    client.query('COMMIT', (error) => {
       if (error) {
         console.error('Error en COMMIT:', error.message);
 
@@ -203,8 +228,8 @@ const conexion = {
         return;
       }
 
-      clienteTransaccion.release();
-      clienteTransaccion = null;
+      client.release();
+      state.client = null;
 
       if (callback) {
         callback(null);
@@ -213,7 +238,9 @@ const conexion = {
   },
 
   rollback: (callback) => {
-    if (!clienteTransaccion) {
+    const state = transactionState();
+    if (callback) callback = AsyncLocalStorage.bind(callback);
+    if (!transactionState().client) {
       if (callback) {
         callback(null);
       }
@@ -221,13 +248,14 @@ const conexion = {
       return;
     }
 
-    clienteTransaccion.query('ROLLBACK', (error) => {
+    const client = state.client;
+    client.query('ROLLBACK', (error) => {
       if (error) {
         console.error('Error en ROLLBACK:', error.message);
       }
 
-      clienteTransaccion.release();
-      clienteTransaccion = null;
+      client.release();
+      state.client = null;
 
       if (callback) {
         callback(error || null);
@@ -259,3 +287,4 @@ module.exports.beginTransaction = conexion.beginTransaction;
 module.exports.commit = conexion.commit;
 module.exports.rollback = conexion.rollback;
 module.exports.promise = conexion.promise;
+module.exports.requestScope = requestScope;

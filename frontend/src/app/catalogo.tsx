@@ -1,3 +1,5 @@
+import ClientHeader from '../components/ClientHeader';
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -21,6 +23,7 @@ const CARRITO_KEY = 'carrito';
 const CARRITO_CLIENTE_KEY = 'carrito_cliente';
 
 export default function CatalogoScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const parametros = useLocalSearchParams<{ categoria?: string }>();
   const { width } = useWindowDimensions();
@@ -297,60 +300,10 @@ export default function CatalogoScreen() {
   return (
     <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]}>
       <View style={styles.contenedorPrincipal}>
-        <View style={[styles.header, isPhone && styles.headerPhone]}>
-          <Pressable onPress={irInicio} style={[styles.logoArea, isPhone && styles.logoAreaPhone]}>
-            <Text style={styles.logoTexto}>VERDULERÍA</Text>
-            <Text style={styles.logoNombre}>JERUSALÉN</Text>
-            <Text style={styles.logoSubtitulo}>FRUTAS · VERDURAS · JUGOS NATURALES</Text>
-          </Pressable>
-
-          <View style={[styles.menu, isPhone && styles.menuPhone]}>
-            <Pressable onPress={irInicio}>
-              <Text style={styles.menuTexto}>Inicio</Text>
-            </Pressable>
-
-            <Pressable onPress={irCatalogo}>
-              <Text style={[styles.menuTexto, styles.menuActivo]}>Catálogo</Text>
-            </Pressable>
-
-            <Pressable onPress={irMisPedidos}>
-              <Text style={styles.menuTexto}>Mis pedidos</Text>
-            </Pressable>
-          </View>
-
-          <View style={[styles.acciones, isPhone && styles.accionesPhone]}>
-            {!sesionCargada ? (
-              <View style={styles.botonPerfil}>
-                <Text style={styles.perfilIcono}>👤</Text>
-                <Text style={styles.textoSalir}>Cargando...</Text>
-              </View>
-            ) : cliente ? (
-              <Pressable onPress={cerrarSesion} style={styles.botonPerfil}>
-                <Text style={styles.perfilIcono}>👤</Text>
-                <Text style={styles.textoSalir}>Salir</Text>
-              </Pressable>
-            ) : (
-              <Pressable onPress={irLoginCliente} style={styles.botonPerfil}>
-                <Text style={styles.perfilIcono}>👤</Text>
-                <Text style={styles.textoSalir}>Entrar</Text>
-              </Pressable>
-            )}
-
-            <Pressable onPress={irPedido} style={styles.carritoBoton}>
-              <Text style={styles.carritoIcono}>🛒</Text>
-
-              <View style={styles.carritoNumero}>
-                <Text style={styles.carritoNumeroTexto}>{carritoCantidad}</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
+        <ClientHeader />
 
         <View style={[styles.bannerCatalogo, isPhone && styles.bannerCatalogoPhone]}>
-          <Text style={styles.bannerTitulo}>Catálogo de productos</Text>
-          <Text style={styles.bannerTexto}>
-            Frutas, verduras y jugos naturales seleccionados para su hogar.
-          </Text>
+          <Text style={styles.bannerTitulo}>Elige algo fresco</Text>
         </View>
 
         {mensaje !== '' && (
@@ -374,10 +327,10 @@ export default function CatalogoScreen() {
             onChangeText={setBusqueda}
           />
 
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.categoriasFila}>
+          <ScrollView horizontal={!isPhone} showsHorizontalScrollIndicator={false}>
+            <View style={[styles.categoriasFila,isPhone&&{flexWrap:'wrap'}]}>
               {categorias.map((categoria) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={categoria}
                   style={[
                     styles.categoriaBoton,
@@ -450,7 +403,7 @@ export default function CatalogoScreen() {
                       {formatoColones(obtenerPrecio(producto))}
                     </Text>
 
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       style={[styles.botonAgregar, agotado && styles.botonAgotado]}
                       onPress={() => agregarAlCarrito(producto)}
                       disabled={agotado}
@@ -470,7 +423,7 @@ export default function CatalogoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   pagina: {
     flex: 1,
     backgroundColor: '#f7f5ee',

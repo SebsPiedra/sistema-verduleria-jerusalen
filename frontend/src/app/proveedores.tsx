@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -12,6 +14,7 @@ import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function ProveedoresScreen() {
+  const styles = useAppStyles(baseStyles);
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
   const [proveedores, setProveedores] = useState<any[]>([]);
@@ -242,12 +245,10 @@ export default function ProveedoresScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Proveedores 🚚</Text>
-          <Text style={styles.subtitulo}>
-            Registre, consulte y actualice los proveedores del negocio.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonAgregar} onPress={abrirNuevoProveedor}>
+        <Pressable accessibilityRole="button" style={styles.botonAgregar} onPress={abrirNuevoProveedor}>
           <Text style={styles.textoAgregar}>＋ Agregar proveedor</Text>
         </Pressable>
       </View>
@@ -271,7 +272,7 @@ export default function ProveedoresScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Total proveedores</Text>
             <Text style={styles.tarjetaNumero}>{proveedores.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Registrados</Text>
+            
           </View>
         </View>
 
@@ -280,7 +281,7 @@ export default function ProveedoresScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Activos</Text>
             <Text style={styles.tarjetaNumero}>{totalActivos}</Text>
-            <Text style={styles.tarjetaDetalle}>Disponibles</Text>
+            
           </View>
         </View>
 
@@ -289,7 +290,7 @@ export default function ProveedoresScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Inactivos</Text>
             <Text style={styles.tarjetaNumeroRojo}>{totalInactivos}</Text>
-            <Text style={styles.tarjetaDetalle}>No disponibles</Text>
+            
           </View>
         </View>
       </View>
@@ -306,7 +307,7 @@ export default function ProveedoresScreen() {
               </Text>
             </View>
 
-            <Pressable style={styles.botonCerrar} onPress={cerrarFormulario}>
+            <Pressable accessibilityRole="button" style={styles.botonCerrar} onPress={cerrarFormulario}>
               <Text style={styles.textoCerrar}>Cerrar</Text>
             </Pressable>
           </View>
@@ -354,7 +355,7 @@ export default function ProveedoresScreen() {
               <Text style={styles.label}>Estado</Text>
               <View style={styles.estadosFila}>
                 {['Activo', 'Inactivo'].map((item) => (
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     key={item}
                     style={[
                       styles.estadoBoton,
@@ -388,7 +389,7 @@ export default function ProveedoresScreen() {
           />
 
           <View style={styles.botonesFila}>
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
               onPress={guardarProveedor}
               disabled={guardando}
@@ -402,7 +403,7 @@ export default function ProveedoresScreen() {
               </Text>
             </Pressable>
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={styles.botonCancelar}
               onPress={cerrarFormulario}
               disabled={guardando}
@@ -422,14 +423,14 @@ export default function ProveedoresScreen() {
             onChangeText={setBusqueda}
           />
 
-          <Pressable style={styles.botonActualizar} onPress={cargarProveedores}>
+          <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarProveedores}>
             <Text style={styles.textoActualizar}>
               {cargando ? 'Actualizando...' : 'Actualizar'}
             </Text>
           </Pressable>
         </View>
 
-        <View style={styles.tablaHeader}>
+        <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colNombre]}>Proveedor</Text>
           <Text style={[styles.th, styles.colTelefono]}>Teléfono</Text>
           <Text style={[styles.th, styles.colCorreo]}>Correo</Text>
@@ -500,7 +501,7 @@ export default function ProveedoresScreen() {
                 </View>
 
                 <View style={styles.colAccion}>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     style={styles.botonEditar}
                     onPress={() => abrirEditarProveedor(proveedor)}
                   >
@@ -510,7 +511,7 @@ export default function ProveedoresScreen() {
               </View>
             );
           })
-        )}
+        )}</ResponsiveTable>
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -522,7 +523,7 @@ export default function ProveedoresScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

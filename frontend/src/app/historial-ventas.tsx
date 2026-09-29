@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -7,12 +9,14 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Modal,
   useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function HistorialVentasScreen() {
+  const styles = useAppStyles(baseStyles);
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
   const [ventas, setVentas] = useState<any[]>([]);
@@ -588,12 +592,10 @@ export default function HistorialVentasScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Historial y facturas 🧾</Text>
-          <Text style={styles.subtitulo}>
-            Consulte las ventas realizadas y revise la información de factura.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonActualizar} onPress={cargarVentas}>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarVentas}>
           <Text style={styles.textoActualizar}>
             {cargando ? 'Actualizando...' : 'Actualizar historial'}
           </Text>
@@ -612,7 +614,7 @@ export default function HistorialVentasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Facturas</Text>
             <Text style={styles.tarjetaNumero}>{totalFacturas}</Text>
-            <Text style={styles.tarjetaDetalle}>Ventas registradas</Text>
+            
           </View>
         </View>
 
@@ -621,7 +623,7 @@ export default function HistorialVentasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Total facturado</Text>
             <Text style={styles.tarjetaNumero}>{formatoColones(totalFacturado)}</Text>
-            <Text style={styles.tarjetaDetalle}>Monto acumulado</Text>
+            
           </View>
         </View>
 
@@ -652,7 +654,7 @@ export default function HistorialVentasScreen() {
             <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
               <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
                 {metodos.map((metodo) => (
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     key={metodo}
                     style={[
                       styles.filtroBoton,
@@ -674,7 +676,7 @@ export default function HistorialVentasScreen() {
             </ScrollView>
           </View>
 
-          <View style={styles.tablaHeader}>
+          <ResponsiveTable><View style={styles.tablaHeader}>
             <Text style={[styles.th, styles.colFactura]}>Factura</Text>
             <Text style={[styles.th, styles.colCliente]}>Cliente</Text>
             <Text style={[styles.th, styles.colFecha]}>Fecha</Text>
@@ -727,7 +729,7 @@ export default function HistorialVentasScreen() {
                   </Text>
 
                   <View style={styles.colAccion}>
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       style={styles.botonVer}
                       onPress={() => cargarDetalle(venta)}
                     >
@@ -737,7 +739,7 @@ export default function HistorialVentasScreen() {
                 </View>
               );
             })
-          )}
+          )}</ResponsiveTable>
 
           <View style={styles.footerTabla}>
             <Text style={styles.footerTexto}>
@@ -746,7 +748,13 @@ export default function HistorialVentasScreen() {
           </View>
         </View>
 
-        <View style={styles.facturaCard}>
+        <Modal visible={!!ventaSeleccionada} transparent animationType="fade" onRequestClose={() => setVentaSeleccionada(null)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(8, 35, 39, 0.55)', padding: esTelefono ? 12 : 32, justifyContent: 'center', alignItems: 'center' }}>
+        <View style={[styles.facturaCard, { maxWidth: 900, maxHeight: '95%' }]}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Cerrar vista de factura" onPress={() => setVentaSeleccionada(null)} style={{ alignSelf: 'flex-end', padding: 12 }}>
+          <Text style={styles.textoCerrarFactura}>Cerrar ✕</Text>
+        </Pressable>
+        <ScrollView keyboardShouldPersistTaps="handled">
           {!ventaSeleccionada ? (
             <View style={styles.facturaVacia}>
               <Text style={styles.vacioIcono}>🧾</Text>
@@ -836,11 +844,11 @@ export default function HistorialVentasScreen() {
               </View>
 
               <View style={styles.botonesFactura}>
-                <Pressable style={styles.botonImprimir} onPress={prepararPDF}>
+                <Pressable accessibilityRole="button" style={styles.botonImprimir} onPress={prepararPDF}>
                   <Text style={styles.textoImprimir}>Preparar PDF</Text>
                 </Pressable>
 
-                <Pressable
+                <Pressable accessibilityRole="button"
                   style={styles.botonCerrarFactura}
                   onPress={() => setVentaSeleccionada(null)}
                 >
@@ -849,13 +857,16 @@ export default function HistorialVentasScreen() {
               </View>
             </View>
           )}
+        </ScrollView>
         </View>
+        </View>
+        </Modal>
       </View>
     </AdminLayout>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -971,12 +982,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   contenido: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     gap: 18,
     alignItems: 'flex-start',
   },
   listaCard: {
-    flex: 1.2,
+    width: '100%',
+    minWidth: 0,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#ebe4d3',
@@ -984,7 +996,8 @@ const styles = StyleSheet.create({
     padding: 18,
   },
   facturaCard: {
-    flex: 0.9,
+    width: '100%',
+    minWidth: 0,
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: '#ebe4d3',

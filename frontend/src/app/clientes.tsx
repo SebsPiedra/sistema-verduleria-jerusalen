@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -11,6 +13,7 @@ import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function ClientesScreen() {
+  const styles = useAppStyles(baseStyles);
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
   const [clientes, setClientes] = useState<any[]>([]);
@@ -60,12 +63,10 @@ export default function ClientesScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Clientes registrados 👥</Text>
-          <Text style={styles.subtitulo}>
-            Revise información de contacto y datos de entrega.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonActualizar} onPress={cargarClientes}>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarClientes}>
           <Text style={styles.textoActualizar}>
             {cargando ? 'Actualizando...' : 'Actualizar'}
           </Text>
@@ -100,7 +101,7 @@ export default function ClientesScreen() {
           onChangeText={setBusqueda}
         />
 
-        <View style={styles.tablaHeader}>
+        <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colNombre]}>Cliente</Text>
           <Text style={[styles.th, styles.colTelefono]}>Teléfono</Text>
           <Text style={[styles.th, styles.colCorreo]}>Correo</Text>
@@ -142,13 +143,13 @@ export default function ClientesScreen() {
               </View>
             </View>
           ))
-        )}
+        )}</ResponsiveTable>
       </View>
     </AdminLayout>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

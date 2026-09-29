@@ -1,3 +1,5 @@
+import HelpText from '../components/HelpText';
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useMemo, useState } from 'react';
 import {
   Alert,
@@ -13,6 +15,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../services/api';
 
 export default function RestablecerPasswordScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const parametros = useLocalSearchParams<{ token?: string | string[] }>();
   const { width } = useWindowDimensions();
@@ -101,10 +104,10 @@ export default function RestablecerPasswordScreen() {
           <Text style={[styles.titulo, esTelefono && styles.tituloTelefono]}>
             Crear contraseña nueva
           </Text>
-          <Text style={styles.descripcion}>
+          <HelpText>
             La contraseña debe tener al menos 8 caracteres, una mayúscula, una
             minúscula y un número.
-          </Text>
+          </HelpText>
 
           {mensaje !== '' && (
             <View style={[styles.mensaje, completado ? styles.ok : styles.info]}>
@@ -125,7 +128,7 @@ export default function RestablecerPasswordScreen() {
                   autoCapitalize="none"
                   editable={!guardando}
                 />
-                <Pressable
+                <Pressable accessibilityRole="button"
                   style={styles.mostrar}
                   onPress={() => setMostrarClave((actual) => !actual)}
                 >
@@ -147,7 +150,7 @@ export default function RestablecerPasswordScreen() {
                 onSubmitEditing={restablecer}
               />
 
-              <Pressable
+              <Pressable accessibilityRole="button"
                 style={[styles.boton, guardando && styles.botonDesactivado]}
                 onPress={restablecer}
                 disabled={guardando}
@@ -159,7 +162,7 @@ export default function RestablecerPasswordScreen() {
             </>
           )}
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.volver}
             onPress={() => router.replace('/' as any)}
           >
@@ -171,7 +174,7 @@ export default function RestablecerPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   pagina: { flex: 1, backgroundColor: '#f7f5ee' },
   contenido: {
     flexGrow: 1,

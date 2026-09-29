@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -13,6 +15,7 @@ import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function DesechosScreen() {
+  const styles = useAppStyles(baseStyles);
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
   const [desechos, setDesechos] = useState<any[]>([]);
@@ -323,12 +326,10 @@ export default function DesechosScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Control de desechos 🗑️</Text>
-          <Text style={styles.subtitulo}>
-            Registre pérdidas para mejorar el control del inventario.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonAgregar} onPress={abrirFormulario}>
+        <Pressable accessibilityRole="button" style={styles.botonAgregar} onPress={abrirFormulario}>
           <Text style={styles.textoAgregar}>＋ Registrar desecho</Text>
         </Pressable>
       </View>
@@ -352,7 +353,7 @@ export default function DesechosScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Registros</Text>
             <Text style={styles.tarjetaNumero}>{totalDesechos}</Text>
-            <Text style={styles.tarjetaDetalle}>Desechos guardados</Text>
+            
           </View>
         </View>
 
@@ -363,7 +364,7 @@ export default function DesechosScreen() {
             <Text style={styles.tarjetaNumeroRojo}>
               {formatoColones(perdidaTotal)}
             </Text>
-            <Text style={styles.tarjetaDetalle}>Monto acumulado</Text>
+            
           </View>
         </View>
 
@@ -372,7 +373,7 @@ export default function DesechosScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Cantidad desechada</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{cantidadTotalDesechada}</Text>
-            <Text style={styles.tarjetaDetalle}>Unidades/kg registrados</Text>
+            
           </View>
         </View>
 
@@ -381,7 +382,7 @@ export default function DesechosScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Desechos de hoy</Text>
             <Text style={styles.tarjetaNumero}>{desechosHoy.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Registrados hoy</Text>
+            
           </View>
         </View>
       </View>
@@ -396,7 +397,7 @@ export default function DesechosScreen() {
               </Text>
             </View>
 
-            <Pressable style={styles.botonCerrar} onPress={cerrarFormulario}>
+            <Pressable accessibilityRole="button" style={styles.botonCerrar} onPress={cerrarFormulario}>
               <Text style={styles.textoCerrar}>Cerrar</Text>
             </Pressable>
           </View>
@@ -423,7 +424,7 @@ export default function DesechosScreen() {
                     obtenerIdProducto(productoSeleccionado || {});
 
                   return (
-                    <Pressable
+                    <Pressable accessibilityRole="button"
                       key={obtenerIdProducto(producto) || index}
                       style={[
                         styles.productoOpcion,
@@ -494,7 +495,7 @@ export default function DesechosScreen() {
           <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
             <View style={[styles.motivosFila, esTelefono && styles.opcionesTelefono]}>
               {motivos.map((item) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={item}
                   style={[
                     styles.motivoBoton,
@@ -527,7 +528,7 @@ export default function DesechosScreen() {
           />
 
           <View style={styles.botonesFila}>
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
               onPress={registrarDesecho}
               disabled={guardando}
@@ -537,7 +538,7 @@ export default function DesechosScreen() {
               </Text>
             </Pressable>
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={styles.botonCancelar}
               onPress={cerrarFormulario}
               disabled={guardando}
@@ -557,14 +558,14 @@ export default function DesechosScreen() {
             onChangeText={setBusqueda}
           />
 
-          <Pressable style={styles.botonActualizar} onPress={cargarDatos}>
+          <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarDatos}>
             <Text style={styles.textoActualizar}>
               {cargando ? 'Actualizando...' : 'Actualizar'}
             </Text>
           </Pressable>
         </View>
 
-        <View style={styles.tablaHeader}>
+        <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
           <Text style={[styles.th, styles.colCantidad]}>Cantidad</Text>
           <Text style={[styles.th, styles.colPrecio]}>Precio compra</Text>
@@ -632,7 +633,7 @@ export default function DesechosScreen() {
               </Text>
             </View>
           ))
-        )}
+        )}</ResponsiveTable>
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -644,7 +645,7 @@ export default function DesechosScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

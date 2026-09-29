@@ -1,3 +1,5 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
+import ResponsiveTable from '../components/ResponsiveTable';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -14,6 +16,7 @@ import { obtenerCategoriaProducto } from '../utils/productos';
 import AdminLayout from '../components/AdminLayout';
 
 export default function HomeScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
@@ -159,13 +162,11 @@ export default function HomeScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Todo bajo control 🌿</Text>
-          <Text style={styles.subtitulo}>
-            Resumen de tu inventario y pedidos para tomar decisiones frescas cada día.
-          </Text>
+          <Text style={styles.titulo}>Tu negocio, de un vistazo</Text>
+          
         </View>
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={styles.botonAgregar}
           onPress={() => router.push('/registrar-producto' as any)}
         >
@@ -185,7 +186,7 @@ export default function HomeScreen() {
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Productos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
-            <Text style={styles.tarjetaDetalle}>Activos en inventario</Text>
+            
           </View>
         </View>
 
@@ -194,7 +195,7 @@ export default function HomeScreen() {
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>En buen estado</Text>
             <Text style={styles.tarjetaNumero}>{enBuenEstado}</Text>
-            <Text style={styles.tarjetaDetalle}>Disponibles para venta</Text>
+            
           </View>
         </View>
 
@@ -203,7 +204,7 @@ export default function HomeScreen() {
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Stock bajo</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{stockBajo}</Text>
-            <Text style={styles.tarjetaDetalle}>Requieren reposición</Text>
+            
           </View>
         </View>
 
@@ -212,7 +213,7 @@ export default function HomeScreen() {
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Sin stock</Text>
             <Text style={styles.tarjetaNumeroRojo}>{sinStock}</Text>
-            <Text style={styles.tarjetaDetalle}>Agotados</Text>
+            
           </View>
         </View>
       </View>
@@ -226,14 +227,14 @@ export default function HomeScreen() {
             onChangeText={setBusqueda}
           />
 
-          <Pressable style={styles.botonFiltro} onPress={cargarDatos}>
+          <Pressable accessibilityRole="button" style={styles.botonFiltro} onPress={cargarDatos}>
             <Text style={styles.botonFiltroTexto}>
               {cargando ? 'Actualizando...' : 'Actualizar'}
             </Text>
           </Pressable>
         </View>
 
-        <View style={styles.tablaHeader}>
+        <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
           <Text style={[styles.th, styles.colCategoria]}>Categoría</Text>
           <Text style={[styles.th, styles.colStock]}>Stock actual</Text>
@@ -298,14 +299,14 @@ export default function HomeScreen() {
               </View>
             );
           })
-        )}
+        )}</ResponsiveTable>
 
         <View style={styles.tablaFooter}>
           <Text style={styles.footerTexto}>
             Mostrando {productosFiltrados.length} de {productos.length} productos
           </Text>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.verInventario}
             onPress={() => router.push('/productos' as any)}
           >
@@ -320,7 +321,7 @@ export default function HomeScreen() {
           <View>
             <Text style={styles.footerLabel}>Pedidos pendientes</Text>
             <Text style={styles.footerValor}>
-              {resumen.total_pedidos ?? resumen.pedidos_pendientes ?? 0}
+              {resumen.pedidos_pendientes ?? 0}
             </Text>
           </View>
         </View>
@@ -349,7 +350,7 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -1,3 +1,4 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useState } from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import api from '../services/api';
 import AdminLayout from '../components/AdminLayout';
 
 export default function RegistrarProductoScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
 
   const [nombre, setNombre] = useState('');
@@ -161,12 +163,10 @@ export default function RegistrarProductoScreen() {
       <View style={styles.hero}>
         <View>
           <Text style={styles.titulo}>Nuevo producto 🧺</Text>
-          <Text style={styles.subtitulo}>
-            Complete la información del producto para mostrarlo en inventario y catálogo.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonVolver} onPress={() => router.replace('/productos' as any)}>
+        <Pressable accessibilityRole="button" style={styles.botonVolver} onPress={() => router.replace('/productos' as any)}>
           <Text style={styles.textoVolver}>Volver al inventario</Text>
         </Pressable>
       </View>
@@ -210,7 +210,7 @@ export default function RegistrarProductoScreen() {
           <Text style={styles.label}>Categoría</Text>
           <View style={styles.opcionesFila}>
             {categorias.map((item) => (
-              <Pressable
+              <Pressable accessibilityRole="button"
                 key={item}
                 style={[
                   styles.opcion,
@@ -286,7 +286,7 @@ export default function RegistrarProductoScreen() {
           <Text style={styles.label}>Unidad de medida</Text>
           <View style={styles.opcionesFila}>
             {unidades.map((item) => (
-              <Pressable
+              <Pressable accessibilityRole="button"
                 key={item}
                 style={[
                   styles.opcion,
@@ -318,7 +318,7 @@ export default function RegistrarProductoScreen() {
           />
 
           <View style={styles.botonesFila}>
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
               onPress={registrarProducto}
               disabled={guardando}
@@ -328,7 +328,7 @@ export default function RegistrarProductoScreen() {
               </Text>
             </Pressable>
 
-            <Pressable style={styles.botonLimpiar} onPress={limpiar} disabled={guardando}>
+            <Pressable accessibilityRole="button" style={styles.botonLimpiar} onPress={limpiar} disabled={guardando}>
               <Text style={styles.textoLimpiar}>Limpiar</Text>
             </Pressable>
           </View>
@@ -379,7 +379,7 @@ export default function RegistrarProductoScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

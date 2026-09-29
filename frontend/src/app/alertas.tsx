@@ -1,3 +1,4 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -14,6 +15,7 @@ import api from '../services/api';
 import { obtenerCategoriaProducto as inferirCategoriaProducto } from '../utils/productos';
 
 export default function AlertasScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
@@ -292,12 +294,10 @@ export default function AlertasScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Centro de alertas 🔔</Text>
-          <Text style={styles.subtitulo}>
-            Revise situaciones que requieren atención para evitar pérdidas o atrasos.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonActualizar} onPress={cargarAlertas}>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarAlertas}>
           <Text style={styles.textoActualizar}>
             {cargando ? 'Actualizando...' : 'Actualizar alertas'}
           </Text>
@@ -316,7 +316,7 @@ export default function AlertasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Alertas totales</Text>
             <Text style={styles.tarjetaNumero}>{alertas.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Situaciones detectadas</Text>
+            
           </View>
         </View>
 
@@ -325,7 +325,7 @@ export default function AlertasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Prioridad alta</Text>
             <Text style={styles.tarjetaNumeroRojo}>{alertasAltas.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Atender primero</Text>
+            
           </View>
         </View>
 
@@ -334,7 +334,7 @@ export default function AlertasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Prioridad media</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{alertasMedias.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Revisar pronto</Text>
+            
           </View>
         </View>
 
@@ -343,7 +343,7 @@ export default function AlertasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Productos revisados</Text>
             <Text style={styles.tarjetaNumero}>{productosActivos.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Inventario analizado</Text>
+            
           </View>
         </View>
       </View>
@@ -360,7 +360,7 @@ export default function AlertasScreen() {
           <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
             <View style={[styles.filtrosFila, esTelefono && styles.filtrosTelefono]}>
               {tipos.map((tipo) => (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={tipo}
                   style={[
                     styles.filtroBoton,
@@ -429,7 +429,7 @@ export default function AlertasScreen() {
                         <Text style={styles.tipoBadgeTexto}>{alerta.tipo}</Text>
                       </View>
 
-                      <Pressable
+                      <Pressable accessibilityRole="button"
                         style={styles.botonAccion}
                         onPress={() => router.push(alerta.ruta as any)}
                       >
@@ -453,7 +453,7 @@ export default function AlertasScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

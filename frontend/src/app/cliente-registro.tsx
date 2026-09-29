@@ -1,3 +1,4 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useState } from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import { useRouter } from 'expo-router';
 import api from '../services/api';
 
 export default function ClienteRegistroScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const { width } = useWindowDimensions();
   const isPhone = width < 768;
@@ -251,7 +253,7 @@ export default function ClienteRegistroScreen() {
               editable={!cargando}
             />
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={styles.botonMostrar}
               onPress={() => setMostrarClave(!mostrarClave)}
               disabled={cargando}
@@ -273,7 +275,7 @@ export default function ClienteRegistroScreen() {
             editable={!cargando}
           />
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={[
               styles.botonPrincipal,
               cargando && styles.botonDesactivado,
@@ -286,7 +288,7 @@ export default function ClienteRegistroScreen() {
             </Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.botonSecundario}
             onPress={() => router.replace('/cliente-login' as any)}
             disabled={cargando}
@@ -296,7 +298,7 @@ export default function ClienteRegistroScreen() {
             </Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.botonVolver}
             onPress={() => router.replace('/' as any)}
             disabled={cargando}
@@ -309,7 +311,7 @@ export default function ClienteRegistroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   pagina: {
     flex: 1,
     backgroundColor: '#f7f5ee',

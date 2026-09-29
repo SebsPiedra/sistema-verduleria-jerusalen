@@ -1,0 +1,9 @@
+:root { color-scheme: light; }
+body { margin: 0; background: #eef4f5; }
+#login-screen { background-image: radial-gradient(ellipse at 15% 15%, #b9e8dd 0%, transparent 50%), radial-gradient(ellipse at 90% 80%, #d8e5fc 0%, transparent 45%); }
+#login-card { box-shadow: 0 24px 80px #153b4120; }
+[role="button"],button { cursor: pointer; transition: filter .16s ease, box-shadow .16s ease; touch-action: manipulation; }
+[role="button"]:hover,button:hover { filter: brightness(.95); }
+[role="button"]:focus-visible,input:focus-visible,textarea:focus-visible { outline: 3px solid #087f73; outline-offset: 3px; }
+input,textarea { caret-color: #087f73; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }

@@ -1,3 +1,4 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useState } from 'react';
 import {
   View,
@@ -13,6 +14,7 @@ import api from '../services/api';
 import { eliminarDato, guardarDato, obtenerDato } from '../services/storage.js';
 
 export default function LoginScreen() {
+  const styles = useAppStyles(baseStyles);
   const router = useRouter();
 
   const [correo, setCorreo] = useState('');
@@ -104,6 +106,7 @@ export default function LoginScreen() {
   };
 
   const iniciarSesion = async () => {
+    if (cargando) return;
     setMensaje('');
 
     const correoLimpio = correo.trim().toLowerCase();
@@ -195,7 +198,7 @@ export default function LoginScreen() {
   };
 
   return (
-    <ScrollView style={styles.pagina} contentContainerStyle={styles.contenido}>
+    <ScrollView nativeID="login-screen" style={styles.pagina} contentContainerStyle={styles.contenido} keyboardShouldPersistTaps="handled">
       <View style={styles.contenedor}>
         <View style={styles.logoArea}>
           <Text style={styles.logoTexto}>VERDULERÍA</Text>
@@ -205,11 +208,11 @@ export default function LoginScreen() {
           </Text>
         </View>
 
-        <View style={styles.card}>
-          <Text style={styles.titulo}>Inicio de sesión</Text>
+        <View nativeID="login-card" style={styles.card}>
+          <Text style={styles.titulo}>Bienvenido</Text>
 
           <Text style={styles.descripcion}>
-            Ingrese su correo y contraseña para acceder al sistema.
+            Tu verdulería, en un solo lugar.
           </Text>
 
           {mensaje !== '' && (
@@ -234,6 +237,8 @@ export default function LoginScreen() {
             onChangeText={setCorreo}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            accessibilityLabel="Correo electrónico"
             editable={!cargando}
           />
 
@@ -246,10 +251,13 @@ export default function LoginScreen() {
               value={clave}
               onChangeText={setClave}
               secureTextEntry={!mostrarClave}
+              accessibilityLabel="Contraseña"
+              autoComplete="current-password"
+              onSubmitEditing={iniciarSesion}
               editable={!cargando}
             />
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={styles.botonMostrar}
               onPress={() => setMostrarClave(!mostrarClave)}
               disabled={cargando}
@@ -260,7 +268,7 @@ export default function LoginScreen() {
             </Pressable>
           </View>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.botonOlvido}
             onPress={irRecuperarPassword}
             disabled={cargando}
@@ -268,7 +276,7 @@ export default function LoginScreen() {
             <Text style={styles.textoOlvido}>¿Olvidó su contraseña?</Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={[
               styles.botonPrincipal,
               cargando && styles.botonDesactivado,
@@ -281,36 +289,33 @@ export default function LoginScreen() {
             </Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.botonSecundario}
             onPress={irRegistroCliente}
             disabled={cargando}
           >
             <Text style={styles.textoBotonSecundario}>
-              Crear cuenta de cliente
+              Crear cuenta
             </Text>
           </Pressable>
 
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={styles.botonCatalogo}
             onPress={irCatalogo}
             disabled={cargando}
           >
             <Text style={styles.textoCatalogo}>
-              Ver catálogo sin iniciar sesión
+              Explorar catálogo
             </Text>
           </Pressable>
         </View>
 
-        <Text style={styles.nota}>
-          Si el correo o la contraseña son incorrectos, el sistema mostrará una alerta.
-        </Text>
       </View>
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   pagina: {
     flex: 1,
     backgroundColor: '#f7f5ee',

@@ -1,3 +1,4 @@
+import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -10,6 +11,7 @@ import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 
 export default function DashboardScreen() {
+  const styles = useAppStyles(baseStyles);
   const { width } = useWindowDimensions();
   const esTelefono = width < 768;
   const [productos, setProductos] = useState<any[]>([]);
@@ -36,6 +38,9 @@ export default function DashboardScreen() {
         api.get('/desechos'),
         api.get('/clientes'),
       ]);
+      if (respuestas.some(r => r.status === 'rejected')) {
+        setMensaje('Algunos datos no están disponibles. Pulsa Actualizar para reintentar.');
+      }
 
       const obtenerDatos = (respuesta: any, propiedad: string) => {
         if (respuesta.status !== 'fulfilled') return [];
@@ -207,12 +212,10 @@ export default function DashboardScreen() {
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
           <Text style={styles.titulo}>Dashboard general 📊</Text>
-          <Text style={styles.subtitulo}>
-            Indicadores principales para tomar decisiones rápidas del negocio.
-          </Text>
+          
         </View>
 
-        <Pressable style={styles.botonActualizar} onPress={cargarDashboard}>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarDashboard}>
           <Text style={styles.textoActualizar}>
             {cargando ? 'Actualizando...' : 'Actualizar dashboard'}
           </Text>
@@ -231,7 +234,7 @@ export default function DashboardScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Productos activos</Text>
             <Text style={styles.tarjetaNumero}>{productosActivos.length}</Text>
-            <Text style={styles.tarjetaDetalle}>En inventario</Text>
+            
           </View>
         </View>
 
@@ -249,7 +252,7 @@ export default function DashboardScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Pedidos pendientes</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{pedidosPendientes.length}</Text>
-            <Text style={styles.tarjetaDetalle}>Por revisar</Text>
+            
           </View>
         </View>
 
@@ -258,7 +261,7 @@ export default function DashboardScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Alertas activas</Text>
             <Text style={styles.tarjetaNumeroRojo}>{totalAlertas}</Text>
-            <Text style={styles.tarjetaDetalle}>Requieren atención</Text>
+            
           </View>
         </View>
       </View>
@@ -395,7 +398,7 @@ export default function DashboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = createAppStyles({
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -528,6 +531,7 @@ const styles = StyleSheet.create({
   },
   contenidoGrid: {
     flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 18,
     marginBottom: 18,
   },
