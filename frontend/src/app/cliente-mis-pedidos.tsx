@@ -1146,10 +1146,7 @@ const baseStyles = createAppStyles({
     borderColor: '#ebe4d3',
     borderRadius: 20,
     padding: 18,
-    shadowColor: '#082f2d',
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 },
+    boxShadow: '0 5px 12px rgba(8, 47, 45, 0.05)',
   },
   cardHeader: {
     flexDirection: 'row',
