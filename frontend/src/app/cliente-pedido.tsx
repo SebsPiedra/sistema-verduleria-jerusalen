@@ -307,7 +307,8 @@ export default function ClientePedidoScreen() {
         return;
       }
 
-      existente.cantidad = Number(existente.cantidad) + cantidadSolicitada;
+      existente.cantidad =
+        Math.round((Number(existente.cantidad) + cantidadSolicitada) * 100) / 100;
       existente.subtotal = Number(existente.cantidad) * Number(existente.precio);
       existente.disponible = disponible;
     } else {
@@ -394,8 +395,16 @@ export default function ClientePedidoScreen() {
   const actualizarCantidad = (idProducto: any, cantidad: number) => {
     const copia = carrito.map((item) => {
       if (Number(item.id_producto) !== Number(idProducto)) return item;
-      const disponible = Math.max(Number(item.disponible || cantidad), 1);
-      const nuevaCantidad = Math.min(Math.max(cantidad, 1), disponible);
+      const unidad = String(item.unidad_medida || 'unidad');
+      const requiereEntero = /^(unidad|unidades|bolsa|bolsas|caja|cajas|paquete|paquetes)$/i.test(
+        unidad.trim()
+      );
+      const minimo = requiereEntero ? 1 : 0.01;
+      const disponible = Math.max(Number(item.disponible || cantidad), minimo);
+      const normalizada = requiereEntero
+        ? Math.round(cantidad)
+        : Math.round(cantidad * 100) / 100;
+      const nuevaCantidad = Math.min(Math.max(normalizada, minimo), disponible);
       return {
         ...item,
         cantidad: nuevaCantidad,
@@ -796,7 +805,7 @@ export default function ClientePedidoScreen() {
                     <View style={styles.cantidadFila}>
                       <QuantitySelector
                         value={Number(item.cantidad)}
-                        max={Math.max(Number(item.disponible || item.cantidad), 1)}
+                        max={Math.max(Number(item.disponible || item.cantidad), 0.01)}
                         unit={item.unidad_medida || 'unidad'}
                         disabled={guardando}
                         onChange={(value) => actualizarCantidad(item.id_producto, value)}

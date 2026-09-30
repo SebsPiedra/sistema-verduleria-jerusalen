@@ -202,7 +202,8 @@ export default function ClienteHomeScreen() {
 
       if (productoExistente) {
         if(Number(productoExistente.cantidad || 0)+cantidadSolicitada>disponible){setMensaje(`Solo quedan ${disponible} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`);return;}
-        productoExistente.cantidad = Number(productoExistente.cantidad || 0) + cantidadSolicitada;
+        productoExistente.cantidad =
+          Math.round((Number(productoExistente.cantidad || 0) + cantidadSolicitada) * 100) / 100;
         productoExistente.subtotal =
           productoExistente.cantidad * Number(productoExistente.precio || 0);
       } else {

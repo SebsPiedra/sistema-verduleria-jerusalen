@@ -10,10 +10,23 @@ type Props = {
   onChange: (value: number) => void;
 };
 
+const usaCantidadEntera = (unit: string) => {
+  return /^(unidad|unidades|bolsa|bolsas|caja|cajas|paquete|paquetes)$/i.test(
+    unit.trim()
+  );
+};
+
+const obtenerPaso = (unit: string) => (usaCantidadEntera(unit) ? 1 : 0.1);
+
 const limitarCantidad = (value: number, max: number, unit: string) => {
-  const esUnidadEntera = /unidad/i.test(unit);
-  const normalizada = esUnidadEntera ? Math.round(value) : Math.round(value * 100) / 100;
-  return Math.min(Math.max(normalizada || 1, 1), Math.max(max, 1));
+  const esUnidadEntera = usaCantidadEntera(unit);
+  const minimo = esUnidadEntera ? 1 : 0.01;
+  const maximo = Math.max(Number(max) || minimo, minimo);
+  const normalizada = esUnidadEntera
+    ? Math.round(value)
+    : Math.round(value * 100) / 100;
+
+  return Math.min(Math.max(normalizada || minimo, minimo), maximo);
 };
 
 export default function QuantitySelector({
@@ -25,6 +38,8 @@ export default function QuantitySelector({
   onChange,
 }: Props) {
   const [draft, setDraft] = useState(String(value));
+  const paso = obtenerPaso(unit);
+  const minimo = usaCantidadEntera(unit) ? 1 : 0.01;
 
   useEffect(() => {
     setDraft(String(value));
@@ -49,8 +64,8 @@ export default function QuantitySelector({
         accessibilityRole="button"
         accessibilityLabel="Disminuir cantidad"
         style={[styles.button, disabled && styles.disabled]}
-        onPress={() => cambiar(value - 1)}
-        disabled={disabled || value <= 1}
+        onPress={() => cambiar(value - paso)}
+        disabled={disabled || value <= minimo}
       >
         <Text style={styles.buttonText}>−</Text>
       </Pressable>
@@ -63,6 +78,7 @@ export default function QuantitySelector({
         onSubmitEditing={confirmar}
         keyboardType="decimal-pad"
         inputMode="decimal"
+        placeholder={usaCantidadEntera(unit) ? '1' : 'Ej. 1,6'}
         selectTextOnFocus
         editable={!disabled}
       />
@@ -70,7 +86,7 @@ export default function QuantitySelector({
         accessibilityRole="button"
         accessibilityLabel="Aumentar cantidad"
         style={[styles.button, disabled && styles.disabled]}
-        onPress={() => cambiar(value + 1)}
+        onPress={() => cambiar(value + paso)}
         disabled={disabled || value >= max}
       >
         <Text style={styles.buttonText}>+</Text>
@@ -99,7 +115,8 @@ const styles = StyleSheet.create({
   },
   buttonText: { color: '#006c63', fontSize: 20, fontWeight: '800' },
   input: {
-    width: 54,
+    flex: 1,
+    minWidth: 54,
     height: 38,
     paddingHorizontal: 4,
     textAlign: 'center',

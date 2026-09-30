@@ -258,7 +258,8 @@ export default function CatalogoScreen() {
           return;
         }
 
-        productoExistente.cantidad = Number(productoExistente.cantidad) + cantidadSolicitada;
+        productoExistente.cantidad =
+          Math.round((Number(productoExistente.cantidad) + cantidadSolicitada) * 100) / 100;
         productoExistente.subtotal = Number(productoExistente.cantidad) * Number(productoExistente.precio);
       } else {
         carrito.push({
