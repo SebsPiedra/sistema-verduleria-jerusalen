@@ -24,6 +24,12 @@ const server=app.listen(3099,'127.0.0.1');
   }
   assert.equal((await request('/productos')).status,200);
   assert.equal((await request('/productos',null,'POST',{})).status,401);
+  const productoExistente=(await pool.query("SELECT nombre,cantidad,precio_compra,precio_venta,stock_minimo,unidad_medida FROM productos WHERE lower(coalesce(estado,'Activo'))='activo' LIMIT 1")).rows[0];
+  assert.ok(productoExistente);
+  assert.equal((await request('/productos',adminToken,'POST',{
+    ...productoExistente,
+    nombre:'  '+productoExistente.nombre.toUpperCase()+'  '
+  })).status,409,'duplicate product name');
   assert.equal((await request('/pedidos/cliente/'+client.id_cliente,clientToken)).status,200);
   assert.equal((await request('/pedidos/cliente/'+(Number(client.id_cliente)+100000),clientToken)).status,403);
   assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:Number(client.id_cliente)+1})).status,403);

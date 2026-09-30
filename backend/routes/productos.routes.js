@@ -169,7 +169,9 @@ router.post('/', (req, res) => {
     estado
   } = req.body;
 
-  if (!nombre) {
+  const nombreFinal = String(nombre || '').trim();
+
+  if (!nombreFinal) {
     return res.status(400).json({
       mensaje: 'Debe ingresar el nombre del producto'
     });
@@ -204,32 +206,48 @@ router.post('/', (req, res) => {
   const imagenUrlFinal = imagen_url || null;
 
   conexion.query(
-    sql,
-    [
-      nombre,
-      normalizarNumero(cantidad, 0),
-      normalizarNumero(precio_compra, 0),
-      normalizarNumero(precio_venta, 0),
-      normalizarNumero(stock_minimo, 5),
-      unidadFinal,
-      normalizarId(id_proveedor),
-      imagenUrlFinal,
-      imagenUrlFinal,
-      estado || 'Activo'
-    ],
-    (error, resultado) => {
-      if (error) {
-        return res.status(500).json({
-          mensaje: 'Error al registrar producto',
-          error
+    'SELECT id_producto FROM productos WHERE LOWER(TRIM(nombre)) = LOWER(?) LIMIT 1',
+    [nombreFinal],
+    (errorDuplicado, duplicados) => {
+      if (errorDuplicado) {
+        return res.status(500).json({ mensaje: 'Error al validar el producto' });
+      }
+
+      if (duplicados.length > 0) {
+        return res.status(409).json({
+          mensaje: 'Ya existe un producto con ese nombre'
         });
       }
 
-      res.json({
-        mensaje: 'Producto registrado correctamente',
-        id_producto: resultado.insertId,
-        categoria: obtenerCategoriaProducto(nombre)
-      });
+      conexion.query(
+        sql,
+        [
+          nombreFinal,
+          normalizarNumero(cantidad, 0),
+          normalizarNumero(precio_compra, 0),
+          normalizarNumero(precio_venta, 0),
+          normalizarNumero(stock_minimo, 5),
+          unidadFinal,
+          normalizarId(id_proveedor),
+          imagenUrlFinal,
+          imagenUrlFinal,
+          estado || 'Activo'
+        ],
+        (error, resultado) => {
+          if (error) {
+            return res.status(500).json({
+              mensaje: 'Error al registrar producto',
+              error
+            });
+          }
+
+          res.json({
+            mensaje: 'Producto registrado correctamente',
+            id_producto: resultado.insertId,
+            categoria: obtenerCategoriaProducto(nombreFinal)
+          });
+        }
+      );
     }
   );
 });
@@ -250,7 +268,9 @@ router.put('/:id', (req, res) => {
     estado
   } = req.body;
 
-  if (!nombre) {
+  const nombreFinal = String(nombre || '').trim();
+
+  if (!nombreFinal) {
     return res.status(400).json({
       mensaje: 'Debe ingresar el nombre del producto'
     });
@@ -286,38 +306,54 @@ router.put('/:id', (req, res) => {
   `;
 
   conexion.query(
-    sql,
-    [
-      nombre,
-      normalizarNumero(cantidad, 0),
-      normalizarNumero(precio_compra, 0),
-      normalizarNumero(precio_venta, 0),
-      normalizarNumero(stock_minimo, 5),
-      unidadFinal,
-      normalizarId(id_proveedor),
-      imagenUrlFinal,
-      imagenUrlFinal,
-      estado || 'Activo',
-      id
-    ],
-    (error, resultado) => {
-      if (error) {
-        return res.status(500).json({
-          mensaje: 'Error al editar producto',
-          error
+    'SELECT id_producto FROM productos WHERE LOWER(TRIM(nombre)) = LOWER(?) AND id_producto <> ? LIMIT 1',
+    [nombreFinal, id],
+    (errorDuplicado, duplicados) => {
+      if (errorDuplicado) {
+        return res.status(500).json({ mensaje: 'Error al validar el producto' });
+      }
+
+      if (duplicados.length > 0) {
+        return res.status(409).json({
+          mensaje: 'Ya existe un producto con ese nombre'
         });
       }
 
-      if (resultado.affectedRows === 0) {
-        return res.status(404).json({
-          mensaje: 'Producto no encontrado'
-        });
-      }
+      conexion.query(
+        sql,
+        [
+          nombreFinal,
+          normalizarNumero(cantidad, 0),
+          normalizarNumero(precio_compra, 0),
+          normalizarNumero(precio_venta, 0),
+          normalizarNumero(stock_minimo, 5),
+          unidadFinal,
+          normalizarId(id_proveedor),
+          imagenUrlFinal,
+          imagenUrlFinal,
+          estado || 'Activo',
+          id
+        ],
+        (error, resultado) => {
+          if (error) {
+            return res.status(500).json({
+              mensaje: 'Error al editar producto',
+              error
+            });
+          }
 
-      res.json({
-        mensaje: 'Producto actualizado correctamente',
-        categoria: obtenerCategoriaProducto(nombre)
-      });
+          if (resultado.affectedRows === 0) {
+            return res.status(404).json({
+              mensaje: 'Producto no encontrado'
+            });
+          }
+
+          res.json({
+            mensaje: 'Producto actualizado correctamente',
+            categoria: obtenerCategoriaProducto(nombreFinal)
+          });
+        }
+      );
     }
   );
 });
