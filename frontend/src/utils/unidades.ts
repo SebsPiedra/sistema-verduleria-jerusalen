@@ -24,9 +24,11 @@ export const cantidadValidaParaUnidad = (
 ) =>
   Number.isFinite(cantidad) &&
   (permitirCero ? cantidad >= 0 : cantidad > 0) &&
-  (!requiereCantidadEntera(unidad) || Number.isInteger(cantidad));
+  (requiereCantidadEntera(unidad)
+    ? Number.isInteger(cantidad)
+    : Math.abs(cantidad * 100 - Math.round(cantidad * 100)) < 1e-8);
 
 export const textoAyudaCantidad = (unidad: string) =>
   requiereCantidadEntera(unidad)
     ? `Use números enteros para ${unidad}.`
-    : `Puede usar decimales, por ejemplo 1,6 ${unidad}.`;
+    : `Puede usar hasta dos decimales, por ejemplo 1,6 ${unidad}.`;

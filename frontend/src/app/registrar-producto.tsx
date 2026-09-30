@@ -109,7 +109,10 @@ export default function RegistrarProductoScreen() {
       return;
     }
 
-    if (Number(precioVenta) < Number(precioCompra)) {
+    const precioCompraNumero = Number(precioCompra.replace(',', '.'));
+    const precioVentaNumero = Number(precioVenta.replace(',', '.'));
+
+    if (precioVentaNumero < precioCompraNumero) {
       mostrarMensaje(
         'El precio de venta no debería ser menor que el precio de compra.',
         'error',
@@ -136,9 +139,9 @@ export default function RegistrarProductoScreen() {
         descripcion: descripcionLimpia || 'Producto fresco de verdulería',
         categoria,
         nombre_categoria: categoria,
-        precio_compra: Number(precioCompra),
-        precio_venta: Number(precioVenta),
-        precio: Number(precioVenta),
+        precio_compra: precioCompraNumero,
+        precio_venta: precioVentaNumero,
+        precio: precioVentaNumero,
         cantidad: cantidadNumero,
         stock: Math.ceil(cantidadNumero),
         stock_minimo: stockMinimoNumero,

@@ -206,7 +206,7 @@ export default function DesechosScreen() {
   };
 
   const perdidaCalculada = productoSeleccionado
-    ? Number(cantidad || 0) * obtenerPrecioCompraProducto(productoSeleccionado)
+    ? Number(cantidad.replace(',', '.') || 0) * obtenerPrecioCompraProducto(productoSeleccionado)
     : 0;
 
   const productosFiltrados = productos
