@@ -9,6 +9,9 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  Linking,
+  Modal,
+  Platform,
   useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
@@ -26,6 +29,8 @@ export default function PedidosAdminScreen() {
   const [actualizando, setActualizando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
+  const [pedidoParaRechazar, setPedidoParaRechazar] = useState<any | null>(null);
+  const [motivoRechazo, setMotivoRechazo] = useState('');
 
   useEffect(() => {
     cargarPedidos();
@@ -313,6 +318,49 @@ export default function PedidosAdminScreen() {
     return true;
   };
 
+  const abrirWhatsAppCliente = async (pedido: any, texto: string) => {
+    const telefonoOriginal = String(obtenerTelefono(pedido) || '').replace(/\D/g, '');
+    const telefono = telefonoOriginal.length === 8
+      ? `506${telefonoOriginal}`
+      : telefonoOriginal;
+
+    if (telefono.length < 11) {
+      mostrarMensaje('El cliente no tiene un número de WhatsApp válido.', 'error', true);
+      return false;
+    }
+
+    const enlace = `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`;
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.open(enlace, '_blank', 'noopener,noreferrer');
+    } else {
+      await Linking.openURL(enlace);
+    }
+    return true;
+  };
+
+  const solicitarRechazo = (pedido: any) => {
+    setPedidoParaRechazar(pedido);
+    setMotivoRechazo('');
+  };
+
+  const confirmarRechazo = async () => {
+    if (!pedidoParaRechazar || motivoRechazo.trim().length < 5) {
+      mostrarMensaje('Escriba un motivo claro de al menos 5 caracteres.', 'error');
+      return;
+    }
+
+    const pedido = pedidoParaRechazar;
+    const idPedido = obtenerIdPedido(pedido);
+    const actualizado = await enviarCambioEstado(idPedido, 'Rechazado');
+    if (!actualizado) return;
+
+    setPedidoParaRechazar(null);
+    await abrirWhatsAppCliente(
+      pedido,
+      `Hola ${obtenerCliente(pedido)}. Le informamos que el pedido #${idPedido} no se pudo realizar. Motivo: ${motivoRechazo.trim()}. Si desea, puede comunicarse con Verdulería Jerusalén para recibir ayuda.`
+    );
+  };
+
   const cambiarEstado = async (pedido: any, nuevoEstado: string) => {
     const idPedido = obtenerIdPedido(pedido);
 
@@ -356,7 +404,13 @@ export default function PedidosAdminScreen() {
       return;
     }
 
-    await enviarCambioEstado(idPedido, nuevoEstado);
+    const actualizado = await enviarCambioEstado(idPedido, nuevoEstado);
+    if (actualizado && nuevoEstado === 'En entrega') {
+      await abrirWhatsAppCliente(
+        pedido,
+        `Hola ${obtenerCliente(pedido)}. Su pedido #${idPedido} de Verdulería Jerusalén ya va en camino. Por favor, esté pendiente para recibirlo.`
+      );
+    }
   };
 
   const enviarCambioEstado = async (idPedido: number, nuevoEstado: string) => {
@@ -391,6 +445,7 @@ export default function PedidosAdminScreen() {
 
       mostrarMensaje(`Pedido actualizado a ${nuevoEstado}.`, 'ok', true);
       await cargarPedidos();
+      return true;
     } catch (error: any) {
       console.log('Error al cambiar estado:', error?.response?.data || error);
 
@@ -401,6 +456,7 @@ export default function PedidosAdminScreen() {
         'error',
         true
       );
+      return false;
     } finally {
       setActualizando(false);
     }
@@ -785,7 +841,7 @@ export default function PedidosAdminScreen() {
                           styles.botonRechazar,
                           (!puedeRechazar(pedido) || actualizando) && styles.botonDesactivado,
                         ]}
-                        onPress={() => cambiarEstado(pedido, 'Rechazado')}
+                        onPress={() => solicitarRechazo(pedido)}
                         disabled={!puedeRechazar(pedido) || actualizando}
                       >
                         <Text style={styles.textoBotonAccion}>Rechazar</Text>
@@ -815,11 +871,72 @@ export default function PedidosAdminScreen() {
           </Text>
         </View>
       </View>
+      <Modal
+        visible={pedidoParaRechazar !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPedidoParaRechazar(null)}
+      >
+        <View style={styles.modalFondo}>
+          <View style={styles.modalCaja}>
+            <Text style={styles.modalTitulo}>Rechazar pedido #{pedidoParaRechazar ? obtenerIdPedido(pedidoParaRechazar) : ''}</Text>
+            <Text style={styles.modalTexto}>
+              Explique el motivo. Al confirmar, se abrirá WhatsApp con el mensaje listo para el cliente.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Ejemplo: producto sin disponibilidad..."
+              value={motivoRechazo}
+              onChangeText={setMotivoRechazo}
+              multiline
+              maxLength={300}
+              autoFocus
+            />
+            <View style={styles.modalAcciones}>
+              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => setPedidoParaRechazar(null)} disabled={actualizando}>
+                <Text style={styles.modalCancelarTexto}>Volver</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.modalConfirmar} onPress={confirmarRechazo} disabled={actualizando}>
+                <Text style={styles.textoBotonAccion}>{actualizando ? 'Actualizando...' : 'Rechazar y avisar'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </AdminLayout>
   );
 }
 
 const baseStyles = createAppStyles({
+  modalFondo: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 24, 27, 0.62)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 18,
+  },
+  modalCaja: {
+    width: '100%',
+    maxWidth: 520,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 22,
+  },
+  modalTitulo: { color: '#103f3c', fontSize: 22, fontWeight: 'bold' },
+  modalTexto: { color: '#526a6c', marginTop: 8, lineHeight: 20 },
+  modalInput: {
+    minHeight: 110,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#b7ccce',
+    borderRadius: 12,
+    padding: 12,
+    textAlignVertical: 'top',
+  },
+  modalAcciones: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  modalCancelar: { flex: 1, padding: 13, borderRadius: 11, borderWidth: 1, borderColor: '#8ba7aa', alignItems: 'center' },
+  modalCancelarTexto: { color: '#31585a', fontWeight: 'bold' },
+  modalConfirmar: { flex: 1, padding: 13, borderRadius: 11, backgroundColor: '#cf2929', alignItems: 'center' },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

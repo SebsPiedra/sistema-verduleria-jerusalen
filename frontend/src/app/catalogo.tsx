@@ -1,4 +1,5 @@
 import ClientHeader from '../components/ClientHeader';
+import QuantitySelector from '../components/QuantitySelector';
 import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
@@ -38,6 +39,8 @@ export default function CatalogoScreen() {
   const [sesionCargada, setSesionCargada] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
+  const [cantidades, setCantidades] = useState<Record<number, number>>({});
+  const [ultimoAgregado, setUltimoAgregado] = useState<number | null>(null);
 
   useEffect(() => {
     cargarCliente();
@@ -230,6 +233,8 @@ export default function CatalogoScreen() {
     }
 
     const disponible = obtenerDisponible(producto);
+    const idProducto = Number(producto.id_producto || producto.id);
+    const cantidadSolicitada = cantidades[idProducto] || 1;
 
     if (disponible <= 0) {
       mostrarMensaje(`${obtenerNombre(producto)} está agotado.`, 'error');
@@ -243,27 +248,25 @@ export default function CatalogoScreen() {
 
       const carrito = carritoGuardado ? JSON.parse(carritoGuardado) : [];
 
-      const idProducto = producto.id_producto || producto.id;
-
       const productoExistente = carrito.find(
         (item: any) => Number(item.id_producto) === Number(idProducto)
       );
 
       if (productoExistente) {
-        if (Number(productoExistente.cantidad) + 1 > disponible) {
-          mostrarMensaje(`No hay más unidades disponibles de ${obtenerNombre(producto)}.`, 'error');
+        if (Number(productoExistente.cantidad) + cantidadSolicitada > disponible) {
+          mostrarMensaje(`Solo quedan ${disponible} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`, 'error');
           return;
         }
 
-        productoExistente.cantidad = Number(productoExistente.cantidad) + 1;
+        productoExistente.cantidad = Number(productoExistente.cantidad) + cantidadSolicitada;
         productoExistente.subtotal = Number(productoExistente.cantidad) * Number(productoExistente.precio);
       } else {
         carrito.push({
           id_producto: idProducto,
           nombre: obtenerNombre(producto),
           precio: obtenerPrecio(producto),
-          cantidad: 1,
-          subtotal: obtenerPrecio(producto),
+          cantidad: cantidadSolicitada,
+          subtotal: obtenerPrecio(producto) * cantidadSolicitada,
           imagen_url: obtenerImagen(producto),
           unidad_medida: obtenerUnidad(producto),
           disponible,
@@ -271,7 +274,8 @@ export default function CatalogoScreen() {
       }
 
       await guardarCarrito(carrito);
-      mostrarMensaje(`${obtenerNombre(producto)} fue agregado al carrito.`, 'ok');
+      setUltimoAgregado(idProducto);
+      mostrarMensaje(`${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} se agregó al carrito.`, 'ok');
     } catch (error) {
       console.log('Error al agregar al carrito:', error);
       mostrarMensaje('No se pudo agregar el producto al carrito.', 'error');
@@ -403,13 +407,31 @@ export default function CatalogoScreen() {
                       {formatoColones(obtenerPrecio(producto))}
                     </Text>
 
+                    <Text style={styles.cantidadLabel}>Cantidad</Text>
+                    <QuantitySelector
+                      value={cantidades[Number(producto.id_producto || producto.id)] || 1}
+                      max={disponible}
+                      unit={obtenerUnidad(producto)}
+                      disabled={agotado}
+                      onChange={(value) =>
+                        setCantidades((actuales) => ({
+                          ...actuales,
+                          [Number(producto.id_producto || producto.id)]: value,
+                        }))
+                      }
+                    />
+
                     <Pressable accessibilityRole="button"
                       style={[styles.botonAgregar, agotado && styles.botonAgotado]}
                       onPress={() => agregarAlCarrito(producto)}
                       disabled={agotado}
                     >
                       <Text style={styles.botonAgregarTexto}>
-                        {agotado ? 'Producto agotado' : 'Agregar al carrito'}
+                        {agotado
+                          ? 'Producto agotado'
+                          : ultimoAgregado === Number(producto.id_producto || producto.id)
+                            ? 'Añadido ✓'
+                            : 'Agregar al carrito'}
                       </Text>
                     </Pressable>
                   </View>
@@ -684,6 +706,13 @@ const baseStyles = createAppStyles({
     fontSize: 22,
     fontWeight: 'bold',
     marginTop: 10,
+  },
+  cantidadLabel: {
+    color: '#45615e',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 10,
+    marginBottom: 5,
   },
   botonAgregar: {
     backgroundColor: '#1b5e20',

@@ -12,7 +12,7 @@ const server=app.listen(3099,'127.0.0.1');
  const login=await req('/clientes/login','POST',{correo,clave},null);assert.equal(login.status,200);assert.ok(login.data.token);
  const id=register.data.id_cliente;const clientToken=login.data.token;
  const product=(await pool.query("SELECT id_producto,cantidad FROM productos WHERE cantidad>5 AND lower(estado)='activo' ORDER BY id_producto LIMIT 1")).rows[0];
- const body={id_cliente:id,cliente:'Prueba de revisión web',metodo_pago:'Efectivo',tipo_entrega:'Entrega',direccion_entrega:'Dirección de prueba aislada',productos:[{id_producto:product.id_producto,cantidad:1}]};
+ const body={id_cliente:id,cliente:'Prueba de revisión web',metodo_pago:'Efectivo',tipo_entrega:'Entrega',direccion_entrega:'Dirección de prueba aislada',observacion:'Dejar el pedido en la recepción principal',productos:[{id_producto:product.id_producto,cantidad:1}]};
  const sale=await req('/ventas','POST',body);assert.equal(sale.status,200);assert.ok(sale.data.id_venta);
  const invoice=await req('/facturas/'+sale.data.id_venta);assert.equal(invoice.status,200);
  const order=await req('/pedidos','POST',body,clientToken);assert.equal(order.status,200);assert.ok(order.data.id_pedido);

@@ -478,6 +478,15 @@ router.post('/', async (req, res) => {
     });
   }
 
+  const observacionLimpia = String(observacion || '').trim();
+
+  if (tipoEntrega === 'Entrega' && observacionLimpia.length < 10) {
+    return res.status(400).json({
+      mensaje:
+        'Para una entrega debe indicar en observaciones dónde se debe dejar el pedido',
+    });
+  }
+
   if (new Set(productos.map(p=>Number(p.id_producto))).size !== productos.length) {
     return res.status(400).json({mensaje:'Agrupa las cantidades de cada producto en una sola línea.'});
   }
@@ -567,8 +576,6 @@ router.post('/', async (req, res) => {
     }
 
     const idPedido = await obtenerSiguienteId('pedidos', 'id_pedido');
-    const observacionLimpia = String(observacion || '').trim();
-
     await query(
       `
         INSERT INTO pedidos

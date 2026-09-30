@@ -1,4 +1,5 @@
 import ClientHeader from '../components/ClientHeader';
+import QuantitySelector from '../components/QuantitySelector';
 import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { useEffect, useState } from 'react';
 import {
@@ -33,6 +34,7 @@ export default function ClienteHomeScreen() {
   const [cargando, setCargando] = useState(false);
   const [sesionCargada, setSesionCargada] = useState(false);
   const [mensaje,setMensaje] = useState('');
+  const [cantidades, setCantidades] = useState<Record<number, number>>({});
 
   useEffect(() => {
     cargarCliente();
@@ -186,20 +188,21 @@ export default function ClienteHomeScreen() {
 
     try {
       const disponible=Number(producto.cantidad ?? producto.stock ?? 0);
+      const idProducto = Number(producto.id_producto || producto.id);
+      const cantidadSolicitada = cantidades[idProducto] || 1;
       if(disponible < 1){setMensaje('Este producto no tiene suficiente stock.');return;}
       const carritoGuardado =
         (await obtenerDato('carrito_cliente')) ||
         (await obtenerDato('carrito'));
 
       const carrito = carritoGuardado ? JSON.parse(carritoGuardado) : [];
-      const idProducto = Number(producto.id_producto || producto.id);
       const productoExistente = carrito.find(
         (item: any) => Number(item.id_producto) === idProducto
       );
 
       if (productoExistente) {
-        if(Number(productoExistente.cantidad || 0)+1>disponible){setMensaje('Ya agregaste todo el stock disponible.');return;}
-        productoExistente.cantidad = Number(productoExistente.cantidad || 0) + 1;
+        if(Number(productoExistente.cantidad || 0)+cantidadSolicitada>disponible){setMensaje(`Solo quedan ${disponible} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`);return;}
+        productoExistente.cantidad = Number(productoExistente.cantidad || 0) + cantidadSolicitada;
         productoExistente.subtotal =
           productoExistente.cantidad * Number(productoExistente.precio || 0);
       } else {
@@ -207,8 +210,8 @@ export default function ClienteHomeScreen() {
           id_producto: idProducto,
           nombre: obtenerNombre(producto),
           precio: Number(obtenerPrecio(producto)),
-          cantidad: 1,
-          subtotal: Number(obtenerPrecio(producto)),
+          cantidad: cantidadSolicitada,
+          subtotal: Number(obtenerPrecio(producto)) * cantidadSolicitada,
           imagen_url: obtenerImagen(producto),
           unidad_medida: obtenerUnidad(producto),
           disponible,
@@ -228,7 +231,8 @@ export default function ClienteHomeScreen() {
         )
       );
 
-      setMensaje('Agregado al carrito ✓');
+      setMensaje(`${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} se agregó al carrito ✓`);
+      setTimeout(() => setMensaje(''), 3500);
     } catch {
       Alert.alert('Error', 'No se pudo agregar el producto al carrito.');
     }
@@ -348,7 +352,7 @@ export default function ClienteHomeScreen() {
                     </Text>
 
                     <Text style={styles.unidadProducto}>
-                      1 {obtenerUnidad(producto)}
+                      Disponible: {Number(producto.cantidad ?? producto.stock ?? 0)} {obtenerUnidad(producto)}
                     </Text>
 
                     <Text style={styles.precioProducto}>
@@ -356,10 +360,18 @@ export default function ClienteHomeScreen() {
                     </Text>
 
                     <View style={styles.compraFila}>
-                      <View style={styles.cantidadCaja}>
-                        <Text style={styles.cantidadTexto}>−</Text>
-                        <Text style={styles.cantidadTexto}>1</Text>
-                      </View>
+                      <QuantitySelector
+                        compact
+                        value={cantidades[Number(producto.id_producto || producto.id)] || 1}
+                        max={Number(producto.cantidad ?? producto.stock ?? 0)}
+                        unit={obtenerUnidad(producto)}
+                        onChange={(value) =>
+                          setCantidades((actuales) => ({
+                            ...actuales,
+                            [Number(producto.id_producto || producto.id)]: value,
+                          }))
+                        }
+                      />
 
                       <Pressable accessibilityRole="button"
                         style={styles.botonCarritoProducto}
@@ -622,19 +634,6 @@ logoSubtitulo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  cantidadCaja: {
-    borderWidth: 1,
-    borderColor: '#7cae36',
-    borderRadius: 8,
-    flexDirection: 'row',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    gap: 18,
-  },
-  cantidadTexto: {
-    color: '#1b5e20',
-    fontWeight: 'bold',
   },
   botonCarritoProducto: {
     backgroundColor: '#1b5e20',

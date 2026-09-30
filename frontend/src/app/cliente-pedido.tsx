@@ -1,4 +1,5 @@
 import ClientHeader from '../components/ClientHeader';
+import QuantitySelector from '../components/QuantitySelector';
 import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { Children, useEffect, useState } from 'react';
 import {
@@ -51,6 +52,7 @@ export default function ClientePedidoScreen() {
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
+  const [cantidadesProducto, setCantidadesProducto] = useState<Record<number, number>>({});
 
   useEffect(() => {
     cargarCliente();
@@ -170,6 +172,7 @@ export default function ClientePedidoScreen() {
             imagen_url: item.imagen_url || item.imagen || '',
             unidad_medida: item.unidad_medida || item.unidad || 'kg',
             disponible: Number(item.disponible ?? item.cantidad_disponible ?? 0),
+            nota: item.nota || '',
           }));
 
       await guardarCarrito(carritoNormalizado);
@@ -210,7 +213,7 @@ export default function ClientePedidoScreen() {
         (item) =>
           `• ${item.nombre}: ${item.cantidad} ${item.unidad_medida} × ${formatoColones(
             item.precio
-          )} = ${formatoColones(item.subtotal)}`
+          )} = ${formatoColones(item.subtotal)}${item.nota ? `\n  Nota: ${item.nota}` : ''}`
       )
       .join('\n');
 
@@ -291,6 +294,7 @@ export default function ClientePedidoScreen() {
     }
 
     const idProducto = Number(producto.id_producto || producto.id);
+    const cantidadSolicitada = cantidadesProducto[idProducto] || 1;
     const copia = carrito.map(item => ({ ...item }));
 
     const existente = copia.find(
@@ -298,12 +302,12 @@ export default function ClientePedidoScreen() {
     );
 
     if (existente) {
-      if (Number(existente.cantidad) + 1 > disponible) {
-        mostrarMensaje(`No hay más cantidad disponible de ${obtenerNombre(producto)}.`, 'error');
+      if (Number(existente.cantidad) + cantidadSolicitada > disponible) {
+        mostrarMensaje(`Solo quedan ${disponible} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`, 'error');
         return;
       }
 
-      existente.cantidad = Number(existente.cantidad) + 1;
+      existente.cantidad = Number(existente.cantidad) + cantidadSolicitada;
       existente.subtotal = Number(existente.cantidad) * Number(existente.precio);
       existente.disponible = disponible;
     } else {
@@ -311,16 +315,17 @@ export default function ClientePedidoScreen() {
         id_producto: idProducto,
         nombre: obtenerNombre(producto),
         precio: obtenerPrecio(producto),
-        cantidad: 1,
-        subtotal: obtenerPrecio(producto),
+        cantidad: cantidadSolicitada,
+        subtotal: obtenerPrecio(producto) * cantidadSolicitada,
         imagen_url: obtenerImagen(producto),
         unidad_medida: obtenerUnidad(producto),
         disponible,
+        nota: '',
       });
     }
 
     await guardarCarrito(copia);
-    mostrarMensaje('El producto se agregó correctamente.', 'ok');
+    mostrarMensaje(`${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} se agregó al carrito.`, 'ok');
 
   };
 
@@ -375,12 +380,36 @@ export default function ClientePedidoScreen() {
   };
 
   const eliminarProducto = (idProducto: any) => {
+    const eliminado = carrito.find(
+      (item) => Number(item.id_producto) === Number(idProducto)
+    );
     const copia = carrito.filter(
       (item) => Number(item.id_producto) !== Number(idProducto)
     );
 
     guardarCarrito(copia);
-    mostrarMensaje('Producto eliminado del carrito.', 'info');
+    mostrarMensaje(`${eliminado?.nombre || 'El producto'} se eliminó del carrito.`, 'info');
+  };
+
+  const actualizarCantidad = (idProducto: any, cantidad: number) => {
+    const copia = carrito.map((item) => {
+      if (Number(item.id_producto) !== Number(idProducto)) return item;
+      const disponible = Math.max(Number(item.disponible || cantidad), 1);
+      const nuevaCantidad = Math.min(Math.max(cantidad, 1), disponible);
+      return {
+        ...item,
+        cantidad: nuevaCantidad,
+        subtotal: nuevaCantidad * Number(item.precio),
+      };
+    });
+    void guardarCarrito(copia);
+  };
+
+  const actualizarNota = (idProducto: any, nota: string) => {
+    const copia = carrito.map((item) =>
+      Number(item.id_producto) === Number(idProducto) ? { ...item, nota } : item
+    );
+    void guardarCarrito(copia);
   };
 
   const limpiarCarrito = () => {
@@ -441,6 +470,14 @@ export default function ClientePedidoScreen() {
       return;
     }
 
+    if (tipoEntrega === 'Entrega' && observacion.trim().length < 10) {
+      mostrarMensaje(
+        'Para una entrega, indique en observaciones dónde se debe dejar el pedido. Si es un condominio, incluya torre, casa, recepción o instrucciones de acceso.',
+        'error'
+      );
+      return;
+    }
+
     const productosInvalidos = carrito.filter(
       (item) =>
         !item.id_producto ||
@@ -468,14 +505,26 @@ export default function ClientePedidoScreen() {
         unidad_medida: item.unidad_medida || 'unidad',
         precio: Number(item.precio || 0),
         subtotal: Number(item.subtotal || 0),
+        nota: String(item.nota || '').trim(),
       }));
+
+      const notasProductos = carrito
+        .filter((item) => String(item.nota || '').trim())
+        .map((item) => `${item.nombre}: ${String(item.nota).trim()}`)
+        .join('\n');
+      const observacionFinal = [
+        observacion.trim(),
+        notasProductos ? `Notas por producto:\n${notasProductos}` : '',
+      ]
+        .filter(Boolean)
+        .join('\n\n');
 
       const respuesta = await api.post('/pedidos', {
         id_cliente: Number(cliente.id_cliente),
         metodo_pago: metodoPago,
         tipo_entrega: tipoEntrega,
         direccion_entrega: direccionFinal,
-        observacion: observacion.trim(),
+        observacion: observacionFinal,
         productos: productosPedido,
       });
 
@@ -650,6 +699,20 @@ export default function ClientePedidoScreen() {
                         {formatoColones(obtenerPrecio(producto))}
                       </Text>
 
+                      <Text style={styles.cantidadLabel}>Cantidad</Text>
+                      <QuantitySelector
+                        value={cantidadesProducto[Number(producto.id_producto || producto.id)] || 1}
+                        max={disponible}
+                        unit={obtenerUnidad(producto)}
+                        disabled={agotado || guardando}
+                        onChange={(value) =>
+                          setCantidadesProducto((actuales) => ({
+                            ...actuales,
+                            [Number(producto.id_producto || producto.id)]: value,
+                          }))
+                        }
+                      />
+
                       <Pressable accessibilityRole="button"
                         style={[styles.botonAgregar, agotado && styles.botonAgotado]}
                         onPress={() => agregarProducto(producto)}
@@ -681,6 +744,20 @@ export default function ClientePedidoScreen() {
                 </Pressable>
               )}
             </View>
+
+            {mensaje !== '' && (
+              <View
+                accessibilityRole="alert"
+                style={[
+                  styles.mensajeCaja,
+                  tipoMensaje === 'ok' && styles.mensajeOk,
+                  tipoMensaje === 'error' && styles.mensajeError,
+                  tipoMensaje === 'info' && styles.mensajeInfo,
+                ]}
+              >
+                <Text style={styles.mensajeTexto}>{mensaje}</Text>
+              </View>
+            )}
 
             {carrito.length === 0 ? (
               <View style={styles.carritoVacio}>
@@ -717,24 +794,13 @@ export default function ClientePedidoScreen() {
                     </Text>
 
                     <View style={styles.cantidadFila}>
-                      <Pressable accessibilityRole="button"
-                        style={styles.botonCantidad}
-                        onPress={() => disminuirCantidad(item.id_producto)}
+                      <QuantitySelector
+                        value={Number(item.cantidad)}
+                        max={Math.max(Number(item.disponible || item.cantidad), 1)}
+                        unit={item.unidad_medida || 'unidad'}
                         disabled={guardando}
-                      >
-                        <Text style={styles.textoCantidad}>−</Text>
-                      </Pressable>
-
-                      <Text style={styles.numeroCantidad}>{item.cantidad}</Text>
-
-                      <Pressable accessibilityRole="button"
-                        style={styles.botonCantidad}
-                        onPress={() => aumentarCantidad(item.id_producto)}
-                        disabled={guardando}
-                      >
-                        <Text style={styles.textoCantidad}>+</Text>
-                      </Pressable>
-
+                        onChange={(value) => actualizarCantidad(item.id_producto, value)}
+                      />
                       <Pressable accessibilityRole="button"
                         style={styles.botonEliminar}
                         onPress={() => eliminarProducto(item.id_producto)}
@@ -743,6 +809,15 @@ export default function ClientePedidoScreen() {
                         <Text style={styles.textoEliminar}>Eliminar</Text>
                       </Pressable>
                     </View>
+
+                    <TextInput
+                      style={styles.notaProducto}
+                      placeholder="Nota para este producto (opcional)"
+                      value={item.nota || ''}
+                      onChangeText={(text) => actualizarNota(item.id_producto, text)}
+                      maxLength={120}
+                      editable={!guardando}
+                    />
                   </View>
                 </View>
               ))
@@ -797,7 +872,7 @@ export default function ClientePedidoScreen() {
                 />
 
                 <Text style={styles.ayudaRequerida}>
-                  Incluya la localidad y puntos de referencia. Mínimo 20 caracteres.
+                  Incluya localidad y señas. Si existe, agregue un punto de referencia o enlace de Waze. Mínimo 20 caracteres.
                 </Text>
 
                 <Pressable accessibilityRole="button"
@@ -808,14 +883,14 @@ export default function ClientePedidoScreen() {
                   <Text style={styles.textoDireccion}>Usar dirección registrada</Text>
                 </Pressable>
               </>
-            ) : (
+            ) : tipoEntrega === 'Retiro en tienda' ? (
               <View style={styles.retiroCaja}>
                 <Text style={styles.retiroTitulo}>Retiro en tienda seleccionado</Text>
                 <Text style={styles.retiroTexto}>
                   Recoge tu pedido en la verdulería.
                 </Text>
               </View>
-            )}
+            ) : null}
 
             <Text style={styles.label}>Método de pago *</Text>
             <Text style={styles.ayudaRequerida}>
@@ -846,11 +921,17 @@ export default function ClientePedidoScreen() {
               ))}
             </View>
 
-            <Text style={styles.label}>Observación</Text>
+            <Text style={styles.label}>
+              Observación {tipoEntrega === 'Entrega' ? '*' : '(opcional)'}
+            </Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Opcional. Ejemplo: entregar después de las 5 p.m."
+              placeholder={
+                tipoEntrega === 'Entrega'
+                  ? 'Indique dónde dejar el pedido. Ej.: casa 24, torre B, recepción del condominio.'
+                  : 'Opcional. Ejemplo: retirar después de las 5 p.m.'
+              }
               value={observacion}
               onChangeText={setObservacion}
               multiline
@@ -858,19 +939,6 @@ export default function ClientePedidoScreen() {
             />
 
             <Text style={styles.camposObligatorios}>* Campos obligatorios</Text>
-
-            {mensaje !== '' && (
-              <View
-                style={[
-                  styles.mensajeCaja,
-                  tipoMensaje === 'ok' && styles.mensajeOk,
-                  tipoMensaje === 'error' && styles.mensajeError,
-                  tipoMensaje === 'info' && styles.mensajeInfo,
-                ]}
-              >
-                <Text style={styles.mensajeTexto}>{mensaje}</Text>
-              </View>
-            )}
 
             <Pressable accessibilityRole="button"
               style={[
@@ -1199,6 +1267,13 @@ const baseStyles = createAppStyles({
     borderColor: '#ebe4d3',
     marginBottom: 12,
   },
+  cantidadLabel: {
+    color: '#45615e',
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginTop: 9,
+    marginBottom: 5,
+  },
   itemCarritoPhone: { alignItems: 'flex-start' },
   itemImagenArea: {
     width: 70,
@@ -1274,6 +1349,16 @@ const baseStyles = createAppStyles({
     marginBottom: 16,
     borderWidth: 1,
     borderColor: '#2e7d32',
+  },
+  notaProducto: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#c7d8d7',
+    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: '#ffffff',
+    fontSize: 12,
   },
   totalCajaPhone: { flexDirection: 'column', alignItems: 'stretch', gap: 6 },
   totalTexto: {
