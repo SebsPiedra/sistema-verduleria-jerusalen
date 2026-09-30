@@ -358,7 +358,11 @@ export default function ProductosScreen() {
           </Pressable>
         </View>
 
-        <ResponsiveTable><View style={styles.tablaHeader}>
+        {esTelefono ? <View style={styles.listaMovil}>{productosFiltrados.map((producto, index) => { const imagen = obtenerImagen(producto); const estado = obtenerEstadoProducto(producto); const estilosEstado = obtenerEstiloEstado(estado); return <View key={producto.id_producto || producto.id || index} style={styles.tarjetaMovil}>
+          <View style={styles.productoMovil}>{imagen ? <Image source={{uri: imagen}} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.imagenEmoji}>🥦</Text>}<View style={{flex:1}}><Text style={styles.nombreProducto}>{obtenerNombre(producto)}</Text><Text style={styles.descripcionProducto}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estilosEstado.badge]}><Text style={styles.estadoTexto}>{estado}</Text></View></View>
+          <View style={styles.resumenMovil}><Text style={styles.datoMovil}>{obtenerCantidad(producto)} {obtenerUnidad(producto)}</Text><Text style={styles.precioMovil}>{formatoColones(obtenerPrecio(producto))}</Text></View>
+          <Pressable style={styles.botonEditarMovil} onPress={() => irEditar(producto)}><Text style={styles.botonEditarTexto}>Editar producto</Text></Pressable>
+        </View>})}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
           <Text style={[styles.th, styles.colCategoria]}>Categoría</Text>
           <Text style={[styles.th, styles.colCantidad]}>Cantidad</Text>
@@ -444,7 +448,7 @@ export default function ProductosScreen() {
               </View>
             );
           })
-        )}</ResponsiveTable>
+        )}</ResponsiveTable>}
       </View>
 
       <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
@@ -481,6 +485,7 @@ export default function ProductosScreen() {
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 12, backgroundColor: '#fff' }, productoMovil: { flexDirection: 'row', alignItems: 'center', gap: 10 }, imagenMovil: { width: 54, height: 54 }, resumenMovil: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderColor: '#e4eded' }, datoMovil: { color: '#5b7375', fontSize: 13 }, precioMovil: { color: '#006c63', fontWeight: '800' }, botonEditarMovil: { backgroundColor: '#006c63', borderRadius: 10, alignItems: 'center', padding: 11, marginTop: 10 },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

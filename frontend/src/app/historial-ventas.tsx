@@ -676,7 +676,11 @@ export default function HistorialVentasScreen() {
             </ScrollView>
           </View>
 
-          <ResponsiveTable><View style={styles.tablaHeader}>
+          {esTelefono ? <View style={styles.listaMovil}>{ventasFiltradas.map((venta, index) => <View key={obtenerIdVenta(venta) || index} style={styles.tarjetaMovil}>
+            <View style={styles.cabeceraMovil}><View><Text style={styles.facturaTexto}>{obtenerFactura(venta)}</Text><Text style={styles.estadoTexto}>{obtenerEstado(venta)}</Text></View><Text style={styles.tdTotal}>{formatoColones(obtenerTotal(venta))}</Text></View>
+            <Text style={styles.datoMovil}>Cliente: {obtenerCliente(venta)}</Text><Text style={styles.datoMovil}>Fecha: {formatoFecha(obtenerFecha(venta))} {formatoHora(obtenerFecha(venta))}</Text>
+            <Pressable style={styles.botonVerMovil} onPress={() => cargarDetalle(venta)}><Text style={styles.textoVer}>Ver factura</Text></Pressable>
+          </View>)}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
             <Text style={[styles.th, styles.colFactura]}>Factura</Text>
             <Text style={[styles.th, styles.colCliente]}>Cliente</Text>
             <Text style={[styles.th, styles.colFecha]}>Fecha</Text>
@@ -739,7 +743,7 @@ export default function HistorialVentasScreen() {
                 </View>
               );
             })
-          )}</ResponsiveTable>
+          )}</ResponsiveTable>}
 
           <View style={styles.footerTabla}>
             <Text style={styles.footerTexto}>
@@ -867,6 +871,7 @@ export default function HistorialVentasScreen() {
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fff' }, cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, datoMovil: { color: '#4d686a', fontSize: 13, lineHeight: 20 }, botonVerMovil: { backgroundColor: '#006c63', borderRadius: 10, alignItems: 'center', padding: 11, marginTop: 10 },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

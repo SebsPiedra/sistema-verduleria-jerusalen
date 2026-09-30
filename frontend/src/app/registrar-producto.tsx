@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
@@ -16,6 +17,7 @@ import AdminLayout from '../components/AdminLayout';
 export default function RegistrarProductoScreen() {
   const styles = useAppStyles(baseStyles);
   const router = useRouter();
+  const esTelefono = useWindowDimensions().width < 768;
 
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
@@ -160,9 +162,9 @@ export default function RegistrarProductoScreen() {
       titulo="Registrar producto"
       subtitulo="Agregue nuevos productos al inventario de la verdulería"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Nuevo producto 🧺</Text>
+          <Text style={[styles.titulo, esTelefono && styles.tituloTelefono]}>Nuevo producto 🧺</Text>
           
         </View>
 
@@ -184,8 +186,8 @@ export default function RegistrarProductoScreen() {
         </View>
       )}
 
-      <View style={styles.contenido}>
-        <View style={styles.formulario}>
+      <View style={[styles.contenido, esTelefono && styles.contenidoTelefono]}>
+        <View style={[styles.formulario, esTelefono && styles.formularioTelefono]}>
           <Text style={styles.seccionTitulo}>Información del producto</Text>
 
           <Text style={styles.label}>Nombre del producto</Text>
@@ -231,7 +233,7 @@ export default function RegistrarProductoScreen() {
             ))}
           </View>
 
-          <View style={styles.filaDoble}>
+          <View style={[styles.filaDoble, esTelefono && styles.filaDobleTelefono]}>
             <View style={styles.campoMitad}>
               <Text style={styles.label}>Precio compra</Text>
               <TextInput
@@ -257,7 +259,7 @@ export default function RegistrarProductoScreen() {
             </View>
           </View>
 
-          <View style={styles.filaDoble}>
+          <View style={[styles.filaDoble, esTelefono && styles.filaDobleTelefono]}>
             <View style={styles.campoMitad}>
               <Text style={styles.label}>Cantidad disponible</Text>
               <TextInput
@@ -317,7 +319,7 @@ export default function RegistrarProductoScreen() {
             editable={!guardando}
           />
 
-          <View style={styles.botonesFila}>
+          <View style={[styles.botonesFila, esTelefono && styles.botonesFilaTelefono]}>
             <Pressable accessibilityRole="button"
               style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
               onPress={registrarProducto}
@@ -334,7 +336,7 @@ export default function RegistrarProductoScreen() {
           </View>
         </View>
 
-        <View style={styles.preview}>
+        {!esTelefono && <View style={styles.preview}>
           <Text style={styles.seccionTitulo}>Vista previa</Text>
 
           <View style={styles.productoCard}>
@@ -370,10 +372,7 @@ export default function RegistrarProductoScreen() {
             </View>
           </View>
 
-          <Text style={styles.ayuda}>
-            Use imágenes públicas de Sirv. El enlace debe iniciar con https:// para que el profesor pueda verlas en Vercel.
-          </Text>
-        </View>
+        </View>}
       </View>
     </AdminLayout>
   );
@@ -386,6 +385,8 @@ const baseStyles = createAppStyles({
     alignItems: 'center',
     marginBottom: 24,
   },
+  heroTelefono: { flexDirection: 'column', alignItems: 'stretch', gap: 12, marginBottom: 16 },
+  tituloTelefono: { fontSize: 27 },
   titulo: {
     color: '#063f22',
     fontSize: 40,
@@ -436,6 +437,7 @@ const baseStyles = createAppStyles({
     gap: 22,
     alignItems: 'flex-start',
   },
+  contenidoTelefono: { flexDirection: 'column', gap: 0 },
   formulario: {
     flex: 1.5,
     backgroundColor: '#ffffff',
@@ -444,6 +446,7 @@ const baseStyles = createAppStyles({
     borderRadius: 20,
     padding: 22,
   },
+  formularioTelefono: { width: '100%', padding: 16, borderRadius: 16 },
   preview: {
     flex: 0.8,
     backgroundColor: '#ffffff',
@@ -485,6 +488,7 @@ const baseStyles = createAppStyles({
     flexDirection: 'row',
     gap: 14,
   },
+  filaDobleTelefono: { flexDirection: 'column', gap: 0 },
   campoMitad: {
     flex: 1,
   },
@@ -517,6 +521,7 @@ const baseStyles = createAppStyles({
     gap: 12,
     marginTop: 22,
   },
+  botonesFilaTelefono: { flexDirection: 'column' },
   botonGuardar: {
     flex: 1,
     backgroundColor: '#f58220',

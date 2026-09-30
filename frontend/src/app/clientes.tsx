@@ -101,7 +101,14 @@ export default function ClientesScreen() {
           onChangeText={setBusqueda}
         />
 
-        <ResponsiveTable><View style={styles.tablaHeader}>
+        {esTelefono ? <View style={styles.listaMovil}>
+          {clientesFiltrados.length === 0 ? <Text style={styles.vacioTexto}>{cargando ? 'Cargando clientes...' : 'No hay clientes para mostrar.'}</Text> : clientesFiltrados.map((cliente, index) => <View key={cliente.id_cliente || index} style={styles.tarjetaMovil}>
+            <View style={styles.cabeceraMovil}><Text style={styles.tdNombre}>{cliente.nombre || 'Sin nombre'}</Text><View style={styles.estadoBadge}><Text style={styles.estadoTexto}>{cliente.estado || 'Activo'}</Text></View></View>
+            <Text style={styles.datoMovil}>Teléfono: {cliente.telefono || 'Sin teléfono'}</Text>
+            <Text style={styles.datoMovil}>Correo: {cliente.correo || cliente.email || 'Sin correo'}</Text>
+            <Text style={styles.datoMovil}>Dirección: {cliente.direccion || 'Sin dirección'}</Text>
+          </View>)}
+        </View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colNombre]}>Cliente</Text>
           <Text style={[styles.th, styles.colTelefono]}>Teléfono</Text>
           <Text style={[styles.th, styles.colCorreo]}>Correo</Text>
@@ -143,13 +150,17 @@ export default function ClientesScreen() {
               </View>
             </View>
           ))
-        )}</ResponsiveTable>
+        )}</ResponsiveTable>}
       </View>
     </AdminLayout>
   );
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 10 },
+  tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fdfefe' },
+  cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 9 },
+  datoMovil: { color: '#4c6769', fontSize: 13, lineHeight: 20 },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

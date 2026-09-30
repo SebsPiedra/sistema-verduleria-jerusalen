@@ -680,7 +680,10 @@ export default function VentasScreen() {
           </Pressable>
         </View>
 
-        <ResponsiveTable><View style={styles.tablaHeader}>
+        {esTelefono ? <View style={styles.listaMovil}>{ventasFiltradas.map((venta, index) => <View key={venta.id_venta || venta.id || index} style={styles.tarjetaMovil}>
+          <View style={styles.cabeceraMovil}><Text style={styles.tdFactura}>{obtenerFactura(venta)}</Text><Text style={styles.tdTotal}>{formatoColones(obtenerTotalVenta(venta))}</Text></View>
+          <Text style={styles.datoMovil}>Cliente: {obtenerClienteVenta(venta)}</Text><Text style={styles.datoMovil}>Fecha: {formatoFecha(obtenerFechaVenta(venta))}</Text><Text style={styles.datoMovil}>Pago: {obtenerMetodoVenta(venta)}</Text><View style={styles.estadoBadge}><View style={styles.puntoVerde}/><Text style={styles.estadoTexto}>{venta.estado || 'Completada'}</Text></View>
+        </View>)}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colFactura]}>Factura</Text>
           <Text style={[styles.th, styles.colCliente]}>Cliente</Text>
           <Text style={[styles.th, styles.colFecha]}>Fecha</Text>
@@ -734,7 +737,7 @@ export default function VentasScreen() {
               </View>
             </View>
           ))
-        )}</ResponsiveTable>
+        )}</ResponsiveTable>}
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -747,6 +750,7 @@ export default function VentasScreen() {
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fff' }, cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, datoMovil: { color: '#4d686a', fontSize: 13, lineHeight: 20 },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

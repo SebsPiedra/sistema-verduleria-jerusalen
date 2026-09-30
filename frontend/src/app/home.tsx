@@ -234,7 +234,10 @@ export default function HomeScreen() {
           </Pressable>
         </View>
 
-        <ResponsiveTable><View style={styles.tablaHeader}>
+        {esTelefono ? <View style={styles.listaMovil}>{productosFiltrados.map((producto, index) => { const estado = obtenerEstadoVisual(producto); const imagen = obtenerImagen(producto); return <View key={producto.id_producto || index} style={styles.tarjetaMovil}>
+          <View style={styles.productoMovil}>{imagen ? <Image source={{uri: imagen}} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.productoEmoji}>🥦</Text>}<View style={{flex:1}}><Text style={styles.productoNombre}>{obtenerNombre(producto)}</Text><Text style={styles.datoMovil}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estado.estilo]}><Text style={styles.estadoTexto}>{estado.texto}</Text></View></View>
+          <View style={styles.resumenMovil}><Text style={styles.datoMovil}>Stock: {obtenerCantidad(producto)} {obtenerUnidad(producto)}</Text><Text style={styles.precioMovil}>{formatoColones(obtenerPrecio(producto))}</Text></View>
+        </View>})}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
           <Text style={[styles.th, styles.colCategoria]}>Categoría</Text>
           <Text style={[styles.th, styles.colStock]}>Stock actual</Text>
@@ -299,7 +302,7 @@ export default function HomeScreen() {
               </View>
             );
           })
-        )}</ResponsiveTable>
+        )}</ResponsiveTable>}
 
         <View style={styles.tablaFooter}>
           <Text style={styles.footerTexto}>
@@ -351,6 +354,7 @@ export default function HomeScreen() {
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 12, backgroundColor: '#fff' }, productoMovil: { flexDirection: 'row', alignItems: 'center', gap: 10 }, imagenMovil: { width: 48, height: 48 }, datoMovil: { color: '#5b7375', fontSize: 12 }, resumenMovil: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderColor: '#e4eded' }, precioMovil: { color: '#006c63', fontWeight: '800' },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -769,7 +769,7 @@ export default function ClienteMisPedidosScreen() {
               {pedidosVisibles.length} {pedidosVisibles.length === 1 ? 'pedido' : 'pedidos'}
             </Text>
           </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filtrosFila}>
+          <ScrollView horizontal={!isPhone} showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filtrosFila, isPhone && styles.filtrosFilaPhone]}>
             {estadosDisponibles.map((estado) => {
               const activo = filtroEstado === estado;
               return (
@@ -1453,6 +1453,7 @@ const baseStyles = createAppStyles({
     gap: 8,
     paddingRight: 8,
   },
+  filtrosFilaPhone: { flexWrap: 'wrap', width: '100%' },
   filtroBoton: {
     minHeight: 42,
     justifyContent: 'center',

@@ -565,7 +565,10 @@ export default function DesechosScreen() {
           </Pressable>
         </View>
 
-        <ResponsiveTable><View style={styles.tablaHeader}>
+        {esTelefono ? <View style={styles.listaMovil}>{desechosFiltrados.map((desecho, index) => <View key={desecho.id_desecho || desecho.id || index} style={styles.tarjetaMovil}>
+          <View style={styles.cabeceraMovil}><Text style={styles.nombreProducto}>{obtenerNombreDesecho(desecho)}</Text><Text style={styles.tdPerdida}>{formatoColones(obtenerPerdidaDesecho(desecho))}</Text></View>
+          <Text style={styles.datoMovil}>Cantidad: {obtenerCantidadDesecho(desecho)}</Text><Text style={styles.datoMovil}>Precio de compra: {formatoColones(obtenerPrecioCompraDesecho(desecho))}</Text><Text style={styles.datoMovil}>Motivo: {obtenerMotivoDesecho(desecho)}</Text><Text style={styles.datoMovil}>Fecha: {formatoFecha(obtenerFechaDesecho(desecho))}</Text><Text style={styles.datoMovil}>Observación: {desecho.observacion || 'Sin observación'}</Text>
+        </View>)}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
           <Text style={[styles.th, styles.colCantidad]}>Cantidad</Text>
           <Text style={[styles.th, styles.colPrecio]}>Precio compra</Text>
@@ -633,7 +636,7 @@ export default function DesechosScreen() {
               </Text>
             </View>
           ))
-        )}</ResponsiveTable>
+        )}</ResponsiveTable>}
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -646,6 +649,7 @@ export default function DesechosScreen() {
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fff' }, cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, datoMovil: { color: '#4d686a', fontSize: 13, lineHeight: 20 },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

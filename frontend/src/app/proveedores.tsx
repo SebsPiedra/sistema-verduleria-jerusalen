@@ -430,7 +430,11 @@ export default function ProveedoresScreen() {
           </Pressable>
         </View>
 
-        <ResponsiveTable><View style={styles.tablaHeader}>
+        {esTelefono ? <View style={styles.listaMovil}>{proveedoresFiltrados.map((proveedor, index) => <View key={obtenerIdProveedor(proveedor) || index} style={styles.tarjetaMovil}>
+          <View style={styles.cabeceraMovil}><Text style={styles.nombreProveedor}>{obtenerNombre(proveedor)}</Text><Text style={styles.estadoTexto}>{obtenerEstado(proveedor)}</Text></View>
+          <Text style={styles.datoMovil}>Teléfono: {obtenerTelefono(proveedor)}</Text><Text style={styles.datoMovil}>Correo: {obtenerCorreo(proveedor)}</Text><Text style={styles.datoMovil}>Dirección: {obtenerDireccion(proveedor)}</Text>
+          <Pressable style={styles.botonEditarMovil} onPress={() => abrirEditarProveedor(proveedor)}><Text style={styles.textoEditar}>Editar proveedor</Text></Pressable>
+        </View>)}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colNombre]}>Proveedor</Text>
           <Text style={[styles.th, styles.colTelefono]}>Teléfono</Text>
           <Text style={[styles.th, styles.colCorreo]}>Correo</Text>
@@ -511,7 +515,7 @@ export default function ProveedoresScreen() {
               </View>
             );
           })
-        )}</ResponsiveTable>
+        )}</ResponsiveTable>}
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -524,6 +528,7 @@ export default function ProveedoresScreen() {
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fff' }, cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, datoMovil: { color: '#4d686a', fontSize: 13, lineHeight: 20 }, botonEditarMovil: { backgroundColor: '#006c63', borderRadius: 10, alignItems: 'center', padding: 11, marginTop: 10 },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

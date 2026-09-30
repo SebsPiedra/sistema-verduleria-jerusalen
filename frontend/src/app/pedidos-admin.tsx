@@ -618,6 +618,67 @@ export default function PedidosAdminScreen() {
           </ScrollView>
         </View>
 
+        {esTelefono ? (
+          <View style={styles.listaMovil}>
+            {cargando ? (
+              <Text style={styles.vacioTexto}>Cargando pedidos...</Text>
+            ) : pedidosFiltrados.length === 0 ? (
+              <Text style={styles.vacioTexto}>No hay pedidos para mostrar.</Text>
+            ) : pedidosFiltrados.map((pedido, index) => {
+              const idPedido = obtenerIdPedido(pedido) || index;
+              const estado = obtenerEstado(pedido);
+              const estiloEstado = obtenerEstiloEstado(estado);
+              const abierto = pedidoAbierto === idPedido;
+              const detalles = obtenerDetalles(pedido);
+              return (
+                <View key={idPedido} style={styles.pedidoMovil}>
+                  <View style={styles.pedidoMovilCabecera}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.pedidoMovilNumero}>Pedido #{idPedido}</Text>
+                      <Text style={styles.pedidoMovilCliente}>{obtenerCliente(pedido)}</Text>
+                      <Text style={styles.pedidoMovilMeta}>{formatoFecha(obtenerFecha(pedido))} · {formatoHora(obtenerFecha(pedido))}</Text>
+                    </View>
+                    <View style={[styles.estadoBadge, estiloEstado.badge]}>
+                      <View style={[styles.puntoEstado, estiloEstado.punto]} />
+                      <Text style={styles.estadoTexto}>{estado}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.pedidoMovilResumen}>
+                    <View><Text style={styles.pedidoMovilLabel}>Entrega</Text><Text style={styles.pedidoMovilValor}>{obtenerTipoEntrega(pedido)}</Text></View>
+                    <View><Text style={styles.pedidoMovilLabel}>Pago</Text><Text style={styles.pedidoMovilValor}>{obtenerMetodoPago(pedido)}</Text></View>
+                    <View><Text style={styles.pedidoMovilLabel}>Total</Text><Text style={styles.pedidoMovilTotal}>{formatoColones(obtenerTotal(pedido))}</Text></View>
+                  </View>
+
+                  <Pressable accessibilityRole="button" style={styles.botonDetalleMovil} onPress={() => setPedidoAbierto(abierto ? null : idPedido)}>
+                    <Text style={styles.textoDetalle}>{abierto ? 'Ocultar detalle' : 'Ver y gestionar pedido'}</Text>
+                  </Pressable>
+
+                  {abierto ? <View style={styles.detalleMovil}>
+                    <Text style={styles.detalleMovilLinea}>Teléfono: {obtenerTelefono(pedido) || 'Sin teléfono'}</Text>
+                    <Text style={styles.detalleMovilLinea}>Correo: {obtenerCorreo(pedido) || 'Sin correo'}</Text>
+                    <Text style={styles.detalleMovilLinea}>Dirección: {obtenerDireccion(pedido)}</Text>
+                    <Text style={styles.detalleMovilLinea}>Observación: {pedido.observacion || 'Sin observación'}</Text>
+                    <View style={styles.productosMovil}>
+                      {detalles.map((item: any, detalleIndex: number) => <View key={detalleIndex} style={styles.productoMovil}>
+                        <View style={{ flex: 1 }}><Text style={styles.productoDetalleNombre}>{obtenerNombreProducto(item)}</Text><Text style={styles.productoDetalleInfo}>Cantidad: {obtenerCantidadDetalle(item)}</Text></View>
+                        <Text style={styles.productoSubtotal}>{formatoColones(obtenerSubtotalDetalle(item))}</Text>
+                      </View>)}
+                    </View>
+                    <View style={styles.accionesMovil}>
+                      {puedeAceptar(pedido) ? <Pressable style={[styles.accionMovil, styles.botonAceptar]} onPress={() => cambiarEstado(pedido, 'Aceptado')}><Text style={styles.textoBotonAccion}>Aceptar</Text></Pressable> : null}
+                      {puedePreparar(pedido) ? <Pressable style={[styles.accionMovil, styles.botonPreparar]} onPress={() => cambiarEstado(pedido, 'En preparación')}><Text style={styles.textoBotonAccion}>Preparar</Text></Pressable> : null}
+                      {puedeEnviar(pedido) ? <Pressable style={[styles.accionMovil, styles.botonEnviar]} onPress={() => cambiarEstado(pedido, 'En entrega')}><Text style={styles.textoBotonAccion}>En entrega</Text></Pressable> : null}
+                      {puedeEntregar(pedido) ? <Pressable style={[styles.accionMovil, styles.botonEntregar]} onPress={() => cambiarEstado(pedido, 'Entregado')}><Text style={styles.textoBotonAccion}>Entregado</Text></Pressable> : null}
+                      {puedeRechazar(pedido) ? <Pressable style={[styles.accionMovil, styles.botonRechazar]} onPress={() => solicitarRechazo(pedido)}><Text style={styles.textoBotonAccion}>Rechazar</Text></Pressable> : null}
+                      {puedeCancelar(pedido) ? <Pressable style={[styles.accionMovil, styles.botonCancelar]} onPress={() => cambiarEstado(pedido, 'Cancelado')}><Text style={styles.textoBotonAccion}>Cancelar</Text></Pressable> : null}
+                    </View>
+                  </View> : null}
+                </View>
+              );
+            })}
+          </View>
+        ) : (
         <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colPedido]}>Pedido</Text>
           <Text style={[styles.th, styles.colCliente]}>Cliente</Text>
@@ -863,7 +924,7 @@ export default function PedidosAdminScreen() {
               </View>
             );
           })
-        )}</ResponsiveTable>
+        )}</ResponsiveTable>)}
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
@@ -908,6 +969,23 @@ export default function PedidosAdminScreen() {
 }
 
 const baseStyles = createAppStyles({
+  listaMovil: { gap: 12 },
+  pedidoMovil: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e5e6', borderRadius: 16, padding: 14 },
+  pedidoMovilCabecera: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  pedidoMovilNumero: { color: '#075e58', fontSize: 17, fontWeight: '800' },
+  pedidoMovilCliente: { color: '#233f42', fontSize: 15, fontWeight: '700', marginTop: 3 },
+  pedidoMovilMeta: { color: '#678083', fontSize: 12, marginTop: 3 },
+  pedidoMovilResumen: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, paddingVertical: 13, marginTop: 10, borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#e3ecec' },
+  pedidoMovilLabel: { color: '#718689', fontSize: 10, textTransform: 'uppercase', fontWeight: '700' },
+  pedidoMovilValor: { color: '#274d50', fontSize: 12, fontWeight: '700', marginTop: 3 },
+  pedidoMovilTotal: { color: '#006c63', fontSize: 14, fontWeight: '800', marginTop: 3 },
+  botonDetalleMovil: { backgroundColor: '#006c63', padding: 12, borderRadius: 11, alignItems: 'center', marginTop: 12 },
+  detalleMovil: { marginTop: 14, gap: 7 },
+  detalleMovilLinea: { color: '#496568', fontSize: 13, lineHeight: 19 },
+  productosMovil: { gap: 7, marginTop: 7 },
+  productoMovil: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, backgroundColor: '#f4f8f8' },
+  accionesMovil: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
+  accionMovil: { width: '48%', minHeight: 46, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
   modalFondo: {
     flex: 1,
     backgroundColor: 'rgba(5, 24, 27, 0.62)',
