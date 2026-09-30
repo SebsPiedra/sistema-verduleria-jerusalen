@@ -1,6 +1,7 @@
 const express = require('express');
 const util = require('util');
 const conexion = require('../db');
+const { cantidadValidaParaUnidad } = require('../utils/unidades');
 
 const router = express.Router();
 
@@ -540,6 +541,13 @@ router.post('/', async (req, res) => {
 
         return res.status(400).json({
           mensaje: `El producto ${producto.nombre} no está activo`,
+        });
+      }
+
+      if (!cantidadValidaParaUnidad(cantidadPedida, producto.unidad_medida)) {
+        await rollbackSeguro();
+        return res.status(400).json({
+          mensaje: `La cantidad indicada no es válida para ${producto.nombre} (${producto.unidad_medida})`,
         });
       }
 

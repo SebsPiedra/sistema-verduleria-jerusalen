@@ -12,6 +12,7 @@ import {
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../services/api';
 import AdminLayout from '../components/AdminLayout';
+import { cantidadValidaParaUnidad, textoAyudaCantidad } from '../utils/unidades';
 
 export default function EditarProductoScreen() {
   const styles = useAppStyles(baseStyles);
@@ -60,7 +61,7 @@ export default function EditarProductoScreen() {
   };
 
   const validarNumero = (valor: string) => {
-    const numero = Number(valor);
+    const numero = Number(valor.replace(',', '.'));
     return !Number.isNaN(numero) && numero >= 0;
   };
 
@@ -166,6 +167,16 @@ export default function EditarProductoScreen() {
       return;
     }
 
+    const cantidadNumero = Number(cantidad.replace(',', '.'));
+    const stockMinimoNumero = Number(stockMinimo.replace(',', '.'));
+    if (
+      !cantidadValidaParaUnidad(cantidadNumero, unidadMedida, true) ||
+      !cantidadValidaParaUnidad(stockMinimoNumero, unidadMedida, true)
+    ) {
+      mostrarMensaje(textoAyudaCantidad(unidadMedida), 'error', true);
+      return;
+    }
+
     if (Number(precioVenta) < Number(precioCompra)) {
       mostrarMensaje(
         'El precio de venta no debería ser menor que el precio de compra.',
@@ -196,9 +207,9 @@ export default function EditarProductoScreen() {
         precio_compra: Number(precioCompra),
         precio_venta: Number(precioVenta),
         precio: Number(precioVenta),
-        cantidad: Number(cantidad),
-        stock: Math.ceil(Number(cantidad)),
-        stock_minimo: Number(stockMinimo),
+        cantidad: cantidadNumero,
+        stock: Math.ceil(cantidadNumero),
+        stock_minimo: stockMinimoNumero,
         unidad_medida: unidadMedida,
         imagen_url: imagenLimpia,
         imagen: imagenLimpia,
@@ -343,7 +354,8 @@ export default function EditarProductoScreen() {
                   placeholder="Ejemplo: 20"
                   value={cantidad}
                   onChangeText={setCantidad}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
+                  inputMode="decimal"
                   editable={!guardando}
                 />
               </View>
@@ -355,7 +367,8 @@ export default function EditarProductoScreen() {
                   placeholder="Ejemplo: 5"
                   value={stockMinimo}
                   onChangeText={setStockMinimo}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
+                  inputMode="decimal"
                   editable={!guardando}
                 />
               </View>

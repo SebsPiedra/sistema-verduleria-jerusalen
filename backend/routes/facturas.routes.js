@@ -1,5 +1,6 @@
 const express = require('express');
 const conexion = require('../db');
+const { cantidadValidaParaUnidad } = require('../utils/unidades');
 
 const router = express.Router();
 
@@ -240,6 +241,12 @@ router.post('/', async (req, res) => {
       if (!productoBD) {
         return res.status(404).json({
           mensaje: `No se encontró el producto con ID ${idProducto}.`,
+        });
+      }
+
+      if (!cantidadValidaParaUnidad(cantidad, productoBD.unidad_medida)) {
+        return res.status(400).json({
+          mensaje: `La cantidad indicada no es válida para ${productoBD.nombre} (${productoBD.unidad_medida}).`,
         });
       }
 

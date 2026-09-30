@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 import { obtenerCategoriaProducto as inferirCategoriaProducto } from '../utils/productos';
+import { cantidadValidaParaUnidad, normalizarCantidad } from '../utils/unidades';
 
 export default function VentasScreen() {
   const styles = useAppStyles(baseStyles);
@@ -331,8 +332,14 @@ export default function VentasScreen() {
           return item;
         }
 
-        const cantidadFinal =
-          cantidadNueva > item.disponible ? item.disponible : cantidadNueva;
+        if (!cantidadValidaParaUnidad(cantidadNueva, item.unidad_medida)) {
+          return item;
+        }
+
+        const cantidadFinal = normalizarCantidad(
+          cantidadNueva > item.disponible ? item.disponible : cantidadNueva,
+          item.unidad_medida
+        );
 
         return {
           ...item,
@@ -634,7 +641,8 @@ export default function VentasScreen() {
                     style={styles.inputCantidad}
                     value={String(item.cantidad)}
                     onChangeText={(valor) => cambiarCantidad(item.id_producto, valor)}
-                    keyboardType="numeric"
+                    keyboardType="decimal-pad"
+                    inputMode="decimal"
                     editable={!guardando}
                   />
 

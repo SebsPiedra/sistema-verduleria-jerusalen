@@ -1,5 +1,6 @@
 import ClientHeader from '../components/ClientHeader';
 import QuantitySelector from '../components/QuantitySelector';
+import { normalizarCantidad, requiereCantidadEntera } from '../utils/unidades';
 import { createAppStyles, useAppStyles } from '../theme/appStyles';
 import { Children, useEffect, useState } from 'react';
 import {
@@ -396,14 +397,10 @@ export default function ClientePedidoScreen() {
     const copia = carrito.map((item) => {
       if (Number(item.id_producto) !== Number(idProducto)) return item;
       const unidad = String(item.unidad_medida || 'unidad');
-      const requiereEntero = /^(unidad|unidades|bolsa|bolsas|caja|cajas|paquete|paquetes)$/i.test(
-        unidad.trim()
-      );
+      const requiereEntero = requiereCantidadEntera(unidad);
       const minimo = requiereEntero ? 1 : 0.01;
       const disponible = Math.max(Number(item.disponible || cantidad), minimo);
-      const normalizada = requiereEntero
-        ? Math.round(cantidad)
-        : Math.round(cantidad * 100) / 100;
+      const normalizada = normalizarCantidad(cantidad, unidad);
       const nuevaCantidad = Math.min(Math.max(normalizada, minimo), disponible);
       return {
         ...item,

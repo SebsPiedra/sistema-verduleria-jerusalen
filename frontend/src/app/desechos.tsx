@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
+import { cantidadValidaParaUnidad, textoAyudaCantidad } from '../utils/unidades';
 import api from '../services/api';
 
 export default function DesechosScreen() {
@@ -238,12 +239,21 @@ export default function DesechosScreen() {
       return;
     }
 
-    if (!cantidad || Number(cantidad) <= 0 || Number.isNaN(Number(cantidad))) {
+    const cantidadNumero = Number(cantidad.replace(',', '.'));
+    const unidadProducto = String(
+      productoSeleccionado.unidad_medida || productoSeleccionado.unidad || 'kg'
+    );
+
+    if (!cantidadValidaParaUnidad(cantidadNumero, unidadProducto)) {
+      mostrarMensaje(textoAyudaCantidad(unidadProducto), 'error', true);
+      return;
+    }
+
+    if (!cantidad || cantidadNumero <= 0 || Number.isNaN(cantidadNumero)) {
       mostrarMensaje('Debe ingresar una cantidad válida.', 'error', true);
       return;
     }
 
-    const cantidadNumero = Number(cantidad);
     const cantidadDisponible = obtenerCantidadProducto(productoSeleccionado);
 
     if (cantidadNumero > cantidadDisponible) {
@@ -473,10 +483,11 @@ export default function DesechosScreen() {
               <Text style={styles.label}>Cantidad a desechar</Text>
               <TextInput
                 style={styles.input}
-                placeholder="Ejemplo: 2"
+                placeholder="Ejemplo: 1,6"
                 value={cantidad}
-                onChangeText={setCantidad}
-                keyboardType="numeric"
+                onChangeText={(valor) => setCantidad(valor.replace(/[^0-9.,]/g, ''))}
+                keyboardType="decimal-pad"
+                inputMode="decimal"
                 editable={!guardando}
               />
             </View>

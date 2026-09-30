@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { normalizarCantidad, requiereCantidadEntera } from '../utils/unidades';
 
 type Props = {
   value: number;
@@ -10,21 +11,13 @@ type Props = {
   onChange: (value: number) => void;
 };
 
-const usaCantidadEntera = (unit: string) => {
-  return /^(unidad|unidades|bolsa|bolsas|caja|cajas|paquete|paquetes)$/i.test(
-    unit.trim()
-  );
-};
-
-const obtenerPaso = (unit: string) => (usaCantidadEntera(unit) ? 1 : 0.1);
+const obtenerPaso = (unit: string) => (requiereCantidadEntera(unit) ? 1 : 0.1);
 
 const limitarCantidad = (value: number, max: number, unit: string) => {
-  const esUnidadEntera = usaCantidadEntera(unit);
+  const esUnidadEntera = requiereCantidadEntera(unit);
   const minimo = esUnidadEntera ? 1 : 0.01;
   const maximo = Math.max(Number(max) || minimo, minimo);
-  const normalizada = esUnidadEntera
-    ? Math.round(value)
-    : Math.round(value * 100) / 100;
+  const normalizada = normalizarCantidad(value, unit);
 
   return Math.min(Math.max(normalizada || minimo, minimo), maximo);
 };
@@ -39,7 +32,7 @@ export default function QuantitySelector({
 }: Props) {
   const [draft, setDraft] = useState(String(value));
   const paso = obtenerPaso(unit);
-  const minimo = usaCantidadEntera(unit) ? 1 : 0.01;
+  const minimo = requiereCantidadEntera(unit) ? 1 : 0.01;
 
   useEffect(() => {
     setDraft(String(value));
@@ -78,7 +71,7 @@ export default function QuantitySelector({
         onSubmitEditing={confirmar}
         keyboardType="decimal-pad"
         inputMode="decimal"
-        placeholder={usaCantidadEntera(unit) ? '1' : 'Ej. 1,6'}
+        placeholder={requiereCantidadEntera(unit) ? '1' : 'Ej. 1,6'}
         selectTextOnFocus
         editable={!disabled}
       />

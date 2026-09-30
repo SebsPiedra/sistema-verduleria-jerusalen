@@ -4,6 +4,7 @@ const {
   agregarCategoriaProducto,
   obtenerCategoriaProducto
 } = require('../utils/productos');
+const { cantidadValidaParaUnidad } = require('../utils/unidades');
 
 const router = express.Router();
 
@@ -174,6 +175,16 @@ router.post('/', (req, res) => {
     });
   }
 
+  const unidadFinal = unidad_medida || 'kg';
+  if (
+    !cantidadValidaParaUnidad(cantidad, unidadFinal, true) ||
+    !cantidadValidaParaUnidad(stock_minimo, unidadFinal, true)
+  ) {
+    return res.status(400).json({
+      mensaje: `La cantidad y el stock mínimo no son válidos para ${unidadFinal}`
+    });
+  }
+
   const sql = `
     INSERT INTO productos (
       nombre,
@@ -200,7 +211,7 @@ router.post('/', (req, res) => {
       normalizarNumero(precio_compra, 0),
       normalizarNumero(precio_venta, 0),
       normalizarNumero(stock_minimo, 5),
-      unidad_medida || 'kg',
+      unidadFinal,
       normalizarId(id_proveedor),
       imagenUrlFinal,
       imagenUrlFinal,
@@ -245,6 +256,17 @@ router.put('/:id', (req, res) => {
     });
   }
 
+
+  const unidadFinal = unidad_medida || 'kg';
+  if (
+    !cantidadValidaParaUnidad(cantidad, unidadFinal, true) ||
+    !cantidadValidaParaUnidad(stock_minimo, unidadFinal, true)
+  ) {
+    return res.status(400).json({
+      mensaje: `La cantidad y el stock mínimo no son válidos para ${unidadFinal}`
+    });
+  }
+
   const imagenUrlFinal = imagen_url || null;
 
   const sql = `
@@ -271,7 +293,7 @@ router.put('/:id', (req, res) => {
       normalizarNumero(precio_compra, 0),
       normalizarNumero(precio_venta, 0),
       normalizarNumero(stock_minimo, 5),
-      unidad_medida || 'kg',
+      unidadFinal,
       normalizarId(id_proveedor),
       imagenUrlFinal,
       imagenUrlFinal,
