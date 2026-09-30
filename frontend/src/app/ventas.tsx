@@ -175,6 +175,14 @@ export default function VentasScreen() {
     return producto.unidad_medida || producto.unidad || 'kg';
   };
 
+  const normalizarBusqueda = (valor: any) => {
+    return String(valor || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim()
+      .toLowerCase();
+  };
+
   const obtenerFactura = (venta: any) => {
     const idVenta = venta.id_venta || venta.id || venta.id_factura || '';
 
@@ -202,18 +210,32 @@ export default function VentasScreen() {
     return venta.fecha_venta || venta.fecha || venta.created_at || venta.fecha_creacion;
   };
 
-  const productosDisponibles = productos.filter((producto) => {
-    const texto = busquedaProducto.trim().toLowerCase();
+  const textoBusquedaProducto = normalizarBusqueda(busquedaProducto);
+  const productosConStock = productos.filter((producto) => {
     const estado = String(producto.estado || 'Activo').toLowerCase();
     const cantidad = obtenerCantidadProducto(producto);
 
-    const coincideBusqueda =
-      texto === '' ||
-      obtenerNombreProducto(producto).toLowerCase().includes(texto) ||
-      obtenerCategoriaProducto(producto).toLowerCase().includes(texto);
-
-    return estado !== 'inactivo' && cantidad > 0 && coincideBusqueda;
+    return estado !== 'inactivo' && cantidad > 0;
   });
+
+  const coincidenciasExactas = productosConStock.filter(
+    (producto) =>
+      normalizarBusqueda(obtenerNombreProducto(producto)) === textoBusquedaProducto
+  );
+
+  const productosDisponibles = textoBusquedaProducto === ''
+    ? productosConStock
+    : coincidenciasExactas.length > 0
+      ? coincidenciasExactas
+      : productosConStock.filter((producto) => {
+          const nombre = normalizarBusqueda(obtenerNombreProducto(producto));
+          const categoria = normalizarBusqueda(obtenerCategoriaProducto(producto));
+
+          return (
+            nombre.includes(textoBusquedaProducto) ||
+            categoria.includes(textoBusquedaProducto)
+          );
+        });
 
   const ventasFiltradas = ventas.filter((venta) => {
     const texto = busquedaVenta.toLowerCase();
@@ -542,13 +564,25 @@ export default function VentasScreen() {
             value={busquedaProducto}
             onChangeText={setBusquedaProducto}
             editable={!guardando}
+            autoCorrect={false}
+            returnKeyType="search"
           />
+
+          {textoBusquedaProducto !== '' && (
+            <Text style={styles.resultadoBusqueda}>
+              {productosDisponibles.length === 1
+                ? '1 producto encontrado'
+                : `${productosDisponibles.length} productos encontrados`}
+            </Text>
+          )}
 
           <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
             <View style={[styles.productosFila, esTelefono && styles.opcionesTelefono]}>
               {productosDisponibles.length === 0 ? (
                 <Text style={styles.sinProductosTexto}>
-                  No hay productos disponibles para vender.
+                  {textoBusquedaProducto === ''
+                    ? 'No hay productos disponibles para vender.'
+                    : `No se encontró “${busquedaProducto.trim()}” con inventario disponible.`}
                 </Text>
               ) : (
                 productosDisponibles.slice(0, 30).map((producto, index) => (
@@ -1010,6 +1044,13 @@ const baseStyles = createAppStyles({
     color: '#777',
     fontWeight: 'bold',
     padding: 12,
+  },
+  resultadoBusqueda: {
+    color: '#496365',
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 8,
+    marginBottom: 2,
   },
   carritoCard: {
     backgroundColor: '#fffdf6',
