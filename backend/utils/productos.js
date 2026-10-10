@@ -9,15 +9,19 @@ const frutas = new Set([
   'aguacate', 'banano', 'cas', 'ciruelas', 'coco', 'fresa', 'granadillas',
   'guanabana', 'guineos', 'kiwi', 'limon', 'mandarinas', 'mangos',
   'manzanas', 'maracuya', 'melocoton', 'melon', 'mora', 'naranja',
-  'papaya', 'pejibaye', 'pina', 'pipas', 'platano maduro', 'platano verde'
+  'papaya', 'pejibaye', 'peras', 'pina', 'pipas', 'platano maduro',
+  'platano verde', 'sandia', 'tamarindo', 'uvas', 'limon mandarina'
 ]);
 
 const verduras = new Set([
   'ajos', 'albahaca', 'apio', 'ayote sazon', 'ayote tierno', 'berenjena',
   'brocoli', 'camote', 'cebolla', 'cebolla morada', 'cebollin', 'chayote',
-  'chile dulce', 'coliflor', 'culantro', 'elote', 'espinacas', 'hierbabuena',
-  'jengibre', 'lechuga americana', 'mostaza', 'nampi', 'oregano', 'palmito',
-  'papa', 'pepino', 'tomate'
+  'chayote sazon', 'chayote tierno', 'chile dulce', 'coliflor', 'culantro',
+  'culantro castilla', 'culantro coyote', 'elote', 'espinacas', 'frijol blanco',
+  'frijol tierno', 'hierbabuena', 'jengibre', 'lechuga americana', 'mostaza',
+  'nampi', 'oregano', 'palmito', 'papa', 'pepino', 'perejil', 'rabanitos',
+  'remolacha', 'repollo', 'tacacos', 'tiquisque', 'tomate', 'tomillo',
+  'trenzas de ajo', 'vainica', 'yuca parafinada', 'zanahoria', 'zuquini'
 ]);
 
 const obtenerCategoriaProducto = (nombre) => {
