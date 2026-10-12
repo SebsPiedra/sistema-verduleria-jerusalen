@@ -766,6 +766,31 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+router.patch('/:id/costo-envio', async (req, res) => {
+  const id = Number(req.params.id);
+  const costoEnvio = Number(String(req.body?.costo_envio ?? '').replace(',', '.'));
+
+  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isFinite(costoEnvio) || costoEnvio < 0 || costoEnvio > 100000) {
+    return res.status(400).json({ mensaje: 'Ingrese un costo de envío válido entre ₡0 y ₡100.000.' });
+  }
+
+  try {
+    await prepararEsquemaEnvio();
+    const pedido = obtenerPrimero(await query('SELECT id_pedido, estado, tipo_entrega, subtotal_productos, costo_envio, total FROM pedidos WHERE id_pedido = ?', [id]));
+    if (!pedido) return res.status(404).json({ mensaje: 'Pedido no encontrado.' });
+    if (pedido.estado !== 'Pendiente') return res.status(409).json({ mensaje: 'El costo de envío solo puede ajustarse mientras el pedido esté pendiente.' });
+    if (pedido.tipo_entrega === 'Retiro en tienda' && costoEnvio !== 0) return res.status(400).json({ mensaje: 'El retiro en tienda no lleva costo de envío.' });
+
+    const subtotalGuardado = formatoNumero(pedido.subtotal_productos);
+    const subtotal = subtotalGuardado > 0 ? subtotalGuardado : Math.max(0, formatoNumero(pedido.total) - formatoNumero(pedido.costo_envio));
+    await query('UPDATE pedidos SET costo_envio = ?, total = ? WHERE id_pedido = ?', [costoEnvio, subtotal + costoEnvio, id]);
+    return res.json({ mensaje: 'Costo de envío actualizado. Confírmelo con el cliente antes de aceptar.', costo_envio: costoEnvio, total: subtotal + costoEnvio });
+  } catch (error) {
+    console.log('Error al actualizar costo de envío:', error);
+    return res.status(500).json({ mensaje: 'No se pudo actualizar el costo de envío.' });
+  }
+});
+
 router.patch('/:id/estado', async (req, res) => {
   return cambiarEstadoPedido(req, res, req.body.estado);
 });

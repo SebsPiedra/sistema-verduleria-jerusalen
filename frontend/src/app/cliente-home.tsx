@@ -232,7 +232,7 @@ export default function ClienteHomeScreen() {
         )
       );
 
-      setMensaje(`${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} se agregó al carrito ✓`);
+      setMensaje(`Objeto añadido al carrito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} ✓`);
       setTimeout(() => setMensaje(''), 3500);
     } catch {
       Alert.alert('Error', 'No se pudo agregar el producto al carrito.');

@@ -332,7 +332,7 @@ export default function ClientePedidoScreen() {
     }
 
     await guardarCarrito(copia);
-    mostrarMensaje(`${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} se agregó al carrito.`, 'ok');
+    mostrarMensaje(`Objeto añadido al carrito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`, 'ok');
 
   };
 

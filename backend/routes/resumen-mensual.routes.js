@@ -83,6 +83,19 @@ router.post('/gastos', async (req,res,next) => {
     res.status(201).json(row);
   } catch(e) { next(e); }
 });
+router.put('/gastos/:id', async (req,res,next) => {
+  try {
+    const { fecha, concepto, monto } = req.body;
+    const parsed = new Date(fecha+'T12:00:00Z');
+    if (!uuid.test(req.params.id) || !/^20\d\d-\d\d-\d\d$/.test(fecha || '') || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10)!==fecha ||
+      typeof concepto !== 'string' || !concepto.trim() || concepto.trim().length>200 || !/^\d{1,10}(\.\d{1,2})?$/.test(String(monto)) || Number(monto)<=0)
+      return res.status(400).json({mensaje:'Ingrese fecha válida, concepto (máximo 200 caracteres) y monto positivo con hasta dos decimales.'});
+    const result = await pool.query(`UPDATE gastos_mensuales SET fecha=$2, concepto=$3, monto=$4
+      WHERE id=$1 AND anulado_en IS NULL RETURNING *`,[req.params.id,fecha,concepto.trim(),monto]);
+    if (!result.rowCount) return res.status(404).json({mensaje:'El gasto no existe o ya fue anulado.'});
+    res.json(result.rows[0]);
+  } catch(e) { next(e); }
+});
 router.post('/gastos/:id/anular', async (req,res,next) => {
   try {
     if (!uuid.test(req.params.id)) return res.status(400).json({mensaje:'Gasto inválido.'});

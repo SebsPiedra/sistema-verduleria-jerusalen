@@ -33,6 +33,7 @@ export default function PedidosAdminScreen() {
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [umbralEnvio, setUmbralEnvio] = useState('15000');
   const [costoEnvio, setCostoEnvio] = useState('1500');
+  const [costosPorPedido, setCostosPorPedido] = useState<Record<number, string>>({});
 
   useEffect(() => {
     cargarPedidos();
@@ -95,6 +96,21 @@ export default function PedidosAdminScreen() {
       mostrarMensaje('Tarifa de envío actualizada.', 'ok');
     } catch(error:any) { mostrarMensaje(error?.response?.data?.mensaje || 'No se pudo guardar la tarifa.', 'error'); }
     finally { setActualizando(false); }
+  };
+
+  const guardarCostoEnvioPedido = async (pedido: any) => {
+    const id = obtenerIdPedido(pedido);
+    const texto = costosPorPedido[id] ?? String(Number(pedido.costo_envio || 0));
+    const costo = Number(texto.replace(',', '.'));
+    if (!Number.isFinite(costo) || costo < 0) return mostrarMensaje('Ingrese un costo de envío válido.', 'error');
+    try {
+      setActualizando(true);
+      await api.patch(`/pedidos/${id}/costo-envio`, { costo_envio: costo });
+      mostrarMensaje('Costo de envío actualizado. Confírmelo con el cliente antes de aceptar.', 'ok');
+      await cargarPedidos();
+    } catch (error: any) {
+      mostrarMensaje(error?.response?.data?.mensaje || 'No se pudo ajustar el envío.', 'error');
+    } finally { setActualizando(false); }
   };
 
   const formatoFecha = (fecha: any) => {
@@ -678,6 +694,15 @@ export default function PedidosAdminScreen() {
                     <Text style={styles.detalleMovilLinea}>Correo: {obtenerCorreo(pedido) || 'Sin correo'}</Text>
                     <Text style={styles.detalleMovilLinea}>Dirección: {obtenerDireccion(pedido)}</Text>
                     <Text style={styles.detalleMovilLinea}>Observación: {pedido.observacion || 'Sin observación'}</Text>
+                    <View style={styles.desgloseEnvio}>
+                      <Text style={styles.detalleMovilLinea}>Productos: {formatoColones(pedido.subtotal_productos)}</Text>
+                      <Text style={styles.detalleMovilLinea}>Envío: {formatoColones(pedido.costo_envio)}</Text>
+                      {estado === 'Pendiente' && obtenerTipoEntrega(pedido) !== 'Retiro en tienda' ? <>
+                        <Text style={styles.configLabel}>Ajuste por distancia (acordado con el cliente)</Text>
+                        <TextInput accessibilityLabel={`Costo de envío del pedido ${idPedido}`} style={styles.configInputPedido} keyboardType="decimal-pad" value={costosPorPedido[idPedido] ?? String(Number(pedido.costo_envio || 0))} onChangeText={(value) => setCostosPorPedido(prev => ({...prev, [idPedido]: value}))}/>
+                        <Pressable style={styles.botonActualizar} disabled={actualizando} onPress={() => guardarCostoEnvioPedido(pedido)}><Text style={styles.textoActualizar}>Guardar costo de envío</Text></Pressable>
+                      </> : null}
+                    </View>
                     <View style={styles.productosMovil}>
                       {detalles.map((item: any, detalleIndex: number) => <View key={detalleIndex} style={styles.productoMovil}>
                         <View style={{ flex: 1 }}><Text style={styles.productoDetalleNombre}>{obtenerNombreProducto(item)}</Text><Text style={styles.productoDetalleInfo}>Cantidad: {obtenerCantidadDetalle(item)}</Text></View>
@@ -824,6 +849,13 @@ export default function PedidosAdminScreen() {
                             Observación: Sin observación
                           </Text>
                         )}
+                        <Text style={styles.detalleSubtitulo}>Subtotal de productos: {formatoColones(pedido.subtotal_productos)}</Text>
+                        <Text style={styles.detalleSubtitulo}>Costo de envío: {formatoColones(pedido.costo_envio)}</Text>
+                        {estado === 'Pendiente' && tipoEntrega !== 'Retiro en tienda' ? <View style={styles.ajusteEnvioDesktop}>
+                          <Text style={styles.configLabel}>Ajuste por distancia (acordado con el cliente)</Text>
+                          <TextInput accessibilityLabel={`Costo de envío del pedido ${idPedido}`} style={styles.configInputPedido} keyboardType="decimal-pad" value={costosPorPedido[idPedido] ?? String(Number(pedido.costo_envio || 0))} onChangeText={(value) => setCostosPorPedido(prev => ({...prev, [idPedido]: value}))}/>
+                          <Pressable style={styles.botonActualizar} disabled={actualizando} onPress={() => guardarCostoEnvioPedido(pedido)}><Text style={styles.textoActualizar}>Guardar costo de envío</Text></Pressable>
+                        </View> : null}
                       </View>
 
                       <View style={styles.detalleTotalCaja}>
@@ -992,6 +1024,7 @@ const baseStyles = createAppStyles({
   configEnvioPhone: { flexDirection: 'column', alignItems: 'stretch' },
   configTexto: { flex: 1 }, configTitulo: { color: '#075e58', fontSize: 18, fontWeight: '800' }, configAyuda: { color: '#60797b', fontSize: 12, lineHeight: 17, marginTop: 4 },
   configCampo: { minWidth: 130 }, configLabel: { color: '#365b5d', fontSize: 12, fontWeight: '700', marginBottom: 4 }, configInput: { borderWidth: 1, borderColor: '#bfd3d2', borderRadius: 10, padding: 10, backgroundColor: '#f8fbfb' },
+  configInputPedido: { borderWidth: 1, borderColor: '#8fb7b3', borderRadius: 10, padding: 11, backgroundColor: '#fff', minWidth: 150, fontSize: 16 },
   listaMovil: { gap: 12 },
   pedidoMovil: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e5e6', borderRadius: 16, padding: 14 },
   pedidoMovilCabecera: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
@@ -1005,6 +1038,8 @@ const baseStyles = createAppStyles({
   botonDetalleMovil: { backgroundColor: '#006c63', padding: 12, borderRadius: 11, alignItems: 'center', marginTop: 12 },
   detalleMovil: { marginTop: 14, gap: 7 },
   detalleMovilLinea: { color: '#496568', fontSize: 13, lineHeight: 19 },
+  desgloseEnvio: { gap: 8, backgroundColor: '#edf7f4', borderRadius: 12, padding: 12, marginTop: 4 },
+  ajusteEnvioDesktop: { gap: 7, marginTop: 10, alignItems: 'flex-start', maxWidth: 370 },
   productosMovil: { gap: 7, marginTop: 7 },
   productoMovil: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderRadius: 10, backgroundColor: '#f4f8f8' },
   accionesMovil: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },

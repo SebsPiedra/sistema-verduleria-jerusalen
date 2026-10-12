@@ -28,6 +28,7 @@ function MonthlyScreen() {
   const [cuts,setCuts]=useState<Cut[]>([]); const [cut,setCut]=useState<Cut|null>(null);
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState('');
   const [concept,setConcept]=useState(''); const [amount,setAmount]=useState(''); const [date,setDate]=useState(dateCR());
+  const [editingExpense,setEditingExpense]=useState<string|null>(null);
   const [tab,setTab]=useState<keyof Pick<Report,'ventas'|'detalles'|'pedidos'|'desechos'|'gastos'|'inventario'|'clientes'|'proveedores'>>('ventas');
   const [page,setPage]=useState(0); const [confirm,setConfirm]=useState<string|null>(null);
   const serial=useRef(0); const mutation=useRef(false); const pendingCut=useRef<string|null>(null); const pendingExpense=useRef<string|null>(null);
@@ -62,9 +63,12 @@ function MonthlyScreen() {
     if(!concept.trim() || !/^\d{1,10}(\.\d{1,2})?$/.test(normalized) || Number(normalized)<=0)throw new Error('Ingrese concepto y monto positivo (sin separadores de miles).');
     if(date.slice(0,7)!==selected)throw new Error('La fecha del gasto debe pertenecer al mes consultado.');
     pendingExpense.current ||= newId();
-    try { await api.post('/resumen-mensual/gastos',{id:pendingExpense.current,fecha:date,concepto:concept.trim(),monto:normalized},await auth()); }
+    try {
+      if(editingExpense) await api.put(`/resumen-mensual/gastos/${editingExpense}`,{fecha:date,concepto:concept.trim(),monto:normalized},await auth());
+      else await api.post('/resumen-mensual/gastos',{id:pendingExpense.current,fecha:date,concepto:concept.trim(),monto:normalized},await auth());
+    }
     catch(e:any){if(e.response?.status===409){pendingExpense.current=null;await load();}throw e;}
-    pendingExpense.current=null;setConcept('');setAmount('');setNotice('Gasto guardado. El resultado mensual fue actualizado.');await load();
+    pendingExpense.current=null;setEditingExpense(null);setConcept('');setAmount('');setNotice(editingExpense?'Gasto corregido. El resultado mensual fue actualizado.':'Gasto guardado. El resultado mensual fue actualizado.');await load();
   };
   const shown=cut?.datos || data;
   const tables:Record<typeof tab,{label:string;fields:[string,string][]}>= {
@@ -100,16 +104,16 @@ function MonthlyScreen() {
         <Text style={s.muted}>{shown.totales.ventas} ventas contabilizadas · {shown.totales.pedidos} pedidos del mes (sin duplicar ingresos).</Text>
         <HelpText>{shown.criterio}</HelpText>
         {(shown.totales.costos_estimados>0||shown.totales.sin_costo>0||shown.totales.ventas_sin_detalle>0)&&<View style={s.warning}><Text>Costos estimados: {shown.totales.costos_estimados} · Sin costo: {shown.totales.sin_costo} · Ventas sin detalle: {shown.totales.ventas_sin_detalle}.</Text></View>}
-        {!cut&&<View style={s.card}><Text style={s.heading}>Registrar gasto adicional</Text><Text style={s.muted}>Alquiler, electricidad, transporte u otros gastos. No repita las compras de productos ni los desechos: su costo ya se descuenta arriba.</Text>
+        {!cut&&<View style={s.card}><Text style={s.heading}>{editingExpense?'Corregir gasto':'Registrar gasto adicional'}</Text><Text style={s.muted}>Alquiler, electricidad, transporte u otros gastos. No repita las compras de productos ni los desechos: su costo ya se descuenta arriba.</Text>
           <Text style={s.label}>Fecha (AAAA-MM-DD)</Text><TextInput accessibilityLabel="Fecha del gasto" value={date} onChangeText={v=>{setDate(v);pendingExpense.current=null;}} style={s.input} maxLength={10}/>
           <Text style={s.label}>Concepto</Text><TextInput accessibilityLabel="Concepto del gasto" value={concept} onChangeText={v=>{setConcept(v);pendingExpense.current=null;}} style={s.input} maxLength={200} placeholder="Ejemplo: electricidad"/>
           <Text style={s.label}>Monto en colones</Text><TextInput accessibilityLabel="Monto del gasto" value={amount} onChangeText={v=>{setAmount(v);pendingExpense.current=null;}} style={s.input} keyboardType="decimal-pad" placeholder="15000.00"/>
-          <Button disabled={busy} onPress={()=>void action(expense)}>Guardar gasto</Button></View>}
+          <View style={s.row}><Button disabled={busy} onPress={()=>void action(expense)}>{editingExpense?'Guardar corrección':'Guardar gasto'}</Button>{editingExpense&&<Button secondary disabled={busy} onPress={()=>{setEditingExpense(null);setConcept('');setAmount('');setDate(dateCR());pendingExpense.current=null;}}>Cancelar edición</Button>}</View></View>}
         <View style={s.card}><Text style={s.heading}>Movimientos y datos</Text><View style={s.row}>{Object.entries(tables).map(([key,t])=><Button key={key} secondary={tab!==key} onPress={()=>{setTab(key as typeof tab);setPage(0);setConfirm(null);}}>{t.label}</Button>)}</View>
           <Text style={s.muted}>{rows.length} registros · Página {actualPage+1} de {pages}</Text>
           {!rows.length&&<Text style={s.empty}>No hay registros para esta sección.</Text>}
           {rows.slice(actualPage*15,actualPage*15+15).map((r,i)=><View key={String(r.id || i)} style={[s.record,!phone&&s.recordDesktop]}>{tables[tab].fields.map(([key,label])=><View key={key} style={!phone?s.field:undefined}><Text style={s.label}>{label}</Text><Text selectable style={s.value}>{format(key,r[key])}</Text></View>)}
-            {tab==='gastos'&&!cut&&!r.anulado_en&&<Button secondary disabled={busy} onPress={()=>{if(confirm!==r.id){setConfirm(r.id);return;}void action(async()=>{await api.post(`/resumen-mensual/gastos/${r.id}/anular`,{},await auth());setConfirm(null);await load();});}}>{confirm===r.id?'Confirmar anulación':'Anular gasto'}</Button>}</View>)}
+            {tab==='gastos'&&!cut&&!r.anulado_en&&<View style={s.row}><Button secondary disabled={busy} onPress={()=>{setEditingExpense(r.id);setDate(String(r.fecha).slice(0,10));setConcept(String(r.concepto||''));setAmount(String(r.monto||''));pendingExpense.current=null;setNotice('Modifique los datos y guarde la corrección.');}}>Editar</Button><Button secondary disabled={busy} onPress={()=>{if(confirm!==r.id){setConfirm(r.id);return;}void action(async()=>{await api.post(`/resumen-mensual/gastos/${r.id}/anular`,{},await auth());setConfirm(null);await load();});}}>{confirm===r.id?'Confirmar anulación':'Anular gasto'}</Button></View>}</View>)}
           <View style={s.row}><Button secondary disabled={actualPage===0} onPress={()=>setPage(actualPage-1)}>Anterior</Button><Button secondary disabled={actualPage>=pages-1} onPress={()=>setPage(actualPage+1)}>Siguiente</Button></View>
         </View>
       </>}
