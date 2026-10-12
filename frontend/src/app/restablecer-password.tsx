@@ -68,7 +68,7 @@ export default function RestablecerPasswordScreen() {
 
       const texto =
         respuesta.data?.mensaje ||
-        'Contraseña actualizada correctamente. Ya puede iniciar sesión.';
+        'Contraseña actualizada con éxito. Ya puede iniciar sesión.';
       setCompletado(true);
       setClave('');
       setConfirmacion('');

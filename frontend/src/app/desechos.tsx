@@ -289,7 +289,7 @@ export default function DesechosScreen() {
         estado: 'Registrado',
       });
 
-      mostrarMensaje('Desecho registrado correctamente.', 'ok', true);
+      mostrarMensaje('Desecho registrado con éxito.', 'ok', true);
 
       cerrarFormulario();
       await cargarDatos();

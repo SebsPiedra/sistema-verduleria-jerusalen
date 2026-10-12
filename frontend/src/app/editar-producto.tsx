@@ -222,7 +222,7 @@ export default function EditarProductoScreen() {
         estado,
       });
 
-      mostrarMensaje('Producto actualizado correctamente.', 'ok', true);
+      mostrarMensaje('Producto actualizado con éxito.', 'ok', true);
 
       setTimeout(() => {
         router.replace('/productos' as any);

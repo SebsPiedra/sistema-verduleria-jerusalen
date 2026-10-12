@@ -151,7 +151,7 @@ export default function RegistrarProductoScreen() {
         estado: 'Activo',
       });
 
-      mostrarMensaje('Producto registrado correctamente.', 'ok', true);
+      mostrarMensaje('Producto agregado con éxito.', 'ok', true);
 
       setTimeout(() => {
         router.replace('/productos' as any);

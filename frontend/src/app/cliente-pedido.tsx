@@ -332,7 +332,7 @@ export default function ClientePedidoScreen() {
     }
 
     await guardarCarrito(copia);
-    mostrarMensaje(`Objeto añadido al carrito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`, 'ok');
+    mostrarMensaje(`Producto agregado con éxito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`, 'ok');
 
   };
 
@@ -395,7 +395,7 @@ export default function ClientePedidoScreen() {
     );
 
     guardarCarrito(copia);
-    mostrarMensaje(`${eliminado?.nombre || 'El producto'} se eliminó del carrito.`, 'info');
+    mostrarMensaje(`Producto eliminado con éxito: ${eliminado?.nombre || 'producto'}.`, 'ok');
   };
 
   const actualizarCantidad = (idProducto: any, cantidad: number) => {
@@ -425,7 +425,7 @@ export default function ClientePedidoScreen() {
 
   const limpiarCarrito = () => {
     borrarCarrito();
-    mostrarMensaje('Carrito limpiado correctamente.', 'info');
+    mostrarMensaje('Carrito limpiado con éxito.', 'ok');
   };
 
   const usarDireccionRegistrada = () => {
@@ -542,7 +542,7 @@ export default function ClientePedidoScreen() {
       const numeroPedido = respuesta.data?.id_pedido || '';
 
       mostrarMensaje(
-        `Pedido registrado correctamente${numeroPedido ? ` #${numeroPedido}` : ''}. El administrador ya puede verlo.`,
+        `Pedido realizado con éxito${numeroPedido ? ` #${numeroPedido}` : ''}. El administrador ya puede verlo.`,
         'ok'
       );
 

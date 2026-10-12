@@ -326,7 +326,7 @@ export default function VentasScreen() {
       ];
     });
 
-    mostrarMensaje(`${cantidadElegida} ${unidad} de ${nombreProducto} agregado a la venta.`, 'ok');
+    mostrarMensaje(`Producto agregado con éxito: ${cantidadElegida} ${unidad} de ${nombreProducto}.`, 'ok');
   };
 
   const cambiarCantidad = (idProducto: number, valor: string) => {
@@ -362,15 +362,17 @@ export default function VentasScreen() {
 
   const quitarProducto = (idProducto: number) => {
     setCarrito((actual) => actual.filter((item) => item.id_producto !== idProducto));
+    mostrarMensaje('Producto eliminado con éxito de la venta.', 'ok');
   };
 
-  const limpiarVenta = () => {
+  const limpiarVenta = (notificar = false) => {
     setCarrito([]);
     setCliente('Cliente general');
     setIdCliente(null);
     setMetodoPago('Efectivo');
     setObservacion('');
     setBusquedaProducto('');
+    if (notificar) mostrarMensaje('Formulario de venta limpiado con éxito.', 'ok');
   };
 
   const cerrarFormulario = () => {
@@ -434,7 +436,7 @@ export default function VentasScreen() {
         'factura generada';
 
       mostrarMensaje(
-        `Venta registrada correctamente. Factura: ${numeroFactura}`,
+        `Venta registrada con éxito. Factura: ${numeroFactura}`,
         'ok',
         true
       );
@@ -714,7 +716,7 @@ export default function VentasScreen() {
 
             <Pressable accessibilityRole="button"
               style={styles.botonLimpiar}
-              onPress={limpiarVenta}
+              onPress={() => limpiarVenta(true)}
               disabled={guardando}
             >
               <Text style={styles.textoLimpiar}>Limpiar</Text>

@@ -93,7 +93,7 @@ export default function PedidosAdminScreen() {
     try {
       setActualizando(true);
       await api.put('/configuracion/envio', { umbral_envio_gratis: Number(umbralEnvio.replace(',', '.')), costo_envio_base: Number(costoEnvio.replace(',', '.')) });
-      mostrarMensaje('Tarifa de envío actualizada.', 'ok');
+      mostrarMensaje('Tarifa de envío actualizada con éxito.', 'ok');
     } catch(error:any) { mostrarMensaje(error?.response?.data?.mensaje || 'No se pudo guardar la tarifa.', 'error'); }
     finally { setActualizando(false); }
   };
@@ -106,7 +106,7 @@ export default function PedidosAdminScreen() {
     try {
       setActualizando(true);
       await api.patch(`/pedidos/${id}/costo-envio`, { costo_envio: costo });
-      mostrarMensaje('Costo de envío actualizado. Confírmelo con el cliente antes de aceptar.', 'ok');
+      mostrarMensaje('Costo de envío actualizado con éxito. Confírmelo con el cliente antes de aceptar.', 'ok');
       await cargarPedidos();
     } catch (error: any) {
       mostrarMensaje(error?.response?.data?.mensaje || 'No se pudo ajustar el envío.', 'error');
@@ -471,7 +471,7 @@ export default function PedidosAdminScreen() {
         }
       }
 
-      mostrarMensaje(`Pedido actualizado a ${nuevoEstado}.`, 'ok', true);
+      mostrarMensaje(`Pedido actualizado con éxito: ${nuevoEstado}.`, 'ok', true);
       await cargarPedidos();
       return true;
     } catch (error: any) {

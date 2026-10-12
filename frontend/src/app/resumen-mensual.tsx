@@ -49,7 +49,7 @@ function MonthlyScreen() {
   const save=async()=>{
     pendingCut.current ||= newId();
     const r=await api.post('/resumen-mensual/cortes',{periodo:selected,id:pendingCut.current},await auth());
-    pendingCut.current=null;setCut(r.data);setNotice('Corte guardado en la base de datos. Ya puede descargar su PDF.');await load();
+    pendingCut.current=null;setCut(r.data);setNotice('Corte guardado con éxito. Ya puede descargar su PDF.');await load();
   };
   const download=async()=>{
     if(!cut)return;
@@ -68,7 +68,7 @@ function MonthlyScreen() {
       else await api.post('/resumen-mensual/gastos',{id:pendingExpense.current,fecha:date,concepto:concept.trim(),monto:normalized},await auth());
     }
     catch(e:any){if(e.response?.status===409){pendingExpense.current=null;await load();}throw e;}
-    pendingExpense.current=null;setEditingExpense(null);setConcept('');setAmount('');setNotice(editingExpense?'Gasto corregido. El resultado mensual fue actualizado.':'Gasto guardado. El resultado mensual fue actualizado.');await load();
+    pendingExpense.current=null;setEditingExpense(null);setConcept('');setAmount('');setNotice(editingExpense?'Gasto corregido con éxito. El resultado mensual fue actualizado.':'Gasto guardado con éxito. El resultado mensual fue actualizado.');await load();
   };
   const shown=cut?.datos || data;
   const tables:Record<typeof tab,{label:string;fields:[string,string][]}>= {
@@ -113,7 +113,7 @@ function MonthlyScreen() {
           <Text style={s.muted}>{rows.length} registros · Página {actualPage+1} de {pages}</Text>
           {!rows.length&&<Text style={s.empty}>No hay registros para esta sección.</Text>}
           {rows.slice(actualPage*15,actualPage*15+15).map((r,i)=><View key={String(r.id || i)} style={[s.record,!phone&&s.recordDesktop]}>{tables[tab].fields.map(([key,label])=><View key={key} style={!phone?s.field:undefined}><Text style={s.label}>{label}</Text><Text selectable style={s.value}>{format(key,r[key])}</Text></View>)}
-            {tab==='gastos'&&!cut&&!r.anulado_en&&<View style={s.row}><Button secondary disabled={busy} onPress={()=>{setEditingExpense(r.id);setDate(String(r.fecha).slice(0,10));setConcept(String(r.concepto||''));setAmount(String(r.monto||''));pendingExpense.current=null;setNotice('Modifique los datos y guarde la corrección.');}}>Editar</Button><Button secondary disabled={busy} onPress={()=>{if(confirm!==r.id){setConfirm(r.id);return;}void action(async()=>{await api.post(`/resumen-mensual/gastos/${r.id}/anular`,{},await auth());setConfirm(null);await load();});}}>{confirm===r.id?'Confirmar anulación':'Anular gasto'}</Button></View>}</View>)}
+            {tab==='gastos'&&!cut&&!r.anulado_en&&<View style={s.row}><Button secondary disabled={busy} onPress={()=>{setEditingExpense(r.id);setDate(String(r.fecha).slice(0,10));setConcept(String(r.concepto||''));setAmount(String(r.monto||''));pendingExpense.current=null;setNotice('Modifique los datos y guarde la corrección.');}}>Editar</Button><Button secondary disabled={busy} onPress={()=>{if(confirm!==r.id){setConfirm(r.id);return;}void action(async()=>{await api.post(`/resumen-mensual/gastos/${r.id}/anular`,{},await auth());setConfirm(null);setNotice('Gasto anulado con éxito.');await load();});}}>{confirm===r.id?'Confirmar anulación':'Anular gasto'}</Button></View>}</View>)}
           <View style={s.row}><Button secondary disabled={actualPage===0} onPress={()=>setPage(actualPage-1)}>Anterior</Button><Button secondary disabled={actualPage>=pages-1} onPress={()=>setPage(actualPage+1)}>Siguiente</Button></View>
         </View>
       </>}

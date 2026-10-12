@@ -276,7 +276,7 @@ export default function CatalogoScreen() {
 
       await guardarCarrito(carrito);
       setUltimoAgregado(idProducto);
-      mostrarMensaje(`Objeto añadido al carrito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`, 'ok');
+      mostrarMensaje(`Producto agregado con éxito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`, 'ok');
     } catch (error) {
       console.log('Error al agregar al carrito:', error);
       mostrarMensaje('No se pudo agregar el producto al carrito.', 'error');

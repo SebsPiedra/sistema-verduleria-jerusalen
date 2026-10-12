@@ -10,5 +10,12 @@ frontend/.env
 dist/
 web-build/
 
+# Artefactos locales de revisión y respaldos de producción
+.docx-render/
+.practice-analysis/
+backend/backups/
+# Operación destructiva de una sola vez; se conserva solo en la máquina local.
+backend/scripts/limpiar-datos-prueba.cjs
+
 npm-debug.log*
 yarn-error.log*

@@ -20,6 +20,7 @@ export default function ClientesScreen() {
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error'>('ok');
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [nuevo, setNuevo] = useState({ nombre: '', telefono: '', correo: '', direccion: '' });
   const [guardando, setGuardando] = useState(false);
@@ -42,6 +43,7 @@ export default function ClientesScreen() {
       setClientes(datos);
     } catch (error: any) {
       console.log('Error al cargar clientes:', error?.response?.data || error);
+      setTipoMensaje('error');
       setMensaje('No se pudieron cargar los clientes.');
     } finally {
       setCargando(false);
@@ -65,8 +67,10 @@ export default function ClientesScreen() {
       setNuevo({ nombre: '', telefono: '', correo: '', direccion: '' });
       setMostrarFormulario(false);
       await cargarClientes();
-      setMensaje('Cliente agregado correctamente. Ya puede seleccionarlo al registrar una venta.');
+      setTipoMensaje('ok');
+      setMensaje('Cliente agregado con éxito. Ya puede seleccionarlo al registrar una venta.');
     } catch (error: any) {
+      setTipoMensaje('error');
       setMensaje(error?.response?.data?.mensaje || 'No se pudo agregar el cliente.');
     } finally { setGuardando(false); }
   };
@@ -92,14 +96,14 @@ export default function ClientesScreen() {
         <Text style={styles.formTitulo}>Nuevo cliente para ventas</Text>
         <Text style={styles.formAyuda}>Solo el nombre es obligatorio. Puede completar teléfono, correo y dirección para reutilizarlos.</Text>
         <View style={[styles.formGrid, esTelefono && styles.formGridTelefono]}>
-          {([['nombre','Nombre completo *'],['telefono','Teléfono'],['correo','Correo'],['direccion','Dirección']] as const).map(([campo,placeholder]) => <TextInput key={campo} style={styles.inputForm} placeholder={placeholder} value={nuevo[campo]} onChangeText={(valor) => setNuevo((actual) => ({...actual,[campo]:valor}))} />)}
+          {([['nombre','Nombre completo *'],['telefono','Teléfono'],['correo','Correo'],['direccion','Dirección']] as const).map(([campo,placeholder]) => <TextInput key={campo} style={styles.inputForm} placeholder={placeholder} accessibilityLabel={placeholder} value={nuevo[campo]} onChangeText={(valor) => setNuevo((actual) => ({...actual,[campo]:valor}))} />)}
         </View>
         <Pressable style={[styles.botonAgregar, guardando && {opacity:.5}]} disabled={guardando} onPress={agregarCliente}><Text style={styles.textoActualizar}>{guardando ? 'Guardando...' : 'Guardar cliente'}</Text></Pressable>
       </View> : null}
 
       {mensaje !== '' && (
-        <View style={styles.mensajeError}>
-          <Text style={styles.mensajeTexto}>{mensaje}</Text>
+        <View style={tipoMensaje === 'ok' ? styles.mensajeOk : styles.mensajeError}>
+          <Text accessibilityRole="alert" style={[styles.mensajeTexto, tipoMensaje === 'ok' && styles.mensajeTextoOk]}>{mensaje}</Text>
         </View>
       )}
 
@@ -231,10 +235,21 @@ const baseStyles = createAppStyles({
     borderRadius: 14,
     marginBottom: 18,
   },
+  mensajeOk: {
+    backgroundColor: '#e4f4e8',
+    borderWidth: 1,
+    borderColor: '#6fa77b',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+  },
   mensajeTexto: {
     color: '#c62828',
     textAlign: 'center',
     fontWeight: 'bold',
+  },
+  mensajeTextoOk: {
+    color: '#17652f',
   },
   resumenGrid: {
     flexDirection: 'row',

@@ -194,11 +194,11 @@ export default function ProveedoresScreen() {
 
         await api.put(`/proveedores/${idProveedor}`, datosProveedor);
 
-        mostrarMensaje('Proveedor actualizado correctamente.', 'ok', true);
+        mostrarMensaje('Proveedor actualizado con éxito.', 'ok', true);
       } else {
         await api.post('/proveedores', datosProveedor);
 
-        mostrarMensaje('Proveedor registrado correctamente.', 'ok', true);
+        mostrarMensaje('Proveedor agregado con éxito.', 'ok', true);
       }
 
       cerrarFormulario();

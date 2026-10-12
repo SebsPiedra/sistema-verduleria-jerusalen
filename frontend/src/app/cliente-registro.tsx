@@ -152,7 +152,7 @@ export default function ClienteRegistroScreen() {
       limpiarFormulario();
 
       mostrarMensaje(
-        'Usuario registrado correctamente. Ya puede iniciar sesión.',
+        'Usuario registrado con éxito. Ya puede iniciar sesión.',
         'ok',
         true
       );
