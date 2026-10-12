@@ -189,9 +189,15 @@ export default function ProductosScreen() {
       obtenerCategoria(producto).toLowerCase().includes(texto);
 
     const estadoProducto = obtenerEstadoProducto(producto);
+    const cantidad = obtenerCantidad(producto);
+    const minimo = obtenerStockMinimo(producto);
+    const estaInactivo = String(producto.estado || 'Activo').toLowerCase() === 'inactivo';
 
-    const coincideEstado =
-      filtroEstado === 'Todos' || estadoProducto === filtroEstado;
+    const coincideEstado = filtroEstado === 'Todos'
+      || (filtroEstado === 'Sin stock' && cantidad <= 0)
+      || (filtroEstado === 'Stock bajo' && cantidad > 0 && cantidad <= minimo)
+      || (filtroEstado === 'Inactivo' && estaInactivo)
+      || (filtroEstado === 'En buen estado' && !estaInactivo && estadoProducto === 'En buen estado');
 
     const coincideCategoria =
       filtroCategoria === 'Todas' || obtenerCategoria(producto) === filtroCategoria;
@@ -205,16 +211,19 @@ export default function ProductosScreen() {
     (producto) => String(producto.estado || 'Activo').toLowerCase() !== 'inactivo'
   ).length;
 
+  const totalInactivos = totalProductos - totalActivos;
+
   const totalBuenEstado = productos.filter(
     (producto) => obtenerEstadoProducto(producto) === 'En buen estado'
   ).length;
 
-  const totalStockBajo = productos.filter(
-    (producto) => obtenerEstadoProducto(producto) === 'Stock bajo'
-  ).length;
+  const totalStockBajo = productos.filter((producto) => {
+    const cantidad = obtenerCantidad(producto);
+    return cantidad > 0 && cantidad <= obtenerStockMinimo(producto);
+  }).length;
 
   const totalSinStock = productos.filter(
-    (producto) => obtenerEstadoProducto(producto) === 'Sin stock'
+    (producto) => obtenerCantidad(producto) <= 0
   ).length;
 
   const valorInventario = productos.reduce((total, producto) => {
@@ -284,6 +293,14 @@ export default function ProductosScreen() {
             <Text style={styles.tarjetaLabel}>Sin stock</Text>
             <Text style={styles.tarjetaNumeroRojo}>{totalSinStock}</Text>
             
+          </View>
+        </View>
+
+        <View style={styles.tarjeta}>
+          <Text style={styles.tarjetaIcono}>○</Text>
+          <View>
+            <Text style={styles.tarjetaLabel}>Inactivos</Text>
+            <Text style={styles.tarjetaNumero}>{totalInactivos}</Text>
           </View>
         </View>
       </View>

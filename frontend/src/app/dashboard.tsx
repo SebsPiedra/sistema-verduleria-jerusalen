@@ -124,18 +124,18 @@ export default function DashboardScreen() {
     (producto) => String(producto.estado || 'Activo').toLowerCase() !== 'inactivo'
   );
 
-  const productosSinStock = productosActivos.filter(
+  const productosSinStock = productos.filter(
     (producto) => obtenerCantidadProducto(producto) <= 0
   );
 
-  const productosStockBajo = productosActivos.filter((producto) => {
+  const productosStockBajo = productos.filter((producto) => {
     const cantidad = obtenerCantidadProducto(producto);
     const minimo = obtenerStockMinimo(producto);
 
     return cantidad > 0 && cantidad <= minimo;
   });
 
-  const productosBuenEstado = productosActivos.filter((producto) => {
+  const productosBuenEstado = productos.filter((producto) => {
     const cantidad = obtenerCantidadProducto(producto);
     const minimo = obtenerStockMinimo(producto);
 
@@ -180,18 +180,18 @@ export default function DashboardScreen() {
     pedidosPendientes.length;
 
   const porcentajeBuenEstado =
-    productosActivos.length > 0
-      ? Math.round((productosBuenEstado.length / productosActivos.length) * 100)
+    productos.length > 0
+      ? Math.round((productosBuenEstado.length / productos.length) * 100)
       : 0;
 
   const porcentajeStockBajo =
-    productosActivos.length > 0
-      ? Math.round((productosStockBajo.length / productosActivos.length) * 100)
+    productos.length > 0
+      ? Math.round((productosStockBajo.length / productos.length) * 100)
       : 0;
 
   const porcentajeSinStock =
-    productosActivos.length > 0
-      ? Math.round((productosSinStock.length / productosActivos.length) * 100)
+    productos.length > 0
+      ? Math.round((productosSinStock.length / productos.length) * 100)
       : 0;
 
   const barra = (porcentaje: number) => {
@@ -270,7 +270,7 @@ export default function DashboardScreen() {
         <View style={[styles.cardGrande, esTelefono && styles.cardGrandeTelefono]}>
           <Text style={styles.cardTitulo}>Estado del inventario</Text>
           <Text style={styles.cardSubtitulo}>
-            Distribución de productos según disponibilidad.
+            Distribución de los {productos.length} productos del catálogo según disponibilidad.
           </Text>
 
           <View style={styles.indicadorFila}>

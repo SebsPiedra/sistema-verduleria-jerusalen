@@ -514,9 +514,9 @@ export default function VentasScreen() {
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIconoNaranja}>📦</Text>
           <View>
-            <Text style={styles.tarjetaLabel}>Productos disponibles</Text>
-            <Text style={styles.tarjetaNumeroNaranja}>{productosDisponibles.length}</Text>
-            
+            <Text style={styles.tarjetaLabel}>Disponibles para vender</Text>
+            <Text style={styles.tarjetaNumeroNaranja}>{productosConStock.length}</Text>
+            <Text style={styles.tarjetaDetalle}>{productos.length} en catálogo · {productos.length - productosConStock.length} no disponibles</Text>
           </View>
         </View>
       </View>
