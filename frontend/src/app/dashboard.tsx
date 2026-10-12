@@ -267,7 +267,7 @@ export default function DashboardScreen() {
       </View>
 
       <View style={[styles.contenidoGrid, esTelefono && styles.contenidoGridTelefono]}>
-        <View style={styles.cardGrande}>
+        <View style={[styles.cardGrande, esTelefono && styles.cardGrandeTelefono]}>
           <Text style={styles.cardTitulo}>Estado del inventario</Text>
           <Text style={styles.cardSubtitulo}>
             Distribución de productos según disponibilidad.
@@ -310,7 +310,7 @@ export default function DashboardScreen() {
           {barra(porcentajeSinStock)}
         </View>
 
-        <View style={styles.cardGrande}>
+        <View style={[styles.cardGrande, esTelefono && styles.cardGrandeTelefono]}>
           <Text style={styles.cardTitulo}>Resumen financiero</Text>
           <Text style={styles.cardSubtitulo}>
             Montos estimados según registros actuales.
@@ -339,31 +339,31 @@ export default function DashboardScreen() {
       </View>
 
       <View style={[styles.contenidoGrid, esTelefono && styles.contenidoGridTelefono]}>
-        <View style={styles.cardGrande}>
+        <View style={[styles.cardGrande, esTelefono && styles.cardGrandeTelefono]}>
           <Text style={styles.cardTitulo}>Pedidos</Text>
           <Text style={styles.cardSubtitulo}>
             Estado actual de los pedidos de clientes.
           </Text>
 
-          <View style={styles.estadoPedidoGrid}>
-            <View style={styles.estadoPedidoCard}>
+          <View style={[styles.estadoPedidoGrid, esTelefono && styles.estadoPedidoGridTelefono]}>
+            <View style={[styles.estadoPedidoCard, esTelefono && styles.estadoPedidoCardTelefono]}>
               <Text style={styles.estadoPedidoNumeroNaranja}>{pedidosPendientes.length}</Text>
               <Text style={styles.estadoPedidoTexto}>Pendientes</Text>
             </View>
 
-            <View style={styles.estadoPedidoCard}>
+            <View style={[styles.estadoPedidoCard, esTelefono && styles.estadoPedidoCardTelefono]}>
               <Text style={styles.estadoPedidoNumeroVerde}>{pedidosAceptados.length}</Text>
               <Text style={styles.estadoPedidoTexto}>Aceptados</Text>
             </View>
 
-            <View style={styles.estadoPedidoCard}>
+            <View style={[styles.estadoPedidoCard, esTelefono && styles.estadoPedidoCardTelefono]}>
               <Text style={styles.estadoPedidoNumeroAzul}>{pedidosEntregados.length}</Text>
               <Text style={styles.estadoPedidoTexto}>Entregados</Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.cardGrande}>
+        <View style={[styles.cardGrande, esTelefono && styles.cardGrandeTelefono]}>
           <Text style={styles.cardTitulo}>Clientes y operación</Text>
           <Text style={styles.cardSubtitulo}>
             Resumen de registros operativos del sistema.
@@ -425,6 +425,8 @@ const baseStyles = createAppStyles({
   },
   contenidoGridTelefono: {
     flexDirection: 'column',
+    width: '100%',
+    alignItems: 'stretch',
   },
   botonActualizar: {
     backgroundColor: '#7bb51e',
@@ -543,6 +545,13 @@ const baseStyles = createAppStyles({
     borderRadius: 20,
     padding: 22,
   },
+  cardGrandeTelefono: {
+    flexGrow: 0,
+    flexShrink: 0,
+    flexBasis: 'auto',
+    width: '100%',
+    padding: 16,
+  },
   cardTitulo: {
     color: '#0f4f24',
     fontSize: 24,
@@ -638,6 +647,10 @@ const baseStyles = createAppStyles({
     flexDirection: 'row',
     gap: 12,
   },
+  estadoPedidoGridTelefono: {
+    gap: 8,
+    width: '100%',
+  },
   estadoPedidoCard: {
     flex: 1,
     backgroundColor: '#fffdf6',
@@ -646,6 +659,11 @@ const baseStyles = createAppStyles({
     borderRadius: 16,
     padding: 16,
     alignItems: 'center',
+  },
+  estadoPedidoCardTelefono: {
+    minWidth: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 14,
   },
   estadoPedidoNumeroNaranja: {
     color: '#f58220',

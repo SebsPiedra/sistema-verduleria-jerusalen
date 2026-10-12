@@ -18,9 +18,9 @@ import { eliminarDato, guardarDato, obtenerDato } from '../services/storage.js';
 
 const BANNER_CLIENTE = 'https://verduleria-sebas.sirv.com/logos/logo.png';
 
-const IMG_FRUTAS = 'https://verduleria-sebas.sirv.com/productos/banano.png';
-const IMG_VERDURAS = 'https://verduleria-sebas.sirv.com/productos/lechuga.jpg';
-const IMG_JUGOS = 'https://verduleria-sebas.sirv.com/productos/jugos.png';
+const IMG_FRUTAS = require('../../assets/productos-generados/banano.jpg');
+const IMG_VERDURAS = require('../../assets/productos-generados/lechuga-americana.jpg');
+const IMG_JUGOS = require('../../assets/productos-generados/jugo-papaya.jpg');
 
 export default function ClienteHomeScreen() {
   const styles = useAppStyles(baseStyles);
@@ -233,7 +233,7 @@ export default function ClienteHomeScreen() {
       );
 
       setMensaje(`Producto agregado con éxito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} ✓`);
-      setTimeout(() => setMensaje(''), 3500);
+      setTimeout(() => setMensaje(''), 5000);
     } catch {
       Alert.alert('Error', 'No se pudo agregar el producto al carrito.');
     }
@@ -251,7 +251,11 @@ export default function ClienteHomeScreen() {
   return (
     <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]}>
       <View style={styles.contenedorPrincipal}>
-        {!!mensaje&&<Text accessibilityRole="alert" style={{padding:14,color:'#075e58',backgroundColor:'#e0f4ec'}}>{mensaje}</Text>}
+        {!!mensaje && (
+          <View pointerEvents="none" style={styles.mensajeFlotante}>
+            <Text accessibilityRole="alert" style={styles.mensajeFlotanteTexto}>{mensaje}</Text>
+          </View>
+        )}
         <ClientHeader />
 
         <Pressable accessibilityRole="button"
@@ -261,14 +265,14 @@ export default function ClienteHomeScreen() {
           <Image
             source={{ uri: BANNER_CLIENTE }}
             style={styles.bannerImagen}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         </Pressable>
 
         <View style={[styles.categorias, isPhone && styles.categoriasPhone]}>
           <Pressable accessibilityRole="button" style={styles.categoriaCard} onPress={() => irCatalogo('Frutas')}>
             <Image
-              source={{ uri: IMG_FRUTAS }}
+              source={IMG_FRUTAS}
               style={styles.categoriaImagen}
               resizeMode="contain"
             />
@@ -283,7 +287,7 @@ export default function ClienteHomeScreen() {
 
           <Pressable accessibilityRole="button" style={styles.categoriaCard} onPress={() => irCatalogo('Verduras')}>
             <Image
-              source={{ uri: IMG_VERDURAS }}
+              source={IMG_VERDURAS}
               style={styles.categoriaImagen}
               resizeMode="contain"
             />
@@ -301,7 +305,7 @@ export default function ClienteHomeScreen() {
             onPress={() => irCatalogo('Jugos naturales')}
           >
             <Image
-              source={{ uri: IMG_JUGOS }}
+              source={IMG_JUGOS}
               style={styles.categoriaImagen}
               resizeMode="contain"
             />
@@ -419,6 +423,27 @@ const baseStyles = createAppStyles({
     borderWidth: 1,
     borderColor: '#ebe4d3',
   },
+  mensajeFlotante: {
+    position: 'fixed' as any,
+    top: 14,
+    left: 14,
+    right: 14,
+    zIndex: 1000,
+    alignItems: 'center',
+  },
+  mensajeFlotanteTexto: {
+    width: '100%',
+    maxWidth: 620,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
+    color: '#075e58',
+    backgroundColor: '#e0f4ec',
+    borderColor: '#75b5a3',
+    borderWidth: 1,
+    borderRadius: 12,
+    textAlign: 'center',
+    fontWeight: 'bold',
+  },
   header: {
     minHeight: 120,
     backgroundColor: '#fffdf6',
@@ -511,10 +536,10 @@ logoSubtitulo: {
   },
   bannerArea: {
     width: '100%',
-    height: 400,
+    aspectRatio: 3,
     backgroundColor: '#f4f1dc',
   },
-  bannerAreaPhone: { height: 210 },
+  bannerAreaPhone: { aspectRatio: 3 },
   bannerImagen: {
     width: '100%',
     height: '100%',
@@ -539,6 +564,7 @@ logoSubtitulo: {
   categoriaImagen: {
     width: 70,
     height: 70,
+    borderRadius: 12,
   },
   categoriaTitulo: {
     color: '#1b5e20',
