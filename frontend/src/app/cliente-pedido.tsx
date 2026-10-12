@@ -27,6 +27,7 @@ import {
 const CARRITO_KEY = 'carrito';
 const CARRITO_CLIENTE_KEY = 'carrito_cliente';
 const LONGITUD_MINIMA_DIRECCION = 20;
+const WHATSAPP_VERDULERIA = '50662656090';
 
 function ContenidoPedidoResponsivo({ children, isPhone, style }: any) {
   const columnas = Children.toArray(children);
@@ -240,7 +241,7 @@ export default function ClientePedidoScreen() {
       .filter(Boolean)
       .join('\n');
 
-    const enlace = `https://wa.me/50685205023?text=${encodeURIComponent(
+    const enlace = `https://wa.me/${WHATSAPP_VERDULERIA}?text=${encodeURIComponent(
       mensajeWhatsApp
     )}`;
 
