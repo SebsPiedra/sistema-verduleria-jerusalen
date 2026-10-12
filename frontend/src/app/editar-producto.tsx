@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Image,
   Alert,
+  useWindowDimensions,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../services/api';
@@ -18,6 +19,8 @@ export default function EditarProductoScreen() {
   const styles = useAppStyles(baseStyles);
   const router = useRouter();
   const params = useLocalSearchParams();
+  const { width } = useWindowDimensions();
+  const esTelefono = width < 768;
 
   const idProducto = String(params.id || '');
 
@@ -244,7 +247,7 @@ export default function EditarProductoScreen() {
       titulo="Editar producto"
       subtitulo="Actualice información, precios, inventario e imagen del producto"
     >
-      <View style={styles.hero}>
+      <View style={[styles.hero, esTelefono && styles.heroPhone]}>
         <View>
           <Text style={styles.titulo}>Editar producto ✏️</Text>
           
@@ -276,7 +279,7 @@ export default function EditarProductoScreen() {
           <Text style={styles.textoCarga}>Cargando producto...</Text>
         </View>
       ) : (
-        <View style={styles.contenido}>
+        <View style={[styles.contenido, esTelefono && styles.contenidoPhone]}>
           <View style={styles.formulario}>
             <Text style={styles.seccionTitulo}>Información del producto</Text>
 
@@ -323,7 +326,7 @@ export default function EditarProductoScreen() {
               ))}
             </View>
 
-            <View style={styles.filaDoble}>
+            <View style={[styles.filaDoble, esTelefono && styles.filaDoblePhone]}>
               <View style={styles.campoMitad}>
                 <Text style={styles.label}>Precio compra</Text>
                 <TextInput
@@ -349,7 +352,7 @@ export default function EditarProductoScreen() {
               </View>
             </View>
 
-            <View style={styles.filaDoble}>
+            <View style={[styles.filaDoble, esTelefono && styles.filaDoblePhone]}>
               <View style={styles.campoMitad}>
                 <Text style={styles.label}>Cantidad disponible</Text>
                 <TextInput
@@ -456,7 +459,7 @@ export default function EditarProductoScreen() {
             </View>
           </View>
 
-          <View style={styles.preview}>
+          {!esTelefono ? <View style={styles.preview}>
             <Text style={styles.seccionTitulo}>Vista previa</Text>
 
             <View style={styles.productoCard}>
@@ -512,7 +515,7 @@ export default function EditarProductoScreen() {
             <Text style={styles.ayuda}>
               Los cambios se reflejarán en inventario y catálogo. Use enlaces públicos de Sirv para las imágenes.
             </Text>
-          </View>
+          </View> : null}
         </View>
       )}
     </AdminLayout>
@@ -520,6 +523,9 @@ export default function EditarProductoScreen() {
 }
 
 const baseStyles = createAppStyles({
+  heroPhone: { flexDirection: 'column', alignItems: 'stretch', gap: 12 },
+  contenidoPhone: { flexDirection: 'column' },
+  filaDoblePhone: { flexDirection: 'column' },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

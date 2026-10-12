@@ -58,6 +58,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/clientes', clientesRoutes);
 app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
+app.use('/api/configuracion', require('./routes/configuracion.routes'));
 app.use('/api/resumen-mensual', require('./routes/resumen-mensual.routes'));
 
 

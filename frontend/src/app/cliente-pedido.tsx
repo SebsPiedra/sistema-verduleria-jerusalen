@@ -54,11 +54,13 @@ export default function ClientePedidoScreen() {
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
   const [cantidadesProducto, setCantidadesProducto] = useState<Record<number, number>>({});
+  const [configEnvio, setConfigEnvio] = useState({ umbral_envio_gratis: 15000, costo_envio_base: 1500 });
 
   useEffect(() => {
     cargarCliente();
     cargarCarrito();
     cargarProductos();
+    api.get('/configuracion/envio').then((respuesta) => setConfigEnvio(respuesta.data)).catch(() => {});
     // La sesión, el carrito y el catálogo se hidratan una vez al montar.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -231,6 +233,7 @@ export default function ClientePedidoScreen() {
       '*Productos:*',
       detalleProductos,
       '',
+      costoEnvio > 0 ? `Envío: ${formatoColones(costoEnvio)}` : '',
       `*Total: ${formatoColones(totalPedido)}*`,
       observacion.trim() ? `Observaciones: ${observacion.trim()}` : '',
     ]
@@ -274,10 +277,12 @@ export default function ClientePedidoScreen() {
     return estado !== 'inactivo';
   };
 
-  const totalPedido = carrito.reduce(
+  const subtotalProductos = carrito.reduce(
     (total, item) => total + Number(item.subtotal || 0),
     0
   );
+  const costoEnvio = tipoEntrega === 'Entrega' && subtotalProductos < Number(configEnvio.umbral_envio_gratis) ? Number(configEnvio.costo_envio_base) : 0;
+  const totalPedido = subtotalProductos + costoEnvio;
 
   const cantidadCarrito = carrito.reduce(
     (total, item) => total + Number(item.cantidad || 0),
@@ -830,7 +835,8 @@ export default function ClientePedidoScreen() {
             )}
 
             <View style={[styles.totalCaja, isPhone && styles.totalCajaPhone]}>
-              <Text style={styles.totalTexto}>Total del pedido</Text>
+              <Text style={styles.totalTexto}>Productos: {formatoColones(subtotalProductos)}</Text>
+              {tipoEntrega === 'Entrega' ? <Text style={styles.envioTexto}>{costoEnvio > 0 ? `Envío: ${formatoColones(costoEnvio)}` : 'Envío gratis'}</Text> : null}
               <Text style={styles.totalMonto}>{formatoColones(totalPedido)}</Text>
             </View>
 
@@ -1372,6 +1378,7 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
     fontSize: 15,
   },
+  envioTexto: { color: '#45615e', fontWeight: '700', marginTop: 5 },
   totalMonto: {
     color: '#0f4f24',
     fontSize: 30,

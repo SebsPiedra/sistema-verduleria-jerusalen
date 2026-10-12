@@ -5,7 +5,7 @@ module.exports = async function access(req, res, next) {
   const path = req.path.replace(/\/+$/, '') || '/';
   if (req.method === 'OPTIONS' || path.startsWith('/auth/') ||
       (req.method === 'POST' && ['/clientes/login','/clientes/registrar'].includes(path)) ||
-      (req.method === 'GET' && path === '/productos')) return next();
+      (req.method === 'GET' && ['/productos','/configuracion/envio'].includes(path))) return next();
   res.set('Cache-Control', 'no-store');
   if (!process.env.JWT_SECRET) return res.status(503).json({mensaje:'Servicio de sesión no disponible.'});
   let token;

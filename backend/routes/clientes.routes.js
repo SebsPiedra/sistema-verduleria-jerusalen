@@ -268,6 +268,32 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.post('/admin', async (req, res) => {
+  try {
+    const nombre = String(req.body?.nombre || '').trim();
+    const telefono = String(req.body?.telefono || '').trim();
+    const correo = String(req.body?.correo || '').trim().toLowerCase();
+    const direccion = String(req.body?.direccion || '').trim();
+
+    if (nombre.length < 3) return res.status(400).json({ mensaje: 'Ingrese el nombre completo del cliente.' });
+    if (telefono && !/^\d{8,15}$/.test(telefono.replace(/\D/g, ''))) return res.status(400).json({ mensaje: 'Ingrese un teléfono válido.' });
+    if (correo && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo)) return res.status(400).json({ mensaje: 'Ingrese un correo válido.' });
+
+    if (correo) {
+      const existente = obtenerPrimero(await ejecutar("SELECT id_cliente FROM clientes WHERE lower(coalesce(correo,email,''))=lower(?) LIMIT 1", [correo]));
+      if (existente) return res.status(409).json({ mensaje: 'Ya existe un cliente con ese correo.' });
+    }
+
+    const id = await obtenerSiguienteId('clientes', 'id_cliente');
+    const claveTemporal = await bcrypt.hash(`venta-${id}-${Date.now()}`, 10);
+    await ejecutar(`INSERT INTO clientes (id_cliente,nombre,telefono,correo,email,direccion,clave,password,estado,fecha_registro) VALUES (?,?,?,?,?,?,?,?, 'Activo',CURRENT_TIMESTAMP)`, [id,nombre,telefono||null,correo||null,correo||null,direccion||null,claveTemporal,claveTemporal]);
+    return res.status(201).json({ mensaje: 'Cliente agregado correctamente.', cliente: { id_cliente:id,nombre,telefono,correo,direccion,estado:'Activo' } });
+  } catch (error) {
+    console.error('Error al agregar cliente desde administración:', error);
+    return res.status(500).json({ mensaje: 'No se pudo agregar el cliente.' });
+  }
+});
+
 router.patch('/:id/estado', async (req, res) => {
   try {
     const { id } = req.params;

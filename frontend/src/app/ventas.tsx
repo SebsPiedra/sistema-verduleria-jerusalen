@@ -16,6 +16,7 @@ import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 import { obtenerCategoriaProducto as inferirCategoriaProducto } from '../utils/productos';
 import { cantidadValidaParaUnidad, normalizarCantidad } from '../utils/unidades';
+import QuantitySelector from '../components/QuantitySelector';
 
 export default function VentasScreen() {
   const styles = useAppStyles(baseStyles);
@@ -33,6 +34,9 @@ export default function VentasScreen() {
   const [cliente, setCliente] = useState('Cliente general');
   const [metodoPago, setMetodoPago] = useState('Efectivo');
   const [observacion, setObservacion] = useState('');
+  const [clientes, setClientes] = useState<any[]>([]);
+  const [idCliente, setIdCliente] = useState<number | null>(null);
+  const [cantidadesProducto, setCantidadesProducto] = useState<Record<number, number>>({});
 
   const [cargando, setCargando] = useState(false);
   const [guardando, setGuardando] = useState(false);
@@ -83,9 +87,10 @@ export default function VentasScreen() {
       setCargando(true);
       setMensaje('');
 
-      const [respuestaVentas, respuestaProductos] = await Promise.allSettled([
+      const [respuestaVentas, respuestaProductos, respuestaClientes] = await Promise.allSettled([
         api.get('/ventas'),
         api.get('/productos'),
+        api.get('/clientes'),
       ]);
 
       if (respuestaVentas.status === 'fulfilled') {
@@ -118,6 +123,10 @@ export default function VentasScreen() {
 
         setProductos([]);
         mostrarMensaje('No se pudieron cargar los productos.', 'error', true);
+      }
+
+      if (respuestaClientes.status === 'fulfilled') {
+        setClientes(extraerLista(respuestaClientes.value.data, ['clientes']));
       }
     } catch (error: any) {
       console.log('Error general al cargar datos:', error?.response?.data || error);
@@ -278,11 +287,12 @@ export default function VentasScreen() {
       return;
     }
 
+    const cantidadElegida = cantidadesProducto[idProducto] || 1;
     setCarrito((actual) => {
       const existe = actual.find((item) => item.id_producto === idProducto);
 
       if (existe) {
-        const nuevaCantidad = Number(existe.cantidad) + 1;
+        const nuevaCantidad = normalizarCantidad(Number(existe.cantidad) + cantidadElegida, unidad);
 
         if (nuevaCantidad > disponible) {
           mostrarMensaje(`No hay más inventario disponible para ${nombreProducto}.`, 'error', true);
@@ -308,15 +318,15 @@ export default function VentasScreen() {
           producto: nombreProducto,
           nombre_producto: nombreProducto,
           precio_unitario: precio,
-          cantidad: 1,
-          subtotal: precio,
+          cantidad: cantidadElegida,
+          subtotal: precio * cantidadElegida,
           disponible,
           unidad_medida: unidad,
         },
       ];
     });
 
-    mostrarMensaje(`${nombreProducto} agregado a la venta.`, 'ok');
+    mostrarMensaje(`${cantidadElegida} ${unidad} de ${nombreProducto} agregado a la venta.`, 'ok');
   };
 
   const cambiarCantidad = (idProducto: number, valor: string) => {
@@ -357,6 +367,7 @@ export default function VentasScreen() {
   const limpiarVenta = () => {
     setCarrito([]);
     setCliente('Cliente general');
+    setIdCliente(null);
     setMetodoPago('Efectivo');
     setObservacion('');
     setBusquedaProducto('');
@@ -401,6 +412,7 @@ export default function VentasScreen() {
 
       const datosVenta = {
         cliente: clienteLimpio,
+        id_cliente: idCliente,
         metodo_pago: metodoPago,
         observacion: observacion.trim(),
         productos: carrito.map((item) => ({
@@ -509,7 +521,7 @@ export default function VentasScreen() {
 
       {mostrarFormulario && (
         <View style={styles.formularioCard}>
-          <View style={styles.formHeader}>
+          <View style={[styles.formHeader, esTelefono && styles.formHeaderTelefono]}>
             <View>
               <Text style={styles.formTitulo}>Registrar nueva venta</Text>
               <Text style={styles.formSubtitulo}>
@@ -522,9 +534,19 @@ export default function VentasScreen() {
             </Pressable>
           </View>
 
-          <View style={styles.filaDoble}>
+          <View style={[styles.filaDoble, esTelefono && styles.filaDobleTelefono]}>
             <View style={styles.campo}>
               <Text style={styles.label}>Cliente</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.clientesScroll}>
+                <View style={styles.clientesFila}>
+                  <Pressable style={[styles.clienteChip, idCliente === null && styles.clienteChipActivo]} onPress={() => { setIdCliente(null); setCliente('Cliente general'); }}>
+                    <Text style={[styles.clienteChipTexto, idCliente === null && styles.clienteChipTextoActivo]}>Cliente general</Text>
+                  </Pressable>
+                  {clientes.map((item) => <Pressable key={item.id_cliente} style={[styles.clienteChip, idCliente === Number(item.id_cliente) && styles.clienteChipActivo]} onPress={() => { setIdCliente(Number(item.id_cliente)); setCliente(item.nombre); }}>
+                    <Text style={[styles.clienteChipTexto, idCliente === Number(item.id_cliente) && styles.clienteChipTextoActivo]}>{item.nombre}</Text>
+                  </Pressable>)}
+                </View>
+              </ScrollView>
               <TextInput
                 style={styles.input}
                 placeholder="Cliente general"
@@ -592,12 +614,10 @@ export default function VentasScreen() {
                     : `No se encontró “${busquedaProducto.trim()}” con inventario disponible.`}
                 </Text>
               ) : (
-                productosDisponibles.slice(0, 30).map((producto, index) => (
-                  <Pressable accessibilityRole="button"
+                productosDisponibles.slice(0, textoBusquedaProducto ? 30 : (esTelefono ? 5 : 10)).map((producto, index) => (
+                  <View
                     key={obtenerIdProducto(producto) || index}
-                    style={styles.productoCard}
-                    onPress={() => agregarProducto(producto)}
-                    disabled={guardando}
+                    style={[styles.productoCard, esTelefono && styles.productoCardTelefono]}
                   >
                     <Text style={styles.productoNombre} numberOfLines={1}>
                       {obtenerNombreProducto(producto)}
@@ -611,8 +631,17 @@ export default function VentasScreen() {
                       {formatoColones(obtenerPrecioProducto(producto))}
                     </Text>
 
-                    <Text style={styles.productoAgregar}>Agregar</Text>
-                  </Pressable>
+                    <QuantitySelector
+                      value={cantidadesProducto[obtenerIdProducto(producto)] || 1}
+                      max={obtenerCantidadProducto(producto)}
+                      unit={obtenerUnidadProducto(producto)}
+                      compact
+                      disabled={guardando}
+                      onChange={(value) => setCantidadesProducto((actual) => ({ ...actual, [obtenerIdProducto(producto)]: value }))}
+                    />
+
+                    <Pressable accessibilityRole="button" onPress={() => agregarProducto(producto)} disabled={guardando}><Text style={styles.productoAgregar}>Agregar esta cantidad</Text></Pressable>
+                  </View>
                 ))
               )}
             </View>
@@ -629,7 +658,7 @@ export default function VentasScreen() {
               </View>
             ) : (
               carrito.map((item) => (
-                <View key={item.id_producto} style={styles.carritoItem}>
+                <View key={item.id_producto} style={[styles.carritoItem, esTelefono && styles.carritoItemTelefono]}>
                   <View style={styles.carritoInfo}>
                     <Text style={styles.carritoNombre}>{item.nombre}</Text>
                     <Text style={styles.carritoDetalle}>
@@ -637,16 +666,11 @@ export default function VentasScreen() {
                     </Text>
                   </View>
 
-                  <TextInput
-                    style={styles.inputCantidad}
-                    value={String(item.cantidad)}
-                    onChangeText={(valor) => cambiarCantidad(item.id_producto, valor)}
-                    keyboardType="decimal-pad"
-                    inputMode="decimal"
-                    editable={!guardando}
-                  />
+                  <View style={styles.selectorVenta}>
+                    <QuantitySelector value={Number(item.cantidad)} max={Number(item.disponible)} unit={item.unidad_medida} disabled={guardando} onChange={(value) => cambiarCantidad(item.id_producto, String(value))} />
+                  </View>
 
-                  <Text style={styles.carritoSubtotal}>
+                  <Text style={[styles.carritoSubtotal, esTelefono && styles.carritoSubtotalTelefono]}>
                     {formatoColones(item.subtotal)}
                   </Text>
 
@@ -677,7 +701,7 @@ export default function VentasScreen() {
             editable={!guardando}
           />
 
-          <View style={styles.botonesFila}>
+          <View style={[styles.botonesFila, esTelefono && styles.botonesFilaTelefono]}>
             <Pressable accessibilityRole="button"
               style={[styles.botonGuardar, guardando && styles.botonDesactivado]}
               onPress={registrarVenta}
@@ -792,6 +816,13 @@ export default function VentasScreen() {
 }
 
 const baseStyles = createAppStyles({
+  clientesScroll: { marginTop: 4 },
+  clientesFila: { flexDirection: 'row', gap: 8, paddingBottom: 8 },
+  clienteChip: { borderWidth: 1, borderColor: '#bfd4d2', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f5faf9' },
+  clienteChipActivo: { backgroundColor: '#007d72', borderColor: '#007d72' },
+  clienteChipTexto: { color: '#006c63', fontWeight: '700' },
+  clienteChipTextoActivo: { color: '#fff' },
+  selectorVenta: { minWidth: 150, flex: 1 },
   listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fff' }, cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, datoMovil: { color: '#4d686a', fontSize: 13, lineHeight: 20 },
   hero: {
     flexDirection: 'row',
@@ -934,6 +965,7 @@ const baseStyles = createAppStyles({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  formHeaderTelefono: { flexDirection: 'column', alignItems: 'stretch', gap: 10 },
   formTitulo: {
     color: '#1b5e20',
     fontSize: 25,
@@ -960,6 +992,7 @@ const baseStyles = createAppStyles({
     gap: 14,
     marginTop: 12,
   },
+  filaDobleTelefono: { flexDirection: 'column' },
   campo: {
     flex: 1,
   },
@@ -1023,6 +1056,7 @@ const baseStyles = createAppStyles({
     borderRadius: 16,
     padding: 14,
   },
+  productoCardTelefono: { width: '100%' },
   productoNombre: {
     color: '#0f4f24',
     fontWeight: 'bold',
@@ -1093,6 +1127,7 @@ const baseStyles = createAppStyles({
     padding: 12,
     marginBottom: 10,
   },
+  carritoItemTelefono: { flexDirection: 'column', alignItems: 'stretch' },
   carritoInfo: {
     flex: 1,
   },
@@ -1122,6 +1157,7 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
     textAlign: 'right',
   },
+  carritoSubtotalTelefono: { width: '100%', textAlign: 'left', fontSize: 18 },
   botonQuitar: {
     backgroundColor: '#ffebee',
     borderWidth: 1,
@@ -1159,6 +1195,7 @@ const baseStyles = createAppStyles({
     gap: 12,
     marginTop: 20,
   },
+  botonesFilaTelefono: { flexDirection: 'column' },
   botonGuardar: {
     flex: 1,
     backgroundColor: '#f58220',

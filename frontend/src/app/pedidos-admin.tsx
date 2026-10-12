@@ -31,9 +31,12 @@ export default function PedidosAdminScreen() {
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
   const [pedidoParaRechazar, setPedidoParaRechazar] = useState<any | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [umbralEnvio, setUmbralEnvio] = useState('15000');
+  const [costoEnvio, setCostoEnvio] = useState('1500');
 
   useEffect(() => {
     cargarPedidos();
+    api.get('/configuracion/envio').then(({data}) => { setUmbralEnvio(String(data.umbral_envio_gratis)); setCostoEnvio(String(data.costo_envio_base)); }).catch(() => {});
     // La actualización posterior se realiza mediante la acción de la pantalla.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -83,6 +86,15 @@ export default function PedidosAdminScreen() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  };
+
+  const guardarTarifaEnvio = async () => {
+    try {
+      setActualizando(true);
+      await api.put('/configuracion/envio', { umbral_envio_gratis: Number(umbralEnvio.replace(',', '.')), costo_envio_base: Number(costoEnvio.replace(',', '.')) });
+      mostrarMensaje('Tarifa de envío actualizada.', 'ok');
+    } catch(error:any) { mostrarMensaje(error?.response?.data?.mensaje || 'No se pudo guardar la tarifa.', 'error'); }
+    finally { setActualizando(false); }
   };
 
   const formatoFecha = (fecha: any) => {
@@ -544,6 +556,13 @@ export default function PedidosAdminScreen() {
         </View>
       )}
 
+      <View style={[styles.configEnvio, esTelefono && styles.configEnvioPhone]}>
+        <View style={styles.configTexto}><Text style={styles.configTitulo}>Tarifa de entrega</Text><Text style={styles.configAyuda}>Se cobra la tarifa base cuando los productos no alcanzan el monto de envío gratis. Para rutas lejanas confirme un recargo con el cliente antes de aceptar.</Text></View>
+        <View style={styles.configCampo}><Text style={styles.configLabel}>Gratis desde</Text><TextInput style={styles.configInput} value={umbralEnvio} onChangeText={setUmbralEnvio} keyboardType="numeric" /></View>
+        <View style={styles.configCampo}><Text style={styles.configLabel}>Tarifa base</Text><TextInput style={styles.configInput} value={costoEnvio} onChangeText={setCostoEnvio} keyboardType="numeric" /></View>
+        <Pressable style={styles.botonActualizar} onPress={guardarTarifaEnvio} disabled={actualizando}><Text style={styles.textoActualizar}>Guardar tarifa</Text></Pressable>
+      </View>
+
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
           <Text style={styles.tarjetaIcono}>📋</Text>
@@ -969,6 +988,10 @@ export default function PedidosAdminScreen() {
 }
 
 const baseStyles = createAppStyles({
+  configEnvio: { flexDirection: 'row', alignItems: 'flex-end', gap: 12, backgroundColor: '#fff', borderWidth: 1, borderColor: '#d8e5e6', borderRadius: 16, padding: 16, marginBottom: 20 },
+  configEnvioPhone: { flexDirection: 'column', alignItems: 'stretch' },
+  configTexto: { flex: 1 }, configTitulo: { color: '#075e58', fontSize: 18, fontWeight: '800' }, configAyuda: { color: '#60797b', fontSize: 12, lineHeight: 17, marginTop: 4 },
+  configCampo: { minWidth: 130 }, configLabel: { color: '#365b5d', fontSize: 12, fontWeight: '700', marginBottom: 4 }, configInput: { borderWidth: 1, borderColor: '#bfd3d2', borderRadius: 10, padding: 10, backgroundColor: '#f8fbfb' },
   listaMovil: { gap: 12 },
   pedidoMovil: { backgroundColor: '#ffffff', borderWidth: 1, borderColor: '#d8e5e6', borderRadius: 16, padding: 14 },
   pedidoMovilCabecera: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },

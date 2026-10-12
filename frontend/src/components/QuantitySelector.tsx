@@ -45,6 +45,22 @@ export default function QuantitySelector({
     onChange(next);
   };
 
+  const editar = (text: string) => {
+    const limpio = text.replace(/[^0-9.,]/g, '').replace(',', '.');
+    const partes = limpio.split('.');
+    const normalizado = partes.length > 1
+      ? `${partes.shift()}.${partes.join('').slice(0, 2)}`
+      : limpio;
+
+    setDraft(normalizado.replace('.', ','));
+
+    if (normalizado === '' || normalizado.endsWith('.')) return;
+    const parsed = Number(normalizado);
+    if (!Number.isFinite(parsed) || parsed <= 0 || parsed > max) return;
+    if (requiereCantidadEntera(unit) && !Number.isInteger(parsed)) return;
+    onChange(normalizarCantidad(parsed, unit));
+  };
+
   const cambiar = (next: number) => {
     const limitada = limitarCantidad(next, max, unit);
     setDraft(String(limitada));
@@ -66,7 +82,7 @@ export default function QuantitySelector({
         accessibilityLabel={`Cantidad en ${unit}`}
         style={[styles.input, compact && styles.inputCompact]}
         value={draft}
-        onChangeText={(text) => setDraft(text.replace(/[^0-9.,]/g, ''))}
+        onChangeText={editar}
         onBlur={confirmar}
         onSubmitEditing={confirmar}
         keyboardType="decimal-pad"

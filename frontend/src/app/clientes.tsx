@@ -20,6 +20,9 @@ export default function ClientesScreen() {
   const [busqueda, setBusqueda] = useState('');
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [mostrarFormulario, setMostrarFormulario] = useState(false);
+  const [nuevo, setNuevo] = useState({ nombre: '', telefono: '', correo: '', direccion: '' });
+  const [guardando, setGuardando] = useState(false);
 
   useEffect(() => {
     cargarClientes();
@@ -55,6 +58,19 @@ export default function ClientesScreen() {
     );
   });
 
+  const agregarCliente = async () => {
+    try {
+      setGuardando(true); setMensaje('');
+      await api.post('/clientes/admin', nuevo);
+      setNuevo({ nombre: '', telefono: '', correo: '', direccion: '' });
+      setMostrarFormulario(false);
+      await cargarClientes();
+      setMensaje('Cliente agregado correctamente. Ya puede seleccionarlo al registrar una venta.');
+    } catch (error: any) {
+      setMensaje(error?.response?.data?.mensaje || 'No se pudo agregar el cliente.');
+    } finally { setGuardando(false); }
+  };
+
   return (
     <AdminLayout
       titulo="Clientes"
@@ -66,12 +82,20 @@ export default function ClientesScreen() {
           
         </View>
 
-        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarClientes}>
-          <Text style={styles.textoActualizar}>
-            {cargando ? 'Actualizando...' : 'Actualizar'}
-          </Text>
-        </Pressable>
+        <View style={styles.accionesHero}>
+          <Pressable accessibilityRole="button" style={styles.botonAgregar} onPress={() => setMostrarFormulario((valor) => !valor)}><Text style={styles.textoActualizar}>＋ Agregar cliente</Text></Pressable>
+          <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarClientes}><Text style={styles.textoActualizar}>{cargando ? 'Actualizando...' : 'Actualizar'}</Text></Pressable>
+        </View>
       </View>
+
+      {mostrarFormulario ? <View style={styles.formulario}>
+        <Text style={styles.formTitulo}>Nuevo cliente para ventas</Text>
+        <Text style={styles.formAyuda}>Solo el nombre es obligatorio. Puede completar teléfono, correo y dirección para reutilizarlos.</Text>
+        <View style={[styles.formGrid, esTelefono && styles.formGridTelefono]}>
+          {([['nombre','Nombre completo *'],['telefono','Teléfono'],['correo','Correo'],['direccion','Dirección']] as const).map(([campo,placeholder]) => <TextInput key={campo} style={styles.inputForm} placeholder={placeholder} value={nuevo[campo]} onChangeText={(valor) => setNuevo((actual) => ({...actual,[campo]:valor}))} />)}
+        </View>
+        <Pressable style={[styles.botonAgregar, guardando && {opacity:.5}]} disabled={guardando} onPress={agregarCliente}><Text style={styles.textoActualizar}>{guardando ? 'Guardando...' : 'Guardar cliente'}</Text></Pressable>
+      </View> : null}
 
       {mensaje !== '' && (
         <View style={styles.mensajeError}>
@@ -157,6 +181,14 @@ export default function ClientesScreen() {
 }
 
 const baseStyles = createAppStyles({
+  accionesHero: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
+  botonAgregar: { backgroundColor: '#007d72', paddingVertical: 14, paddingHorizontal: 18, borderRadius: 14, alignItems: 'center' },
+  formulario: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#dbe7e6', borderRadius: 18, padding: 18, marginBottom: 20 },
+  formTitulo: { color: '#075e58', fontSize: 20, fontWeight: '800' },
+  formAyuda: { color: '#60797b', marginTop: 5, marginBottom: 12 },
+  formGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12 },
+  formGridTelefono: { flexDirection: 'column' },
+  inputForm: { flexGrow: 1, minWidth: 210, backgroundColor: '#f8fbfb', borderWidth: 1, borderColor: '#c8dada', borderRadius: 12, padding: 12 },
   listaMovil: { gap: 10 },
   tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fdfefe' },
   cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 9 },

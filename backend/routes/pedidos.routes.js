@@ -9,6 +9,19 @@ const query = util.promisify(conexion.query).bind(conexion);
 const beginTransaction = util.promisify(conexion.beginTransaction).bind(conexion);
 const commit = util.promisify(conexion.commit).bind(conexion);
 const rollback = util.promisify(conexion.rollback).bind(conexion);
+let preparacionEnvio = null;
+
+const prepararEsquemaEnvio = () => {
+  if (!preparacionEnvio) {
+    preparacionEnvio = (async () => {
+      await query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS subtotal_productos NUMERIC(14,2) NOT NULL DEFAULT 0');
+      await query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS costo_envio NUMERIC(14,2) NOT NULL DEFAULT 0');
+      await query('CREATE TABLE IF NOT EXISTS configuracion_sistema (clave VARCHAR(80) PRIMARY KEY, valor NUMERIC(14,2) NOT NULL, actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now())');
+      await query("INSERT INTO configuracion_sistema(clave,valor) VALUES ('umbral_envio_gratis',15000),('costo_envio_base',1500) ON CONFLICT (clave) DO NOTHING");
+    })().catch((error) => { preparacionEnvio = null; throw error; });
+  }
+  return preparacionEnvio;
+};
 
 const estadosPermitidos = [
   'Pendiente',
@@ -108,6 +121,7 @@ const cargarDetallesPorPedidos = async (pedidos) => {
 };
 
 const cargarPedidosConDetalles = async (condicion = '', parametros = []) => {
+  await prepararEsquemaEnvio();
   const resultadoPedidos = await query(
     `
       SELECT
@@ -116,6 +130,8 @@ const cargarPedidosConDetalles = async (condicion = '', parametros = []) => {
         p.id_venta,
         COALESCE(p.fecha_pedido, CURRENT_TIMESTAMP) AS fecha_pedido,
         COALESCE(p.total, 0) AS total,
+        COALESCE(p.subtotal_productos,p.total,0) AS subtotal_productos,
+        COALESCE(p.costo_envio,0) AS costo_envio,
         COALESCE(p.estado, 'Pendiente') AS estado,
         COALESCE(p.metodo_pago, 'Efectivo') AS metodo_pago,
         COALESCE(p.tipo_entrega, 'Entrega') AS tipo_entrega,
@@ -137,6 +153,8 @@ const cargarPedidosConDetalles = async (condicion = '', parametros = []) => {
         p.id_venta,
         p.fecha_pedido,
         p.total,
+        p.subtotal_productos,
+        p.costo_envio,
         p.estado,
         p.metodo_pago,
         p.tipo_entrega,
@@ -493,6 +511,7 @@ router.post('/', async (req, res) => {
   }
 
   try {
+    await prepararEsquemaEnvio();
     await beginTransaction();
 
     let total = 0;
@@ -583,6 +602,15 @@ router.post('/', async (req, res) => {
       });
     }
 
+    const subtotalProductos = total;
+    let costoEnvio = 0;
+    if (tipoEntrega === 'Entrega') {
+      const configuracion = obtenerFilas(await query("SELECT clave,valor FROM configuracion_sistema WHERE clave IN ('umbral_envio_gratis','costo_envio_base')"));
+      const valores = Object.fromEntries(configuracion.map((fila) => [fila.clave, formatoNumero(fila.valor)]));
+      if (subtotalProductos < (valores.umbral_envio_gratis || 15000)) costoEnvio = valores.costo_envio_base || 1500;
+    }
+    total = subtotalProductos + costoEnvio;
+
     const idPedido = await obtenerSiguienteId('pedidos', 'id_pedido');
     await query(
       `
@@ -590,6 +618,8 @@ router.post('/', async (req, res) => {
         (
           id_pedido,
           id_cliente,
+          subtotal_productos,
+          costo_envio,
           total,
           estado,
           metodo_pago,
@@ -599,11 +629,13 @@ router.post('/', async (req, res) => {
           inventario_descontado,
           fecha_pedido
         )
-        VALUES (?, ?, ?, 'Pendiente', ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
       `,
       [
         idPedido,
         Number(id_cliente),
+        subtotalProductos,
+        costoEnvio,
         total,
         metodoPago,
         tipoEntrega,
