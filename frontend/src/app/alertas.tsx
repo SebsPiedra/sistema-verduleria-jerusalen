@@ -43,6 +43,10 @@ export default function AlertasScreen() {
         api.get('/desechos'),
       ]);
 
+      if (respuestas.some((respuesta) => respuesta.status === 'rejected')) {
+        setMensaje('Algunos datos no están disponibles. Pulse Actualizar alertas para reintentar.');
+      }
+
       const obtenerDatos = (respuesta: any, propiedad: string) => {
         if (respuesta.status !== 'fulfilled') return [];
 
@@ -159,15 +163,13 @@ export default function AlertasScreen() {
     return Number(desecho.cantidad || 0) * Number(desecho.precio_compra || 0);
   };
 
-  const productosActivos = productos.filter(
-    (producto) => String(producto.estado || 'Activo').toLowerCase() !== 'inactivo'
-  );
-
-  const productosSinStock = productosActivos.filter(
+  // Se revisa el catálogo completo. Un producto inactivo también necesita una alerta
+  // cuando no tiene existencias, para que este resumen coincida con Inicio.
+  const productosSinStock = productos.filter(
     (producto) => obtenerCantidadProducto(producto) <= 0
   );
 
-  const productosStockBajo = productosActivos.filter((producto) => {
+  const productosStockBajo = productos.filter((producto) => {
     const cantidad = obtenerCantidadProducto(producto);
     const minimo = obtenerStockMinimo(producto);
 
@@ -192,7 +194,7 @@ export default function AlertasScreen() {
       icono: '🚫',
       titulo: obtenerNombreProducto(producto),
       descripcion: `Producto agotado. Cantidad actual: ${obtenerCantidadProducto(producto)} ${obtenerUnidad(producto)}.`,
-      detalle: `Categoría: ${obtenerCategoriaProducto(producto)}`,
+      detalle: `Categoría: ${obtenerCategoriaProducto(producto)} · Estado: ${producto.estado || 'Activo'}`,
       accion: 'Ir al inventario',
       ruta: '/productos',
       color: 'rojo',
@@ -203,7 +205,7 @@ export default function AlertasScreen() {
       icono: '⚠️',
       titulo: obtenerNombreProducto(producto),
       descripcion: `Quedan ${obtenerCantidadProducto(producto)} ${obtenerUnidad(producto)}. Stock mínimo: ${obtenerStockMinimo(producto)}.`,
-      detalle: `Categoría: ${obtenerCategoriaProducto(producto)}`,
+      detalle: `Categoría: ${obtenerCategoriaProducto(producto)} · Estado: ${producto.estado || 'Activo'}`,
       accion: 'Revisar producto',
       ruta: '/productos',
       color: 'naranja',
@@ -342,7 +344,7 @@ export default function AlertasScreen() {
           <Text style={styles.tarjetaIconoVerde}>✓</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Productos revisados</Text>
-            <Text style={styles.tarjetaNumero}>{productosActivos.length}</Text>
+            <Text style={styles.tarjetaNumero}>{productos.length}</Text>
             
           </View>
         </View>
