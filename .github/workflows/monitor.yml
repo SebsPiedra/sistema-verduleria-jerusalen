@@ -1,0 +1,19 @@
+name: Monitoreo de producción
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disponibilidad:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verificar API y base de datos
+        run: curl --fail --silent --show-error --max-time 25 --retry 2 https://backend-verduleria.vercel.app/health
+      - name: Verificar aplicación web
+        run: curl --fail --silent --show-error --max-time 25 --retry 2 https://frontend-verduleria.vercel.app/

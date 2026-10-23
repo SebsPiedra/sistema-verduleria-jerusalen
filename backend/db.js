@@ -7,7 +7,20 @@ const pool = new Pool({
   connectionString: variables.DATABASE_URL,
   ssl: {
     rejectUnauthorized: true
-  }
+  },
+  max: variables.DB_POOL_MAX,
+  connectionTimeoutMillis: variables.DB_CONNECTION_TIMEOUT_MS,
+  idleTimeoutMillis: variables.DB_IDLE_TIMEOUT_MS,
+  statement_timeout: variables.DB_STATEMENT_TIMEOUT_MS,
+  allowExitOnIdle: true,
+});
+
+pool.on('error', (error) => {
+  console.error(JSON.stringify({
+    level: 'error',
+    message: 'database_pool_error',
+    error: error.message,
+  }));
 });
 
 const { AsyncLocalStorage } = require('node:async_hooks');
