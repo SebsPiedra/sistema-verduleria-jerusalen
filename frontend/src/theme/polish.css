@@ -1,7 +1,13 @@
 :root { color-scheme: light; }
-body { margin: 0; background: #eef4f5; }
-#login-screen { background-image: radial-gradient(ellipse at 15% 15%, #b9e8dd 0%, transparent 50%), radial-gradient(ellipse at 90% 80%, #d8e5fc 0%, transparent 45%); }
-#login-card { box-shadow: 0 24px 80px #153b4120; }
+html, body, #root { width: 100%; min-height: 100%; }
+body { margin: 0; background: #032c22; overflow-x: hidden; }
+#login-background { width: 100vw !important; min-height: 100vh !important; }
+#login-screen { background: transparent; }
+#login-card {
+  box-shadow: 0 28px 90px #001a1490;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
 [role="button"],button { cursor: pointer; transition: filter .16s ease, box-shadow .16s ease; touch-action: manipulation; }
 [role="button"]:hover,button:hover { filter: brightness(.95); }
 [role="button"]:focus-visible,input:focus-visible,textarea:focus-visible { outline: 3px solid #087f73; outline-offset: 3px; }

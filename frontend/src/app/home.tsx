@@ -13,6 +13,7 @@ import {
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 import { obtenerCategoriaProducto } from '../utils/productos';
+import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 import AdminLayout from '../components/AdminLayout';
 
 export default function HomeScreen() {
@@ -92,7 +93,7 @@ export default function HomeScreen() {
   };
 
   const obtenerImagen = (producto: any) => {
-    return producto.imagen_url || producto.imagen || producto.url_imagen || '';
+    return obtenerFuenteImagenProducto(producto);
   };
 
   const obtenerEstadoVisual = (producto: any) => {
@@ -182,7 +183,7 @@ export default function HomeScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>🧺</Text>
+          <Text style={styles.tarjetaIcono}>PR</Text>
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Productos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
@@ -191,7 +192,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>✓</Text>
+          <Text style={styles.tarjetaIconoVerde}>OK</Text>
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>En buen estado</Text>
             <Text style={styles.tarjetaNumero}>{enBuenEstado}</Text>
@@ -200,7 +201,7 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>⚠</Text>
+          <Text style={styles.tarjetaIconoNaranja}>!</Text>
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Stock bajo</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{stockBajo}</Text>
@@ -235,7 +236,7 @@ export default function HomeScreen() {
         </View>
 
         {esTelefono ? <View style={styles.listaMovil}>{productosFiltrados.map((producto, index) => { const estado = obtenerEstadoVisual(producto); const imagen = obtenerImagen(producto); return <View key={producto.id_producto || index} style={styles.tarjetaMovil}>
-          <View style={styles.productoMovil}>{imagen ? <Image source={{uri: imagen}} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.productoEmoji}>🥦</Text>}<View style={{flex:1}}><Text style={styles.productoNombre}>{obtenerNombre(producto)}</Text><Text style={styles.datoMovil}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estado.estilo]}><Text style={styles.estadoTexto}>{estado.texto}</Text></View></View>
+          <View style={styles.productoMovil}>{imagen ? <Image source={imagen} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.productoEmoji}>PR</Text>}<View style={{flex:1}}><Text style={styles.productoNombre}>{obtenerNombre(producto)}</Text><Text style={styles.datoMovil}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estado.estilo]}><Text style={styles.estadoTexto}>{estado.texto}</Text></View></View>
           <View style={styles.resumenMovil}><Text style={styles.datoMovil}>Stock: {obtenerCantidad(producto)} {obtenerUnidad(producto)}</Text><Text style={styles.precioMovil}>{formatoColones(obtenerPrecio(producto))}</Text></View>
         </View>})}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
@@ -263,12 +264,12 @@ export default function HomeScreen() {
                   <View style={styles.imagenArea}>
                     {imagen ? (
                       <Image
-                        source={{ uri: imagen }}
+                        source={imagen}
                         style={styles.imagenProducto}
                         resizeMode="contain"
                       />
                     ) : (
-                      <Text style={styles.productoEmoji}>🥦</Text>
+                      <Text style={styles.productoEmoji}>PR</Text>
                     )}
                   </View>
 
@@ -320,7 +321,7 @@ export default function HomeScreen() {
 
       <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>🚚</Text>
+          <Text style={styles.footerIcono}>EN</Text>
           <View>
             <Text style={styles.footerLabel}>Pedidos pendientes</Text>
             <Text style={styles.footerValor}>
@@ -332,7 +333,7 @@ export default function HomeScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>🌿</Text>
+          <Text style={styles.footerIcono}>J</Text>
           <View>
             <Text style={styles.footerLabel}>Productos en buen estado</Text>
             <Text style={styles.footerValor}>{enBuenEstado} productos</Text>
@@ -342,7 +343,7 @@ export default function HomeScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>🧺</Text>
+          <Text style={styles.footerIcono}>PR</Text>
           <View>
             <Text style={styles.footerLabel}>Total estimado</Text>
             <Text style={styles.footerValor}>{formatoColones(totalEstimado)}</Text>

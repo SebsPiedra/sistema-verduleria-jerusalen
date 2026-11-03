@@ -591,7 +591,7 @@ export default function HistorialVentasScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Historial y facturas 🧾</Text>
+          <Text style={styles.titulo}>Historial y facturas FA</Text>
           
         </View>
 
@@ -610,7 +610,7 @@ export default function HistorialVentasScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>🧾</Text>
+          <Text style={styles.tarjetaIcono}>FA</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Facturas</Text>
             <Text style={styles.tarjetaNumero}>{totalFacturas}</Text>
@@ -694,7 +694,7 @@ export default function HistorialVentasScreen() {
             </View>
           ) : ventasFiltradas.length === 0 ? (
             <View style={styles.vacio}>
-              <Text style={styles.vacioIcono}>🧾</Text>
+              <Text style={styles.vacioIcono}>FA</Text>
               <Text style={styles.vacioTitulo}>No hay ventas para mostrar</Text>
               <Text style={styles.vacioTexto}>
                 Cuando existan ventas registradas aparecerán aquí.
@@ -756,12 +756,12 @@ export default function HistorialVentasScreen() {
         <View style={{ flex: 1, backgroundColor: 'rgba(8, 35, 39, 0.55)', padding: esTelefono ? 12 : 32, justifyContent: 'center', alignItems: 'center' }}>
         <View style={[styles.facturaCard, { maxWidth: 900, maxHeight: '95%' }]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Cerrar vista de factura" onPress={() => setVentaSeleccionada(null)} style={{ alignSelf: 'flex-end', padding: 12 }}>
-          <Text style={styles.textoCerrarFactura}>Cerrar ✕</Text>
+          <Text style={styles.textoCerrarFactura}>Cerrar X</Text>
         </Pressable>
         <ScrollView keyboardShouldPersistTaps="handled">
           {!ventaSeleccionada ? (
             <View style={styles.facturaVacia}>
-              <Text style={styles.vacioIcono}>🧾</Text>
+              <Text style={styles.vacioIcono}>FA</Text>
               <Text style={styles.vacioTitulo}>Seleccione una factura</Text>
               <Text style={styles.vacioTexto}>
                 Presione “Ver factura” en una venta para revisar el comprobante.

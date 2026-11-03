@@ -29,7 +29,7 @@ function MonthlyScreen() {
   const [busy,setBusy]=useState(false); const [loading,setLoading]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState('');
   const [concept,setConcept]=useState(''); const [amount,setAmount]=useState(''); const [date,setDate]=useState(dateCR());
   const [editingExpense,setEditingExpense]=useState<string|null>(null);
-  const [tab,setTab]=useState<keyof Pick<Report,'ventas'|'detalles'|'pedidos'|'desechos'|'gastos'|'inventario'|'clientes'|'proveedores'>>('ventas');
+  const [tab,setTab]=useState<keyof Pick<Report,'ventas'|'detalles'|'pedidos'|'desechos'|'gastos'|'inventario'|'clientes'>>('ventas');
   const [page,setPage]=useState(0); const [confirm,setConfirm]=useState<string|null>(null);
   const serial=useRef(0); const mutation=useRef(false); const pendingCut=useRef<string|null>(null); const pendingExpense=useRef<string|null>(null);
   const auth=useCallback(async()=>{
@@ -79,7 +79,6 @@ function MonthlyScreen() {
     gastos:{label:'Gastos',fields:[['fecha','Fecha'],['concepto','Concepto'],['monto','Monto'],['anulado_en','Anulado el']]},
     inventario:{label:'Inventario actual',fields:[['nombre','Producto'],['cantidad','Cantidad'],['unidad_medida','Unidad'],['precio_compra','Costo unitario'],['estado','Estado']]},
     clientes:{label:'Clientes actuales',fields:[['id_cliente','Número'],['nombre','Nombre'],['estado','Estado']]},
-    proveedores:{label:'Proveedores actuales',fields:[['id_proveedor','Número'],['nombre','Nombre'],['estado','Estado']]}
   };
   const format=(key:string,value:any)=>typeof value==='boolean'?(value?'Sí':'No'):['total','subtotal','costo','perdida','monto','precio_compra'].includes(key)?money(Number(value||0)*100):String(value??'—');
   const rows=shown?.[tab]||[];const pages=Math.max(1,Math.ceil(rows.length/15));const actualPage=Math.min(page,pages-1);

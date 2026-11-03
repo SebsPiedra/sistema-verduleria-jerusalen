@@ -178,7 +178,7 @@ export default function RegistrarProductoScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={[styles.titulo, esTelefono && styles.tituloTelefono]}>Nuevo producto 🧺</Text>
+          <Text style={[styles.titulo, esTelefono && styles.tituloTelefono]}>Nuevo producto PR</Text>
           
         </View>
 
@@ -364,7 +364,7 @@ export default function RegistrarProductoScreen() {
                   resizeMode="contain"
                 />
               ) : (
-                <Text style={styles.imagenEmoji}>🥦</Text>
+                <Text style={styles.imagenEmoji}>PR</Text>
               )}
             </View>
 

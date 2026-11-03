@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const { randomUUID } = require('crypto');
+const { rateLimit } = require('express-rate-limit');
 
 const obtenerVariables = require('./config/variables');
 
@@ -24,6 +25,9 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const app = express();
+// Vercel sits behind a trusted reverse proxy. This lets the rate limiter use
+// the real client IP exposed by the platform instead of rejecting the header.
+app.set('trust proxy', 1);
 
 const origenesPermitidos = new Set([
   variables.FRONTEND_URL,
@@ -44,6 +48,19 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-Id'],
 }));
 app.use(express.json({ limit: '1mb' }));
+const loginLimiter = rateLimit({
+  windowMs: 10 * 60 * 1000,
+  limit: 12,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { mensaje: 'Demasiados intentos. Espere unos minutos antes de volver a intentar.' },
+});
+app.use([
+  '/api/auth/login',
+  '/api/auth/2fa/verificar-login',
+  '/api/auth/sandbox-login',
+  '/api/clientes/login',
+], loginLimiter);
 app.use((req, res, next) => {
   const inicio = Date.now();
   const requestId = req.headers['x-vercel-id'] || req.headers['x-request-id'] || randomUUID();
@@ -108,6 +125,7 @@ app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
 app.use('/api/configuracion', require('./routes/configuracion.routes'));
 app.use('/api/resumen-mensual', require('./routes/resumen-mensual.routes'));
+app.use('/api/notificaciones', require('./routes/notificaciones.routes'));
 
 app.use((req, res) => {
   res.status(404).json({ mensaje: 'Ruta no encontrada.' });

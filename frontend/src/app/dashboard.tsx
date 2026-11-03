@@ -211,7 +211,7 @@ export default function DashboardScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Dashboard general 📊</Text>
+          <Text style={styles.titulo}>Dashboard general ES</Text>
           
         </View>
 
@@ -230,7 +230,7 @@ export default function DashboardScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>📦</Text>
+          <Text style={styles.tarjetaIcono}>IN</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Productos activos</Text>
             <Text style={styles.tarjetaNumero}>{productosActivos.length}</Text>
@@ -370,7 +370,7 @@ export default function DashboardScreen() {
           </Text>
 
           <View style={styles.operacionFila}>
-            <Text style={styles.operacionIcono}>👥</Text>
+            <Text style={styles.operacionIcono}>CL</Text>
             <View>
               <Text style={styles.operacionTitulo}>{clientes.length}</Text>
               <Text style={styles.operacionTexto}>Clientes registrados</Text>
@@ -378,7 +378,7 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.operacionFila}>
-            <Text style={styles.operacionIcono}>🧾</Text>
+            <Text style={styles.operacionIcono}>FA</Text>
             <View>
               <Text style={styles.operacionTitulo}>{ventas.length}</Text>
               <Text style={styles.operacionTexto}>Ventas en historial</Text>
@@ -386,7 +386,7 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.operacionFila}>
-            <Text style={styles.operacionIcono}>🗑️</Text>
+            <Text style={styles.operacionIcono}>DE</Text>
             <View>
               <Text style={styles.operacionTitulo}>{desechos.length}</Text>
               <Text style={styles.operacionTexto}>Desechos registrados</Text>

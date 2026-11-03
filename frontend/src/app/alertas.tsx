@@ -191,7 +191,7 @@ export default function AlertasScreen() {
     ...productosSinStock.map((producto) => ({
       tipo: 'Sin stock',
       prioridad: 'Alta',
-      icono: '🚫',
+      icono: 'X',
       titulo: obtenerNombreProducto(producto),
       descripcion: `Producto agotado. Cantidad actual: ${obtenerCantidadProducto(producto)} ${obtenerUnidad(producto)}.`,
       detalle: `Categoría: ${obtenerCategoriaProducto(producto)} · Estado: ${producto.estado || 'Activo'}`,
@@ -202,7 +202,7 @@ export default function AlertasScreen() {
     ...productosStockBajo.map((producto) => ({
       tipo: 'Stock bajo',
       prioridad: 'Media',
-      icono: '⚠️',
+      icono: '!',
       titulo: obtenerNombreProducto(producto),
       descripcion: `Quedan ${obtenerCantidadProducto(producto)} ${obtenerUnidad(producto)}. Stock mínimo: ${obtenerStockMinimo(producto)}.`,
       detalle: `Categoría: ${obtenerCategoriaProducto(producto)} · Estado: ${producto.estado || 'Activo'}`,
@@ -213,7 +213,7 @@ export default function AlertasScreen() {
     ...pedidosPendientes.map((pedido) => ({
       tipo: 'Pedido pendiente',
       prioridad: 'Media',
-      icono: '📋',
+      icono: 'PD',
       titulo: `Pedido #${obtenerIdPedido(pedido)}`,
       descripcion: `Cliente: ${obtenerClientePedido(pedido)}. Total: ${formatoColones(obtenerTotalPedido(pedido))}.`,
       detalle: `Fecha: ${formatoFecha(obtenerFechaPedido(pedido))}`,
@@ -224,7 +224,7 @@ export default function AlertasScreen() {
     ...pedidosSinDetalle.map((pedido) => ({
       tipo: 'Pedido sin detalle',
       prioridad: 'Alta',
-      icono: '❗',
+      icono: '!',
       titulo: `Pedido #${obtenerIdPedido(pedido)}`,
       descripcion: 'Este pedido no tiene productos registrados y no se puede aceptar.',
       detalle: `Cliente: ${obtenerClientePedido(pedido)}`,
@@ -235,7 +235,7 @@ export default function AlertasScreen() {
     ...desechosAltos.map((desecho) => ({
       tipo: 'Pérdida alta',
       prioridad: 'Media',
-      icono: '🗑️',
+      icono: 'DE',
       titulo: obtenerNombreDesecho(desecho),
       descripcion: `Pérdida registrada: ${formatoColones(obtenerPerdidaDesecho(desecho))}.`,
       detalle: `${obtenerMotivoDesecho(desecho)} · ${formatoFecha(obtenerFechaDesecho(desecho))}`,
@@ -295,7 +295,7 @@ export default function AlertasScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Centro de alertas 🔔</Text>
+          <Text style={styles.titulo}>Centro de alertas AL</Text>
           
         </View>
 
@@ -314,7 +314,7 @@ export default function AlertasScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>🔔</Text>
+          <Text style={styles.tarjetaIcono}>AL</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Alertas totales</Text>
             <Text style={styles.tarjetaNumero}>{alertas.length}</Text>
@@ -332,7 +332,7 @@ export default function AlertasScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>⚠</Text>
+          <Text style={styles.tarjetaIconoNaranja}>!</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Prioridad media</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{alertasMedias.length}</Text>
@@ -341,7 +341,7 @@ export default function AlertasScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>✓</Text>
+          <Text style={styles.tarjetaIconoVerde}>OK</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Productos revisados</Text>
             <Text style={styles.tarjetaNumero}>{productos.length}</Text>
@@ -390,7 +390,7 @@ export default function AlertasScreen() {
           </View>
         ) : alertasFiltradas.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>✅</Text>
+            <Text style={styles.vacioIcono}>OK</Text>
             <Text style={styles.vacioTitulo}>No hay alertas para mostrar</Text>
             <Text style={styles.vacioTexto}>
               El inventario y los pedidos no presentan alertas con los filtros actuales.

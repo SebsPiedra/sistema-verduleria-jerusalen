@@ -244,7 +244,7 @@ export default function ProveedoresScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Proveedores 🚚</Text>
+          <Text style={styles.titulo}>Proveedores EN</Text>
           
         </View>
 
@@ -268,7 +268,7 @@ export default function ProveedoresScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>🚚</Text>
+          <Text style={styles.tarjetaIcono}>EN</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Total proveedores</Text>
             <Text style={styles.tarjetaNumero}>{proveedores.length}</Text>
@@ -277,7 +277,7 @@ export default function ProveedoresScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>✓</Text>
+          <Text style={styles.tarjetaIconoVerde}>OK</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Activos</Text>
             <Text style={styles.tarjetaNumero}>{totalActivos}</Text>
@@ -449,7 +449,7 @@ export default function ProveedoresScreen() {
           </View>
         ) : proveedoresFiltrados.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>🚚</Text>
+            <Text style={styles.vacioIcono}>EN</Text>
             <Text style={styles.vacioTitulo}>No hay proveedores para mostrar</Text>
             <Text style={styles.vacioTexto}>
               Registre un proveedor o revise la búsqueda.
@@ -464,7 +464,7 @@ export default function ProveedoresScreen() {
               <View key={obtenerIdProveedor(proveedor) || index} style={styles.tablaRow}>
                 <View style={[styles.colNombre, styles.nombreInfo]}>
                   <View style={styles.avatarProveedor}>
-                    <Text style={styles.avatarTexto}>🚚</Text>
+                    <Text style={styles.avatarTexto}>EN</Text>
                   </View>
 
                   <Text style={styles.nombreProveedor} numberOfLines={1}>

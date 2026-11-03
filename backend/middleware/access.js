@@ -11,6 +11,12 @@ module.exports = async function access(req, res, next) {
   let token;
   try { token = jwt.verify((req.headers.authorization || '').replace(/^Bearer /i,''), process.env.JWT_SECRET, {algorithms:['HS256']}); }
   catch { return res.status(401).json({mensaje:'Tu sesión venció. Vuelve a ingresar.'}); }
+  req.usuarioSesion = token;
+  const pruebaNotificacionSandbox = req.method === 'POST' &&
+    ['/notificaciones/registrar', '/notificaciones/prueba'].includes(path);
+  if (token.sandbox && ['POST','PUT','PATCH','DELETE'].includes(req.method) && !pruebaNotificacionSandbox) {
+    return res.status(403).json({mensaje:'La cuenta de demostración es de solo lectura.'});
+  }
   try {
     if(token.tipo === 'admin') {
       const id = Number(token.id_usuario);
@@ -27,6 +33,7 @@ module.exports = async function access(req, res, next) {
         if(Number(req.body.id_cliente)!==id)return res.status(403).json({mensaje:'Solo puedes realizar pedidos con tu cuenta.'});
         return next();
       }
+      if(req.method==='POST' && path==='/notificaciones/registrar') return next();
       if(req.method==='GET' && path===`/pedidos/cliente/${id}`)return next();
       const match=path.match(/^\/pedidos\/(\d+)$/);
       if(req.method==='GET' && match) {

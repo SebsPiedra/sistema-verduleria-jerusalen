@@ -79,4 +79,36 @@ const enviarCorreoRecuperacion = async ({
   });
 };
 
-module.exports = { enviarCorreoRecuperacion };
+const enviarCodigo2FA = async ({ correo, nombre, codigo, minutosVigencia = 10 }) => {
+  const nombreSeguro = escaparHtml(nombre || 'usuario');
+  const codigoSeguro = escaparHtml(codigo);
+
+  return obtenerTransportador().sendMail({
+    from: variables.SMTP_FROM,
+    to: correo,
+    subject: 'Código de acceso - Verdulería Jerusalén',
+    text:
+      `Hola ${nombre || 'usuario'}.\n\n` +
+      `Su código de verificación es: ${codigo}\n\n` +
+      `El código vence en ${minutosVigencia} minutos y solo puede utilizarse una vez.\n` +
+      'Si usted no intentó iniciar sesión, cambie su contraseña.',
+    html: `
+      <div style="font-family:Arial,sans-serif;max-width:560px;margin:auto;color:#263326">
+        <div style="background:#145a2a;padding:22px;text-align:center;color:#fff">
+          <div style="font-size:13px;letter-spacing:3px">VERDULERÍA</div>
+          <div style="font-size:28px;font-weight:bold">JERUSALÉN</div>
+        </div>
+        <div style="padding:26px;border:1px solid #e6dfca;text-align:center">
+          <h2 style="color:#145a2a">Verificación en dos pasos</h2>
+          <p>Hola ${nombreSeguro}.</p>
+          <p>Utilice este código para completar el inicio de sesión:</p>
+          <div style="font-size:36px;letter-spacing:8px;font-weight:bold;color:#0b7169;margin:24px 0">${codigoSeguro}</div>
+          <p>Vence en <b>${minutosVigencia} minutos</b> y solamente puede utilizarse una vez.</p>
+          <p style="color:#666;font-size:13px">Si usted no intentó ingresar, cambie su contraseña.</p>
+        </div>
+      </div>
+    `,
+  });
+};
+
+module.exports = { enviarCorreoRecuperacion, enviarCodigo2FA };

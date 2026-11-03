@@ -14,6 +14,7 @@ import {
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 import { obtenerCategoriaProducto } from '../utils/productos';
+import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 import AdminLayout from '../components/AdminLayout';
 
 export default function ProductosScreen() {
@@ -106,7 +107,7 @@ export default function ProductosScreen() {
   };
 
   const obtenerImagen = (producto: any) => {
-    return producto.imagen_url || producto.imagen || producto.url_imagen || '';
+    return obtenerFuenteImagenProducto(producto);
   };
 
   const obtenerEstadoProducto = (producto: any) => {
@@ -237,7 +238,7 @@ export default function ProductosScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Inventario de productos 📦</Text>
+          <Text style={styles.titulo}>Inventario de productos IN</Text>
           
         </View>
 
@@ -261,7 +262,7 @@ export default function ProductosScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>🧺</Text>
+          <Text style={styles.tarjetaIcono}>PR</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Productos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
@@ -270,7 +271,7 @@ export default function ProductosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>✓</Text>
+          <Text style={styles.tarjetaIconoVerde}>OK</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Activos</Text>
             <Text style={styles.tarjetaNumero}>{totalActivos}</Text>
@@ -279,7 +280,7 @@ export default function ProductosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>⚠</Text>
+          <Text style={styles.tarjetaIconoNaranja}>!</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Stock bajo</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{totalStockBajo}</Text>
@@ -376,7 +377,7 @@ export default function ProductosScreen() {
         </View>
 
         {esTelefono ? <View style={styles.listaMovil}>{productosFiltrados.map((producto, index) => { const imagen = obtenerImagen(producto); const estado = obtenerEstadoProducto(producto); const estilosEstado = obtenerEstiloEstado(estado); return <View key={producto.id_producto || producto.id || index} style={styles.tarjetaMovil}>
-          <View style={styles.productoMovil}>{imagen ? <Image source={{uri: imagen}} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.imagenEmoji}>🥦</Text>}<View style={{flex:1}}><Text style={styles.nombreProducto}>{obtenerNombre(producto)}</Text><Text style={styles.descripcionProducto}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estilosEstado.badge]}><Text style={styles.estadoTexto}>{estado}</Text></View></View>
+          <View style={styles.productoMovil}>{imagen ? <Image source={imagen} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.imagenEmoji}>PR</Text>}<View style={{flex:1}}><Text style={styles.nombreProducto}>{obtenerNombre(producto)}</Text><Text style={styles.descripcionProducto}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estilosEstado.badge]}><Text style={styles.estadoTexto}>{estado}</Text></View></View>
           <View style={styles.resumenMovil}><Text style={styles.datoMovil}>{obtenerCantidad(producto)} {obtenerUnidad(producto)}</Text><Text style={styles.precioMovil}>{formatoColones(obtenerPrecio(producto))}</Text></View>
           <Pressable style={styles.botonEditarMovil} onPress={() => irEditar(producto)}><Text style={styles.botonEditarTexto}>Editar producto</Text></Pressable>
         </View>})}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
@@ -391,7 +392,7 @@ export default function ProductosScreen() {
 
         {productosFiltrados.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>📦</Text>
+            <Text style={styles.vacioIcono}>IN</Text>
             <Text style={styles.vacioTitulo}>
               {cargando ? 'Cargando productos...' : 'No hay productos para mostrar'}
             </Text>
@@ -411,12 +412,12 @@ export default function ProductosScreen() {
                   <View style={styles.imagenArea}>
                     {imagen ? (
                       <Image
-                        source={{ uri: imagen }}
+                        source={imagen}
                         style={styles.imagenProducto}
                         resizeMode="contain"
                       />
                     ) : (
-                      <Text style={styles.imagenEmoji}>🥦</Text>
+                      <Text style={styles.imagenEmoji}>PR</Text>
                     )}
                   </View>
 
@@ -470,7 +471,7 @@ export default function ProductosScreen() {
 
       <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>🌿</Text>
+          <Text style={styles.footerIcono}>J</Text>
           <View>
             <Text style={styles.footerLabel}>Productos en buen estado</Text>
             <Text style={styles.footerValor}>{totalBuenEstado}</Text>
@@ -480,7 +481,7 @@ export default function ProductosScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>⚠️</Text>
+          <Text style={styles.footerIcono}>!</Text>
           <View>
             <Text style={styles.footerLabel}>Requieren atención</Text>
             <Text style={styles.footerValor}>{totalStockBajo + totalSinStock}</Text>
@@ -490,7 +491,7 @@ export default function ProductosScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>💰</Text>
+          <Text style={styles.footerIcono}>CRC</Text>
           <View>
             <Text style={styles.footerLabel}>Valor compra estimado</Text>
             <Text style={styles.footerValor}>{formatoColones(valorInventario)}</Text>

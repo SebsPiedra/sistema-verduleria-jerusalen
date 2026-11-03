@@ -1,16 +1,23 @@
 {
   "expo": {
-    "name": "frontend",
-    "slug": "frontend",
+    "name": "Verdulería Jerusalén",
+    "slug": "verduleria-jerusalen",
+    "description": "Sistema móvil para consultar productos, realizar pedidos y administrar la Verdulería Jerusalén.",
+    "githubUrl": "https://github.com/SebsPiedra/sistema-verduleria-jerusalen",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "frontend",
+    "scheme": "verduleriajerusalen",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/expo.icon",
+      "bundleIdentifier": "com.sebaspiedra.verduleriajerusalen",
+      "buildNumber": "1"
     },
     "android": {
+      "package": "com.sebaspiedra.verduleriajerusalen",
+      "versionCode": 1,
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -18,6 +25,9 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
     },
     "web": {
       "output": "static",
@@ -38,12 +48,29 @@
       "expo-asset",
       "expo-font",
       "expo-image",
+      "expo-notifications",
       "expo-secure-store",
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Permita que Verdulería Jerusalén use Face ID para proteger el acceso a su cuenta."
+        }
+      ],
       "expo-web-browser",
       "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "897edcda-22b2-483b-a430-2ebe7362df73"
+      }
     }
   }
 }

@@ -249,7 +249,7 @@ export default function EditarProductoScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroPhone]}>
         <View>
-          <Text style={styles.titulo}>Editar producto ✏️</Text>
+          <Text style={styles.titulo}>Editar producto ED</Text>
           
         </View>
 
@@ -471,7 +471,7 @@ export default function EditarProductoScreen() {
                     resizeMode="contain"
                   />
                 ) : (
-                  <Text style={styles.imagenEmoji}>🥦</Text>
+                  <Text style={styles.imagenEmoji}>PR</Text>
                 )}
               </View>
 

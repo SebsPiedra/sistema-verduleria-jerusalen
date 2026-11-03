@@ -19,3 +19,9 @@ backend/scripts/limpiar-datos-prueba.cjs
 
 npm-debug.log*
 yarn-error.log*
+
+# Archivos generados localmente; el código principal vive en backend/ y frontend/.
+/output/
+/tmp/
+/tools/
+/todo-list-app/

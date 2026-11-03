@@ -88,7 +88,7 @@ export default function StockBajoScreen() {
 
       {productos.length === 0 ? (
         <View style={styles.sinDatos}>
-          <Text style={styles.iconoGrande}>✅</Text>
+          <Text style={styles.iconoGrande}>OK</Text>
 
           <Text style={styles.sinDatosTitulo}>Todo está bien</Text>
 
@@ -129,10 +129,6 @@ export default function StockBajoScreen() {
 
                 <Text style={styles.detalle}>
                   Precio venta: ₡{Number(item.precio_venta || 0).toFixed(2)}
-                </Text>
-
-                <Text style={styles.detalle}>
-                  Proveedor: {item.proveedor || 'No indicado'}
                 </Text>
 
                 <Pressable accessibilityRole="button"

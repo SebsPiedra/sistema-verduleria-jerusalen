@@ -82,7 +82,7 @@ export default function ClientesScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Clientes registrados 👥</Text>
+          <Text style={styles.titulo}>Clientes registrados CL</Text>
           
         </View>
 

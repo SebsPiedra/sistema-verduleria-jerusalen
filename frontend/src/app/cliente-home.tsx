@@ -9,12 +9,14 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  ImageBackground,
   Alert,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 import { eliminarDato, guardarDato, obtenerDato } from '../services/storage.js';
+import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 
 const BANNER_CLIENTE = 'https://verduleria-sebas.sirv.com/logos/logo.png';
 
@@ -169,7 +171,7 @@ export default function ClienteHomeScreen() {
   };
 
   const obtenerImagen = (producto: any) => {
-    return producto.imagen_url || producto.imagen || producto.url_imagen || null;
+    return obtenerFuenteImagenProducto(producto);
   };
 
   const obtenerUnidad = (producto: any) => {
@@ -232,7 +234,7 @@ export default function ClienteHomeScreen() {
         )
       );
 
-      setMensaje(`Producto agregado con éxito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} ✓`);
+      setMensaje(`Producto agregado con éxito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} OK`);
       setTimeout(() => setMensaje(''), 5000);
     } catch {
       Alert.alert('Error', 'No se pudo agregar el producto al carrito.');
@@ -258,16 +260,15 @@ export default function ClienteHomeScreen() {
         )}
         <ClientHeader />
 
-        <Pressable accessibilityRole="button"
-          style={[styles.bannerArea, isPhone && styles.bannerAreaPhone]}
-          onPress={() => irCatalogo()}
-        >
-          <Image
-            source={{ uri: BANNER_CLIENTE }}
-            style={styles.bannerImagen}
-            resizeMode="contain"
-          />
-        </Pressable>
+        <ImageBackground source={require('../../assets/images/login-ejecutivo.png')} style={[styles.heroCliente, isPhone && styles.heroClientePhone]} imageStyle={styles.heroImagen} resizeMode="cover">
+          <View style={styles.heroCapa} />
+          <View style={styles.heroContenido}>
+            <Text style={styles.heroSaludo}>{cliente?.nombre ? `Hola, ${String(cliente.nombre).split(' ')[0]}` : 'Productos frescos'}</Text>
+            <Text style={styles.heroTitulo}>¿Qué necesitas hoy?</Text>
+            <Text style={styles.heroTexto}>Frutas, verduras y jugos seleccionados para tu mesa.</Text>
+            <Pressable accessibilityRole="button" style={styles.heroBoton} onPress={() => irCatalogo()}><Text style={styles.heroBotonTexto}>Explorar catálogo  </Text></Pressable>
+          </View>
+        </ImageBackground>
 
         <View style={[styles.categorias, isPhone && styles.categoriasPhone]}>
           <Pressable accessibilityRole="button" style={styles.categoriaCard} onPress={() => irCatalogo('Frutas')}>
@@ -343,12 +344,12 @@ export default function ClienteHomeScreen() {
                     <View style={styles.imagenProductoArea}>
                       {imagen ? (
                         <Image
-                          source={{ uri: imagen }}
+                          source={imagen}
                           style={styles.imagenProducto}
                           resizeMode="contain"
                         />
                       ) : (
-                        <Text style={styles.imagenEmoji}>🥦</Text>
+                        <Text style={styles.imagenEmoji}>PR</Text>
                       )}
                     </View>
 
@@ -382,7 +383,7 @@ export default function ClienteHomeScreen() {
                         style={styles.botonCarritoProducto}
                         onPress={() => agregarAlCarrito(producto)}
                       >
-                        <Text style={styles.botonCarritoTexto}>🛒</Text>
+                        <Text style={styles.botonCarritoTexto}>CR</Text>
                       </Pressable>
                     </View>
                   </View>
@@ -416,7 +417,7 @@ const baseStyles = createAppStyles({
   contenidoPhone: { padding: 0 },
   contenedorPrincipal: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 1440,
     backgroundColor: '#fffdf6',
     borderRadius: 8,
     overflow: 'hidden',
@@ -444,6 +445,20 @@ const baseStyles = createAppStyles({
     textAlign: 'center',
     fontWeight: 'bold',
   },
+  heroCliente: {
+    minHeight: 360,
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  heroClientePhone: { minHeight: 380 },
+  heroImagen: { opacity: 0.94 },
+  heroCapa: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,48,31,0.34)' },
+  heroContenido: { paddingHorizontal: 52, paddingVertical: 44, maxWidth: 680 },
+  heroSaludo: { color: '#dff6dd', fontSize: 19, fontWeight: '700' },
+  heroTitulo: { color: '#fff', fontSize: 46, lineHeight: 52, fontWeight: '900', marginTop: 5, letterSpacing: -1.2 },
+  heroTexto: { color: '#eef8ef', fontSize: 17, lineHeight: 25, marginTop: 12, maxWidth: 480 },
+  heroBoton: { alignSelf: 'flex-start', marginTop: 22, minHeight: 50, paddingHorizontal: 22, borderRadius: 14, backgroundColor: '#ff7417', justifyContent: 'center' },
+  heroBotonTexto: { color: '#fff', fontWeight: '900', fontSize: 15 },
   header: {
     minHeight: 120,
     backgroundColor: '#fffdf6',
@@ -545,10 +560,10 @@ logoSubtitulo: {
     height: '100%',
   },
   categorias: {
-    margin: 28,
-    padding: 18,
-    backgroundColor: '#f7f2dc',
-    borderRadius: 14,
+    margin: 30,
+    padding: 20,
+    backgroundColor: '#f1f7ef',
+    borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -560,15 +575,17 @@ logoSubtitulo: {
     alignItems: 'center',
     gap: 14,
     justifyContent: 'center',
+    minHeight: 98,
+    padding: 10,
   },
   categoriaImagen: {
-    width: 70,
-    height: 70,
-    borderRadius: 12,
+    width: 78,
+    height: 78,
+    borderRadius: 18,
   },
   categoriaTitulo: {
-    color: '#1b5e20',
-    fontSize: 18,
+    color: '#075e3b',
+    fontSize: 20,
     fontWeight: 'bold',
   },
   categoriaTexto: {

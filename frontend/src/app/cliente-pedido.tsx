@@ -23,6 +23,7 @@ import {
   CATEGORIAS_PRODUCTOS,
   obtenerCategoriaProducto,
 } from '../utils/productos';
+import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 
 const CARRITO_KEY = 'carrito';
 const CARRITO_CLIENTE_KEY = 'carrito_cliente';
@@ -46,7 +47,7 @@ export default function ClientePedidoScreen() {
   const [carrito, setCarrito] = useState<any[]>([]);
   const [busqueda, setBusqueda] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
-  const [tipoEntrega, setTipoEntrega] = useState('');
+  const [tipoEntrega, setTipoEntrega] = useState('Entrega');
   const [direccionEntrega, setDireccionEntrega] = useState('');
   const [metodoPago, setMetodoPago] = useState('');
   const [observacion, setObservacion] = useState('');
@@ -262,7 +263,7 @@ export default function ClientePedidoScreen() {
   };
 
   const obtenerImagen = (producto: any) => {
-    return producto.imagen_url || producto.imagen || producto.url_imagen || '';
+    return obtenerFuenteImagenProducto(producto);
   };
 
   const obtenerUnidad = (producto: any) => {
@@ -604,12 +605,12 @@ export default function ClientePedidoScreen() {
         <ClientHeader />
 
         <View style={styles.banner}>
-          <Text style={styles.titulo}>Realizar pedido</Text>
+          <Text style={styles.titulo}>Tu carrito y pedido</Text>
           <Text style={styles.subtitulo}>
             Cliente: {cliente?.nombre || 'Cliente'}
           </Text>
           <Text style={styles.descripcion}>
-            Agregue productos, revise cantidades y confirme el pedido.
+            Revisa cantidades, elige la entrega y confirma tu compra.
           </Text>
         </View>
 
@@ -690,12 +691,12 @@ export default function ClientePedidoScreen() {
                       <View style={styles.imagenArea}>
                         {imagen ? (
                           <Image
-                            source={{ uri: imagen }}
+                            source={imagen}
                             style={styles.imagenProducto}
                             resizeMode="contain"
                           />
                         ) : (
-                          <Text style={styles.imagenEmoji}>🥦</Text>
+                          <Text style={styles.imagenEmoji}>PR</Text>
                         )}
                       </View>
 
@@ -773,7 +774,7 @@ export default function ClientePedidoScreen() {
 
             {carrito.length === 0 ? (
               <View style={styles.carritoVacio}>
-                <Text style={styles.carritoVacioIcono}>🛒</Text>
+                <Text style={styles.carritoVacioIcono}>CR</Text>
                 <Text style={styles.textoVacio}>
                   No hay productos agregados.
                 </Text>
@@ -787,12 +788,12 @@ export default function ClientePedidoScreen() {
                   <View style={styles.itemImagenArea}>
                     {item.imagen_url ? (
                       <Image
-                        source={{ uri: item.imagen_url }}
+                        source={typeof item.imagen_url === 'string' ? { uri: item.imagen_url } : item.imagen_url}
                         style={styles.itemImagen}
                         resizeMode="contain"
                       />
                     ) : (
-                      <Text style={styles.itemEmoji}>🥦</Text>
+                      <Text style={styles.itemEmoji}>PR</Text>
                     )}
                   </View>
 
@@ -992,7 +993,7 @@ const baseStyles = createAppStyles({
   contenidoPhone: { padding: 0 },
   contenedorPrincipal: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 1440,
     backgroundColor: '#fffdf6',
     borderRadius: 8,
     overflow: 'hidden',
@@ -1065,13 +1066,13 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
   },
   banner: {
-    backgroundColor: '#f4f1dc',
-    paddingVertical: 38,
+    backgroundColor: '#eaf4e7',
+    paddingVertical: 34,
     paddingHorizontal: 32,
     alignItems: 'center',
   },
   titulo: {
-    color: '#063f22',
+    color: '#074b2e',
     fontSize: 40,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -1088,7 +1089,7 @@ const baseStyles = createAppStyles({
     textAlign: 'center',
   },
   contenidoPedido: {
-    padding: 24,
+    padding: 28,
     flexDirection: 'row',
     gap: 22,
     alignItems: 'flex-start',
@@ -1097,8 +1098,8 @@ const baseStyles = createAppStyles({
   columnaProductos: {
     flex: 1.2,
     backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#ebe4d3',
   },
@@ -1111,8 +1112,8 @@ const baseStyles = createAppStyles({
   columnaCarrito: {
     flex: 1,
     backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 18,
+    borderRadius: 22,
+    padding: 20,
     borderWidth: 1,
     borderColor: '#ebe4d3',
   },
@@ -1170,7 +1171,9 @@ const baseStyles = createAppStyles({
   },
   productosGridPhone: { flexDirection: 'column' },
   productoCard: {
-    width: 155,
+    flexGrow: 1,
+    flexBasis: 170,
+    maxWidth: 230,
     backgroundColor: '#fffdf6',
     borderRadius: 16,
     padding: 12,
@@ -1195,13 +1198,14 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
   },
   imagenArea: {
-    height: 90,
+    height: 120,
     alignItems: 'center',
     justifyContent: 'center',
   },
   imagenProducto: {
     width: '100%',
-    height: 85,
+    height: 116,
+    borderRadius: 12,
   },
   imagenEmoji: {
     fontSize: 55,
@@ -1224,7 +1228,7 @@ const baseStyles = createAppStyles({
     marginTop: 8,
   },
   botonAgregar: {
-    backgroundColor: '#1b5e20',
+    backgroundColor: '#ff7417',
     padding: 10,
     borderRadius: 10,
     alignItems: 'center',
@@ -1273,9 +1277,9 @@ const baseStyles = createAppStyles({
   itemCarrito: {
     flexDirection: 'row',
     gap: 12,
-    backgroundColor: '#fffdf6',
-    borderRadius: 14,
-    padding: 12,
+    backgroundColor: '#f9fcf8',
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
     borderColor: '#ebe4d3',
     marginBottom: 12,
@@ -1493,7 +1497,7 @@ const baseStyles = createAppStyles({
     textAlign: 'center',
   },
   botonConfirmar: {
-    backgroundColor: '#f58220',
+    backgroundColor: '#ff7417',
     padding: 15,
     borderRadius: 16,
     alignItems: 'center',

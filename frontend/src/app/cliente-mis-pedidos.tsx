@@ -9,11 +9,13 @@ import {
   Pressable,
   Alert,
   ActivityIndicator,
+  Image,
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import api from '../services/api';
 import { obtenerDato } from '../services/storage.js';
+import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 
 export default function ClienteMisPedidosScreen() {
   const styles = useAppStyles(baseStyles);
@@ -177,15 +179,21 @@ export default function ClienteMisPedidosScreen() {
   const obtenerIconoEstado = (estadoPedido: string) => {
     const estado = obtenerEstado(estadoPedido);
 
-    if (estado === 'Pendiente') return '⏳';
-    if (estado === 'Aceptado') return '✅';
-    if (estado === 'En preparación') return '🥬';
-    if (estado === 'En entrega') return '🚚';
-    if (estado === 'Rechazado') return '❌';
-    if (estado === 'Entregado') return '📦';
-    if (estado === 'Cancelado') return '🚫';
+    if (estado === 'Pendiente') return 'PENDIENTE';
+    if (estado === 'Aceptado') return 'OK';
+    if (estado === 'En preparación') return 'EN PREPARACIÓN';
+    if (estado === 'En entrega') return 'EN';
+    if (estado === 'Rechazado') return 'X';
+    if (estado === 'Entregado') return 'IN';
+    if (estado === 'Cancelado') return 'X';
 
-    return '📋';
+    return 'PD';
+  };
+
+  const obtenerPasoActual = (estadoPedido: string) => {
+    const estado = obtenerEstado(estadoPedido);
+    const pasos: Record<string, number> = { Pendiente: 0, Aceptado: 1, 'En preparación': 2, 'En entrega': 3, Entregado: 4 };
+    return pasos[estado] ?? -1;
   };
 
   const obtenerEstiloEstado = (estadoPedido: string) => {
@@ -725,8 +733,9 @@ export default function ClienteMisPedidosScreen() {
           </Text>
         </View>
 
-        <View style={styles.heroIconoCaja}>
-          <Text style={styles.heroIcono}>📦</Text>
+        <View style={styles.heroResumen}>
+          <Text style={styles.heroResumenNumero}>{totalPedidos}</Text>
+          <Text style={styles.heroResumenTexto}>pedidos registrados</Text>
         </View>
       </View>
 
@@ -790,7 +799,7 @@ export default function ClienteMisPedidosScreen() {
 
       {pedidos.length === 0 ? (
         <View style={styles.vacioBox}>
-          <Text style={styles.vacioIcono}>🧺</Text>
+          <Text style={styles.vacioIcono}>PR</Text>
           <Text style={styles.vacioTitulo}>Todavía no tiene pedidos</Text>
           <Text style={styles.vacioTexto}>
             Cuando realice un pedido desde el catálogo, aparecerá aquí con su seguimiento.
@@ -822,22 +831,26 @@ export default function ClienteMisPedidosScreen() {
                   </View>
 
                   <View style={[styles.estadoCaja, estiloEstado.caja]}>
-                    <Text style={styles.estadoIcono}>{obtenerIconoEstado(estado)}</Text>
                     <Text style={[styles.estadoTexto, estiloEstado.texto]}>
                       {estado}
                     </Text>
                   </View>
                 </View>
 
-                <View style={[styles.seguimientoBox, estiloEstado.caja]}>
-                  <View style={styles.seguimientoTituloFila}>
-                    <Text style={styles.seguimientoIcono}>{obtenerIconoEstado(estado)}</Text>
-                    <Text style={styles.seguimientoTitulo}>Ahora</Text>
-                  </View>
-
-                  <Text style={styles.seguimientoTexto}>
-                    {obtenerMensajeEstado(estado)}
-                  </Text>
+                <View style={styles.seguimientoNuevo}>
+                  <Text style={styles.seguimientoEncabezado}>Seguimiento del pedido</Text>
+                  {['Recibido', 'Aceptado', 'Preparación', 'En entrega', 'Entregado'].map((paso, indice) => {
+                    const actual = obtenerPasoActual(estado);
+                    const completado = actual >= indice;
+                    return <View key={paso} style={styles.pasoColumna}>
+                      <View style={[styles.pasoCirculo, completado && styles.pasoCirculoActivo]}>
+                        <Text style={[styles.pasoNumero, completado && styles.pasoNumeroActivo]}>{indice + 1}</Text>
+                      </View>
+                      {indice < 4 ? <View style={[styles.pasoLinea, actual > indice && styles.pasoLineaActiva]} /> : null}
+                      <Text style={[styles.pasoTexto, completado && styles.pasoTextoActivo]}>{paso}</Text>
+                    </View>;
+                  })}
+                  <Text style={styles.seguimientoMensaje}>{obtenerMensajeEstado(estado)}</Text>
                 </View>
 
                 <View style={[styles.infoGrid, isPhone && styles.infoGridPhone]}>
@@ -927,21 +940,26 @@ export default function ClienteMisPedidosScreen() {
                             key={item.id_detalle_pedido || item.id_detalle || index}
                             style={styles.productoDetalle}
                           >
-                            <View style={[styles.productoHeader, isPhone && styles.productoHeaderPhone]}>
-                              <Text style={styles.productoNombre}>{nombre}</Text>
-                              <Text style={styles.productoSubtotal}>
-                                {formatoColones(obtenerSubtotal(item))}
-                              </Text>
-                            </View>
+                            <View style={styles.productoDetalleContenido}>
+                              <Image source={obtenerFuenteImagenProducto(item)} style={styles.productoImagen} resizeMode="cover" />
+                              <View style={styles.productoDetalleTexto}>
+                                <View style={[styles.productoHeader, isPhone && styles.productoHeaderPhone]}>
+                                  <Text style={styles.productoNombre}>{nombre}</Text>
+                                  <Text style={styles.productoSubtotal}>
+                                    {formatoColones(obtenerSubtotal(item))}
+                                  </Text>
+                                </View>
 
-                            <View style={[styles.productoInfoFila, isPhone && styles.productoInfoFilaPhone]}>
-                              <Text style={styles.productoTexto}>
-                                Cantidad: {obtenerCantidad(item)} {unidad}
-                              </Text>
+                                <View style={[styles.productoInfoFila, isPhone && styles.productoInfoFilaPhone]}>
+                                  <Text style={styles.productoTexto}>
+                                    Cantidad: {obtenerCantidad(item)} {unidad}
+                                  </Text>
 
-                              <Text style={styles.productoTexto}>
-                                Precio: {formatoColones(obtenerPrecio(item))} / {unidad}
-                              </Text>
+                                  <Text style={styles.productoTexto}>
+                                    Precio: {formatoColones(obtenerPrecio(item))} / {unidad}
+                                  </Text>
+                                </View>
+                              </View>
                             </View>
                           </View>
                         );
@@ -977,10 +995,10 @@ export default function ClienteMisPedidosScreen() {
 const baseStyles = createAppStyles({
   container: {
     flexGrow: 1,
-    backgroundColor: '#f5f1df',
+    backgroundColor: '#f7f6ef',
     padding: 22,
     width: '100%',
-    maxWidth: 1280,
+    maxWidth: 1440,
     alignSelf: 'center',
   },
   containerPhone: { padding: 12 },
@@ -996,9 +1014,13 @@ const baseStyles = createAppStyles({
     marginTop: 12,
   },
   hero: {
-    backgroundColor: '#073f3d',
-    borderRadius: 28,
+    backgroundColor: '#ffffff',
+    borderRadius: 22,
     padding: 30,
+    borderLeftWidth: 8,
+    borderLeftColor: '#ff7417',
+    borderWidth: 1,
+    borderColor: '#dce8df',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -1010,32 +1032,32 @@ const baseStyles = createAppStyles({
     flex: 1,
   },
   heroEtiqueta: {
-    color: '#f7c948',
+    color: '#c65308',
     fontWeight: 'bold',
     letterSpacing: 1,
     marginBottom: 6,
   },
   titulo: {
-    color: '#ffffff',
+    color: '#074b2e',
     fontSize: 36,
     fontWeight: 'bold',
   },
   subtitulo: {
-    color: '#e8f5e9',
+    color: '#52675f',
     fontSize: 16,
     marginTop: 6,
   },
-  heroIconoCaja: {
-    width: 76,
-    height: 76,
-    borderRadius: 24,
-    backgroundColor: '#dff7ed',
+  heroResumen: {
+    minWidth: 170,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    backgroundColor: '#edf7f0',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroIcono: {
-    fontSize: 36,
-  },
+  heroResumenNumero: { color: '#075e3b', fontSize: 30, fontWeight: '900' },
+  heroResumenTexto: { color: '#52675f', fontSize: 12, fontWeight: '700' },
   accionesSuperiores: {
     flexDirection: 'row',
     gap: 12,
@@ -1044,14 +1066,14 @@ const baseStyles = createAppStyles({
   accionesSuperioresPhone: { flexDirection: 'column' },
   botonActualizar: {
     flex: 1,
-    backgroundColor: '#7bb51e',
+    backgroundColor: '#0b6f46',
     padding: 15,
     borderRadius: 16,
     alignItems: 'center',
   },
   botonNuevoSuperior: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#ff7417',
     borderWidth: 1,
     borderColor: '#0f4f24',
     padding: 15,
@@ -1063,7 +1085,7 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
   },
   textoBotonOscuro: {
-    color: '#0f4f24',
+    color: '#ffffff',
     fontWeight: 'bold',
   },
   resumenFila: {
@@ -1143,11 +1165,25 @@ const baseStyles = createAppStyles({
   card: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#ebe4d3',
+    borderColor: '#d7e5dd',
     borderRadius: 20,
-    padding: 18,
-    boxShadow: '0 5px 12px rgba(8, 47, 45, 0.05)',
+    padding: 22,
+    borderLeftWidth: 6,
+    borderLeftColor: '#0b8b68',
+    boxShadow: '0 8px 24px rgba(8, 47, 45, 0.08)',
   },
+  seguimientoNuevo: { flexDirection: 'row', alignItems: 'flex-start', flexWrap: 'wrap', backgroundColor: '#f7faf8', borderRadius: 16, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: '#dce8df' },
+  seguimientoEncabezado: { width: '100%', color: '#183e32', fontWeight: '900', marginBottom: 14 },
+  pasoColumna: { flex: 1, minWidth: 90, alignItems: 'center', position: 'relative' },
+  pasoCirculo: { width: 30, height: 30, borderRadius: 15, backgroundColor: '#e1e8e4', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  pasoCirculoActivo: { backgroundColor: '#0b8b68' },
+  pasoNumero: { color: '#718078', fontWeight: '900', fontSize: 12 },
+  pasoNumeroActivo: { color: '#ffffff' },
+  pasoLinea: { position: 'absolute', height: 4, left: '56%', right: '-44%', top: 13, backgroundColor: '#e1e8e4', zIndex: 1 },
+  pasoLineaActiva: { backgroundColor: '#0b8b68' },
+  pasoTexto: { color: '#78877f', fontSize: 11, fontWeight: '700', textAlign: 'center', marginTop: 7 },
+  pasoTextoActivo: { color: '#075e3b' },
+  seguimientoMensaje: { width: '100%', color: '#52675f', marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#dce8df' },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1383,6 +1419,9 @@ const baseStyles = createAppStyles({
     borderRadius: 15,
     marginBottom: 10,
   },
+  productoDetalleContenido: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  productoImagen: { width: 72, height: 72, borderRadius: 14, backgroundColor: '#f2f6f1' },
+  productoDetalleTexto: { flex: 1 },
   productoHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

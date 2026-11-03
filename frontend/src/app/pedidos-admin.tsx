@@ -30,6 +30,11 @@ export default function PedidosAdminScreen() {
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
   const [pedidoParaRechazar, setPedidoParaRechazar] = useState<any | null>(null);
+  const [cambioPendiente, setCambioPendiente] = useState<{
+    pedido: any;
+    nuevoEstado: string;
+    textoAccion: string;
+  } | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
   const [umbralEnvio, setUmbralEnvio] = useState('15000');
   const [costoEnvio, setCostoEnvio] = useState('1500');
@@ -338,14 +343,6 @@ export default function PedidosAdminScreen() {
     );
   };
 
-  const confirmarAccion = (mensajeConfirmacion: string) => {
-    if (typeof window !== 'undefined') {
-      return window.confirm(mensajeConfirmacion);
-    }
-
-    return true;
-  };
-
   const abrirWhatsAppCliente = async (pedido: any, texto: string) => {
     const telefonoOriginal = String(obtenerTelefono(pedido) || '').replace(/\D/g, '');
     const telefono = telefonoOriginal.length === 8
@@ -389,7 +386,7 @@ export default function PedidosAdminScreen() {
     );
   };
 
-  const cambiarEstado = async (pedido: any, nuevoEstado: string) => {
+  const cambiarEstado = (pedido: any, nuevoEstado: string) => {
     const idPedido = obtenerIdPedido(pedido);
 
     if (!idPedido) {
@@ -424,15 +421,17 @@ export default function PedidosAdminScreen() {
                 ? 'rechazar'
                 : 'cancelar';
 
-    const confirmado = confirmarAccion(
-      `¿Desea ${textoAccion} el pedido #${idPedido}?`
-    );
+    setCambioPendiente({ pedido, nuevoEstado, textoAccion });
+  };
 
-    if (!confirmado) {
-      return;
-    }
+  const confirmarCambioEstado = async () => {
+    if (!cambioPendiente) return;
+
+    const { pedido, nuevoEstado } = cambioPendiente;
+    const idPedido = obtenerIdPedido(pedido);
 
     const actualizado = await enviarCambioEstado(idPedido, nuevoEstado);
+    if (actualizado) setCambioPendiente(null);
     if (actualizado && nuevoEstado === 'En entrega') {
       await abrirWhatsAppCliente(
         pedido,
@@ -548,7 +547,7 @@ export default function PedidosAdminScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Pedidos de clientes 📋</Text>
+          <Text style={styles.titulo}>Pedidos de clientes PD</Text>
           
         </View>
 
@@ -581,7 +580,7 @@ export default function PedidosAdminScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>📋</Text>
+          <Text style={styles.tarjetaIcono}>PD</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Pedidos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalPedidos}</Text>
@@ -599,7 +598,7 @@ export default function PedidosAdminScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>✓</Text>
+          <Text style={styles.tarjetaIconoVerde}>OK</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Aceptados</Text>
             <Text style={styles.tarjetaNumero}>{totalAceptados}</Text>
@@ -739,7 +738,7 @@ export default function PedidosAdminScreen() {
           </View>
         ) : pedidosFiltrados.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>📋</Text>
+            <Text style={styles.vacioIcono}>PD</Text>
             <Text style={styles.vacioTitulo}>No hay pedidos para mostrar</Text>
             <Text style={styles.vacioTexto}>
               Cuando un cliente registre un pedido aparecerá en esta sección.
@@ -984,6 +983,34 @@ export default function PedidosAdminScreen() {
         </View>
       </View>
       <Modal
+        visible={cambioPendiente !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !actualizando && setCambioPendiente(null)}
+      >
+        <View style={styles.modalFondo}>
+          <View style={styles.modalCaja}>
+            <Text style={styles.modalTitulo}>Confirmar cambio de estado</Text>
+            <Text style={styles.modalTexto}>
+              ¿Desea {cambioPendiente?.textoAccion} el pedido #{cambioPendiente ? obtenerIdPedido(cambioPendiente.pedido) : ''}?
+            </Text>
+            {cambioPendiente?.nuevoEstado === 'Aceptado' ? (
+              <Text style={styles.modalAviso}>
+                Al aceptar, las cantidades se descontarán del inventario.
+              </Text>
+            ) : null}
+            <View style={styles.modalAcciones}>
+              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => setCambioPendiente(null)} disabled={actualizando}>
+                <Text style={styles.modalCancelarTexto}>Volver</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" style={styles.modalConfirmarEstado} onPress={confirmarCambioEstado} disabled={actualizando}>
+                <Text style={styles.textoBotonAccion}>{actualizando ? 'Actualizando...' : 'Confirmar'}</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
         visible={pedidoParaRechazar !== null}
         transparent
         animationType="fade"
@@ -1060,6 +1087,7 @@ const baseStyles = createAppStyles({
   },
   modalTitulo: { color: '#103f3c', fontSize: 22, fontWeight: 'bold' },
   modalTexto: { color: '#526a6c', marginTop: 8, lineHeight: 20 },
+  modalAviso: { color: '#8a5a00', backgroundColor: '#fff7df', borderRadius: 10, padding: 12, marginTop: 14, lineHeight: 19 },
   modalInput: {
     minHeight: 110,
     marginTop: 16,
@@ -1073,6 +1101,7 @@ const baseStyles = createAppStyles({
   modalCancelar: { flex: 1, padding: 13, borderRadius: 11, borderWidth: 1, borderColor: '#8ba7aa', alignItems: 'center' },
   modalCancelarTexto: { color: '#31585a', fontWeight: 'bold' },
   modalConfirmar: { flex: 1, padding: 13, borderRadius: 11, backgroundColor: '#cf2929', alignItems: 'center' },
+  modalConfirmarEstado: { flex: 1, padding: 13, borderRadius: 11, backgroundColor: '#0b8b78', alignItems: 'center' },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',

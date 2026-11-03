@@ -1,4 +1,5 @@
 const express = require('express');
+const { notificarAdministradores, notificarCliente, notificarStockBajo, ejecutarSinBloquear } = require('../services/notificaciones');
 const util = require('util');
 const conexion = require('../db');
 const { cantidadValidaParaUnidad } = require('../utils/unidades');
@@ -423,6 +424,12 @@ const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
 
     await commit();
 
+    ejecutarSinBloquear(
+      notificarCliente(pedido.id_cliente, `Pedido #${id} actualizado`, `Su pedido ahora está: ${estadoNuevo}.`, { pantalla: '/cliente-mis-pedidos', id_pedido: id, estado: estadoNuevo }),
+      'estado de pedido'
+    );
+    if (debeDescontarInventario) ejecutarSinBloquear(notificarStockBajo(), 'stock después de pedido');
+
     return res.json({
       mensaje: `Pedido actualizado a ${estadoNuevo}`,
       estado: estadoNuevo,
@@ -681,6 +688,11 @@ router.post('/', async (req, res) => {
     }
 
     await commit();
+
+    ejecutarSinBloquear(
+      notificarAdministradores('Pedido nuevo', `Se recibió el pedido #${idPedido} por ₡${Number(total).toLocaleString('es-CR')}.`, { pantalla: '/pedidos-admin', id_pedido: idPedido }),
+      'pedido nuevo'
+    );
 
     return res.json({
       mensaje: 'Pedido registrado correctamente',

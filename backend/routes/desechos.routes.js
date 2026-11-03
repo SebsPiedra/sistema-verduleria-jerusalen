@@ -2,6 +2,7 @@ const express = require('express');
 const util = require('util');
 const conexion = require('../db');
 const { cantidadValidaParaUnidad } = require('../utils/unidades');
+const { notificarAdministradores, notificarStockBajo, ejecutarSinBloquear } = require('../services/notificaciones');
 
 const router = express.Router();
 
@@ -158,6 +159,14 @@ router.post('/', async (req, res) => {
     );
 
     await commit();
+
+    if (perdidaTotal >= 5000) {
+      ejecutarSinBloquear(
+        notificarAdministradores('Pérdida importante registrada', `${producto.nombre}: ₡${perdidaTotal.toLocaleString('es-CR')} en desechos.`, { pantalla: '/desechos', id_desecho: idDesecho }),
+        'desecho importante'
+      );
+    }
+    ejecutarSinBloquear(notificarStockBajo(), 'stock después de desecho');
 
     return res.json({
       mensaje: 'Desecho registrado correctamente.',

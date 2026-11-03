@@ -467,7 +467,7 @@ export default function VentasScreen() {
     >
       <View style={[styles.hero, esTelefono && styles.heroTelefono]}>
         <View>
-          <Text style={styles.titulo}>Ventas manuales 📈</Text>
+          <Text style={styles.titulo}>Ventas manuales VE</Text>
           
         </View>
 
@@ -494,7 +494,7 @@ export default function VentasScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>🧾</Text>
+          <Text style={styles.tarjetaIcono}>FA</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Ventas registradas</Text>
             <Text style={styles.tarjetaNumero}>{ventas.length}</Text>
@@ -512,7 +512,7 @@ export default function VentasScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>📦</Text>
+          <Text style={styles.tarjetaIconoNaranja}>IN</Text>
           <View>
             <Text style={styles.tarjetaLabel}>Disponibles para vender</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{productosConStock.length}</Text>
@@ -766,7 +766,7 @@ export default function VentasScreen() {
           </View>
         ) : ventasFiltradas.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>🧾</Text>
+            <Text style={styles.vacioIcono}>FA</Text>
             <Text style={styles.vacioTitulo}>No hay ventas para mostrar</Text>
             <Text style={styles.vacioTexto}>
               Registre una venta manual para verla en esta tabla.

@@ -3,6 +3,12 @@ const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const conexion = require('../db');
 const obtenerVariables = require('../config/variables');
+const {
+  necesitaVerificacion,
+  marcarRequerida,
+  registrarAcceso,
+  enviarCodigo: enviarCodigoAcceso,
+} = require('../utils/emailVerification');
 
 const router = express.Router();
 const variables = obtenerVariables();
@@ -126,6 +132,8 @@ router.post('/registrar', async (req, res) => {
       ]
     );
 
+    await marcarRequerida('cliente', idCliente);
+
     await new Promise((resolve,reject)=>conexion.commit(e=>e?reject(e):resolve()));
     return res.json({
       mensaje: 'Cliente registrado correctamente.',
@@ -207,6 +215,26 @@ router.post('/login', async (req, res) => {
         mensaje: 'Correo o contraseña incorrectos.',
       });
     }
+
+    if (await necesitaVerificacion('cliente', cliente.id_cliente)) {
+      await enviarCodigoAcceso({
+        tipo: 'cliente', id: cliente.id_cliente,
+        correo: cliente.correo || cliente.email, nombre: cliente.nombre,
+      });
+      const desafio = jwt.sign(
+        { tipo: 'verificacion_correo', tipoCuenta: 'cliente', idCuenta: cliente.id_cliente },
+        variables.JWT_SECRET,
+        { expiresIn: '10m' }
+      );
+      return res.status(202).json({
+        requiere2FA: true,
+        desafio,
+        tipoCuenta: 'cliente',
+        mensaje: 'Enviamos un código de seis dígitos a su correo electrónico.',
+      });
+    }
+
+    await registrarAcceso('cliente', cliente.id_cliente);
 
     const token = jwt.sign(
       {

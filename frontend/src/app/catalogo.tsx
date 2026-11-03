@@ -9,6 +9,7 @@ import {
   StyleSheet,
   ScrollView,
   Image,
+  ImageBackground,
   TextInput,
   useWindowDimensions,
 } from 'react-native';
@@ -19,6 +20,7 @@ import {
   CATEGORIAS_PRODUCTOS,
   obtenerCategoriaProducto,
 } from '../utils/productos';
+import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 
 const CARRITO_KEY = 'carrito';
 const CARRITO_CLIENTE_KEY = 'carrito_cliente';
@@ -205,7 +207,7 @@ export default function CatalogoScreen() {
   };
 
   const obtenerImagen = (producto: any) => {
-    return producto.imagen_url || producto.imagen || producto.url_imagen || null;
+    return obtenerFuenteImagenProducto(producto);
   };
 
   const obtenerUnidad = (producto: any) => {
@@ -307,9 +309,11 @@ export default function CatalogoScreen() {
       <View style={styles.contenedorPrincipal}>
         <ClientHeader />
 
-        <View style={[styles.bannerCatalogo, isPhone && styles.bannerCatalogoPhone]}>
-          <Text style={styles.bannerTitulo}>Elige algo fresco</Text>
-        </View>
+        <ImageBackground source={require('../../assets/images/login-ejecutivo.png')} style={[styles.bannerCatalogo, isPhone && styles.bannerCatalogoPhone]} imageStyle={styles.bannerCatalogoImagen} resizeMode="cover">
+          <View style={styles.bannerCatalogoCapa} />
+          <Text style={styles.bannerTitulo}>Catálogo</Text>
+          <Text style={styles.bannerTexto}>Productos frescos, de la mejor calidad.</Text>
+        </ImageBackground>
 
         {mensaje !== '' && (
           <View
@@ -383,12 +387,12 @@ export default function CatalogoScreen() {
                     <View style={styles.imagenProductoArea}>
                       {imagen ? (
                         <Image
-                          source={{ uri: imagen }}
+                          source={imagen}
                           style={styles.imagenProducto}
                           resizeMode="contain"
                         />
                       ) : (
-                        <Text style={styles.imagenEmoji}>🥦</Text>
+                        <Text style={styles.imagenEmoji}>PR</Text>
                       )}
                     </View>
 
@@ -431,7 +435,7 @@ export default function CatalogoScreen() {
                         {agotado
                           ? 'Producto agotado'
                           : ultimoAgregado === Number(producto.id_producto || producto.id)
-                            ? 'Añadido ✓'
+                            ? 'Añadido OK'
                             : 'Agregar al carrito'}
                       </Text>
                     </Pressable>
@@ -458,7 +462,7 @@ const baseStyles = createAppStyles({
   contenidoPhone: { padding: 0 },
   contenedorPrincipal: {
     width: '100%',
-    maxWidth: 1200,
+    maxWidth: 1440,
     backgroundColor: '#fffdf6',
     borderRadius: 8,
     overflow: 'hidden',
@@ -556,22 +560,25 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
   },
   bannerCatalogo: {
-    backgroundColor: '#f4f1dc',
-    paddingVertical: 42,
-    paddingHorizontal: 32,
-    alignItems: 'center',
+    backgroundColor: '#0b472c',
+    paddingVertical: 54,
+    paddingHorizontal: 44,
+    alignItems: 'flex-start',
+    overflow: 'hidden',
   },
   bannerCatalogoPhone: { paddingVertical: 26, paddingHorizontal: 16 },
+  bannerCatalogoImagen: { opacity: 0.78 },
+  bannerCatalogoCapa: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(1,48,28,0.38)' },
   bannerTitulo: {
-    color: '#063f22',
+    color: '#ffffff',
     fontSize: 42,
     fontWeight: 'bold',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   bannerTexto: {
-    color: '#333',
+    color: '#e8f6e9',
     fontSize: 17,
-    textAlign: 'center',
+    textAlign: 'left',
     marginTop: 10,
   },
   mensajeCaja: {
@@ -650,10 +657,12 @@ const baseStyles = createAppStyles({
   },
   productosGridPhone: { flexDirection: 'column' },
   productoCard: {
-    width: 200,
+    flexGrow: 1,
+    flexBasis: 230,
+    maxWidth: 320,
     backgroundColor: '#ffffff',
-    borderRadius: 18,
-    padding: 14,
+    borderRadius: 20,
+    padding: 12,
     borderWidth: 1,
     borderColor: '#ebe4d3',
     position: 'relative',
@@ -675,13 +684,14 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
   },
   imagenProductoArea: {
-    height: 120,
+    height: 178,
     alignItems: 'center',
     justifyContent: 'center',
   },
   imagenProducto: {
     width: '100%',
-    height: 115,
+    height: 172,
+    borderRadius: 15,
   },
   imagenEmoji: {
     fontSize: 72,
@@ -716,7 +726,7 @@ const baseStyles = createAppStyles({
     marginBottom: 5,
   },
   botonAgregar: {
-    backgroundColor: '#1b5e20',
+    backgroundColor: '#ff7417',
     padding: 12,
     borderRadius: 12,
     alignItems: 'center',
