@@ -378,13 +378,17 @@ export default function LoginScreen() {
           <Text style={styles.label}>Correo electrónico</Text>
 
           <TextInput
+            nativeID="login-username"
             style={styles.input}
             placeholder="ejemplo@correo.com"
             value={correo}
             onChangeText={setCorreo}
             keyboardType="email-address"
             autoCapitalize="none"
-            autoComplete="email"
+            autoCorrect={false}
+            spellCheck={false}
+            autoComplete="username"
+            textContentType="username"
             accessibilityLabel="Correo electrónico"
             editable={!cargando}
           />
@@ -393,6 +397,7 @@ export default function LoginScreen() {
 
           <View style={styles.passwordRow}>
             <TextInput
+              nativeID="login-password"
               style={styles.inputPassword}
               placeholder="Ingrese su contraseña"
               value={clave}
@@ -400,6 +405,7 @@ export default function LoginScreen() {
               secureTextEntry={!mostrarClave}
               accessibilityLabel="Contraseña"
               autoComplete="current-password"
+              textContentType="password"
               onSubmitEditing={iniciarSesion}
               editable={!cargando}
             />
