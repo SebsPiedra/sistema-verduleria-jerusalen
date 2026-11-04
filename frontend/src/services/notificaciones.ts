@@ -43,7 +43,7 @@ export async function registrarDispositivoNotificaciones(solicitarPermiso = fals
     }
     if (permiso !== 'granted') return { registrado: false, motivo: permiso === 'denied' ? 'permiso' : 'requiere_interaccion' };
 
-    const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported, onMessage }] = await Promise.all([
+    const [{ initializeApp, getApps }, { getMessaging, isSupported, onMessage, onRegistered, register }] = await Promise.all([
       import('firebase/app'), import('firebase/messaging'),
     ]);
     if (!(await isSupported())) return { registrado: false, motivo: 'navegador_no_compatible' };
@@ -59,17 +59,30 @@ export async function registrarDispositivoNotificaciones(solicitarPermiso = fals
       'la activación del servicio en segundo plano',
     );
     const messaging = getMessaging(app);
-    const token = await conTiempoLimite(
-      getToken(messaging, { vapidKey: vapidPublicKey, serviceWorkerRegistration }),
-      20000,
-      'la creación del identificador del navegador',
-    );
-    if (!token) return { registrado: false, motivo: 'sin_token' };
-    await conTiempoLimite(
-      api.post('/notificaciones/registrar', { token, plataforma: 'web' }),
-      15000,
-      'el registro del dispositivo en el servidor',
-    );
+    let cancelarRegistro = () => undefined;
+    const identificadorPromesa = new Promise<string>((resolver) => {
+      cancelarRegistro = onRegistered(messaging, (identificador) => resolver(identificador));
+    });
+    try {
+      await conTiempoLimite(
+        register(messaging, { vapidKey: vapidPublicKey, serviceWorkerRegistration }),
+        15000,
+        'el inicio del registro con Firebase',
+      );
+      const token = await conTiempoLimite(
+        identificadorPromesa,
+        20000,
+        'la creación del identificador del navegador',
+      );
+      if (!token) return { registrado: false, motivo: 'sin_token' };
+      await conTiempoLimite(
+        api.post('/notificaciones/registrar', { token, plataforma: 'web' }),
+        15000,
+        'el registro del dispositivo en el servidor',
+      );
+    } finally {
+      cancelarRegistro();
+    }
 
     if (!escuchaWebPreparada) {
       escuchaWebPreparada = true;

@@ -1,6 +1,6 @@
 /* Se ejecuta en segundo plano aunque la página esté cerrada. */
-importScripts('https://www.gstatic.com/firebasejs/12.7.0/firebase-app-compat.js');
-importScripts('https://www.gstatic.com/firebasejs/12.7.0/firebase-messaging-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/13.2.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/13.2.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
   apiKey: 'AIzaSyCJNmRHF8TUFk-KG3JOKCzjPoWXAKxM7w8',
