@@ -345,20 +345,29 @@ export default function PedidosAdminScreen() {
     );
   };
 
-  const abrirWhatsAppCliente = async (pedido: any, texto: string) => {
+  const abrirWhatsAppCliente = async (pedido: any, texto: string, ventanaWeb?: any) => {
     const telefonoOriginal = String(obtenerTelefono(pedido) || '').replace(/\D/g, '');
     const telefono = telefonoOriginal.length === 8
       ? `506${telefonoOriginal}`
       : telefonoOriginal;
 
     if (telefono.length < 11) {
+      if (ventanaWeb && !ventanaWeb.closed) ventanaWeb.close();
       mostrarMensaje('El cliente no tiene un número de WhatsApp válido.', 'error', true);
       return false;
     }
 
     const enlace = `https://wa.me/${telefono}?text=${encodeURIComponent(texto)}`;
     if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      window.open(enlace, '_blank', 'noopener,noreferrer');
+      if (ventanaWeb && !ventanaWeb.closed) {
+        ventanaWeb.location.href = enlace;
+      } else {
+        const abierta = window.open(enlace, '_blank', 'noopener,noreferrer');
+        if (!abierta) {
+          mostrarMensaje('El pedido fue actualizado, pero Chrome bloqueó WhatsApp. Permita las ventanas emergentes para abrir el aviso.', 'info', true);
+          return false;
+        }
+      }
     } else {
       await Linking.openURL(enlace);
     }
@@ -381,13 +390,20 @@ export default function PedidosAdminScreen() {
 
     const pedido = pedidoParaRechazar;
     const idPedido = obtenerIdPedido(pedido);
+    const ventanaWhatsApp = Platform.OS === 'web' && typeof window !== 'undefined'
+      ? window.open('about:blank', '_blank')
+      : null;
     const actualizado = await enviarCambioEstado(idPedido, 'Rechazado');
-    if (!actualizado) return;
+    if (!actualizado) {
+      if (ventanaWhatsApp && !ventanaWhatsApp.closed) ventanaWhatsApp.close();
+      return;
+    }
 
     setPedidoParaRechazar(null);
     await abrirWhatsAppCliente(
       pedido,
-      `Hola ${obtenerCliente(pedido)}. Le informamos que el pedido #${idPedido} no se pudo realizar. Motivo: ${motivoRechazo.trim()}. Si desea, puede comunicarse con Verdulería Jerusalén para recibir ayuda.`
+      `Hola ${obtenerCliente(pedido)}. Le informamos que el pedido #${idPedido} no se pudo realizar. Motivo: ${motivoRechazo.trim()}. Si desea, puede comunicarse con Verdulería Jerusalén para recibir ayuda.`,
+      ventanaWhatsApp
     );
   };
 
