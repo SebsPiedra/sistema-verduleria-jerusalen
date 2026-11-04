@@ -14,6 +14,15 @@ const firebaseWebConfig = {
 const vapidPublicKey = 'BNcKneSlGFeof9w56x5Swggq0ogfPDoUA4P2AIMBjFJV2pPs0cHnm0myFZnc-D93oDoyJc6Jv5bB7Ph_2oZUIzA';
 let escuchaWebPreparada = false;
 
+const conTiempoLimite = <T>(promesa: Promise<T>, milisegundos: number, etapa: string) =>
+  Promise.race<T>([
+    promesa,
+    new Promise<T>((_, rechazar) => setTimeout(
+      () => rechazar(new Error(`Firebase tardó demasiado durante ${etapa}. Recargue la página e inténtelo nuevamente.`)),
+      milisegundos,
+    )),
+  ]);
+
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowBanner: true,
@@ -29,7 +38,9 @@ export async function registrarDispositivoNotificaciones(solicitarPermiso = fals
       return { registrado: false, motivo: 'navegador_no_compatible' };
     }
     let permiso = window.Notification.permission;
-    if (permiso === 'default' && solicitarPermiso) permiso = await window.Notification.requestPermission();
+    if (permiso === 'default' && solicitarPermiso) {
+      permiso = await conTiempoLimite(window.Notification.requestPermission(), 15000, 'la autorización de notificaciones');
+    }
     if (permiso !== 'granted') return { registrado: false, motivo: permiso === 'denied' ? 'permiso' : 'requiere_interaccion' };
 
     const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported, onMessage }] = await Promise.all([
@@ -37,11 +48,28 @@ export async function registrarDispositivoNotificaciones(solicitarPermiso = fals
     ]);
     if (!(await isSupported())) return { registrado: false, motivo: 'navegador_no_compatible' };
     const app = getApps().length ? getApps()[0] : initializeApp(firebaseWebConfig);
-    const serviceWorkerRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await conTiempoLimite(
+      navigator.serviceWorker.register('/firebase-messaging-sw.js'),
+      15000,
+      'el registro del servicio en segundo plano',
+    );
+    const serviceWorkerRegistration = await conTiempoLimite(
+      navigator.serviceWorker.ready,
+      15000,
+      'la activación del servicio en segundo plano',
+    );
     const messaging = getMessaging(app);
-    const token = await getToken(messaging, { vapidKey: vapidPublicKey, serviceWorkerRegistration });
+    const token = await conTiempoLimite(
+      getToken(messaging, { vapidKey: vapidPublicKey, serviceWorkerRegistration }),
+      20000,
+      'la creación del identificador del navegador',
+    );
     if (!token) return { registrado: false, motivo: 'sin_token' };
-    await api.post('/notificaciones/registrar', { token, plataforma: 'web' });
+    await conTiempoLimite(
+      api.post('/notificaciones/registrar', { token, plataforma: 'web' }),
+      15000,
+      'el registro del dispositivo en el servidor',
+    );
 
     if (!escuchaWebPreparada) {
       escuchaWebPreparada = true;

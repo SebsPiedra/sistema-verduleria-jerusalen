@@ -12,6 +12,7 @@ export default function SeguridadScreen() {
   const [mensaje, setMensaje] = useState('');
   const [busy, setBusy] = useState(false);
   const [busyPush, setBusyPush] = useState(false);
+  const [mensajePush, setMensajePush] = useState('');
 
   const cargar = async () => {
     const respuesta = await api.get('/auth/2fa/estado');
@@ -48,14 +49,16 @@ export default function SeguridadScreen() {
   const registrarPush = async () => {
     try {
       setBusyPush(true); setMensaje('');
+      setMensajePush('Activando notificaciones y registrando este navegador...');
       const resultado = await registrarDispositivoNotificaciones(true);
-      if (resultado.registrado) setMensaje('Este dispositivo quedó registrado para recibir notificaciones de Firebase.');
-      else if (resultado.motivo === 'navegador_no_compatible') setMensaje('Este navegador no admite Firebase Web Push. Use una versión reciente de Chrome o Edge.');
-      else if (resultado.motivo === 'requiere_interaccion') setMensaje('Presione nuevamente el botón para autorizar las notificaciones del navegador.');
-      else if (resultado.motivo === 'simulador') setMensaje('Para registrar Firebase debe usar un teléfono físico.');
-      else setMensaje('Debe permitir las notificaciones en el teléfono.');
+      if (resultado.registrado) setMensajePush('Listo: este dispositivo quedó registrado. Ya puede usar las pruebas de Firebase.');
+      else if (resultado.motivo === 'navegador_no_compatible') setMensajePush('Este navegador no admite Firebase Web Push. Use una versión reciente de Chrome o Edge.');
+      else if (resultado.motivo === 'requiere_interaccion') setMensajePush('Chrome todavía espera autorización. Revise el permiso de notificaciones y presione nuevamente.');
+      else if (resultado.motivo === 'simulador') setMensajePush('Para registrar Firebase debe usar un teléfono físico.');
+      else if (resultado.motivo === 'permiso') setMensajePush('Las notificaciones están bloqueadas. Permítalas desde el icono situado junto a la dirección y recargue la página.');
+      else setMensajePush('No fue posible registrar este dispositivo. Recargue la página e inténtelo nuevamente.');
     } catch (error: any) {
-      setMensaje(error?.response?.data?.mensaje || error?.message || 'No se pudo registrar el dispositivo.');
+      setMensajePush(error?.response?.data?.mensaje || error?.message || 'No se pudo registrar el dispositivo.');
     } finally { setBusyPush(false); }
   };
 
@@ -102,12 +105,13 @@ export default function SeguridadScreen() {
 
       <View style={s.card}>
         <View><Text style={s.title}>Notificaciones importantes</Text><Text style={s.body}>Firebase avisará sobre pedidos nuevos, cambios de estado, stock bajo o agotado y pérdidas importantes por desechos.</Text></View>
-        <Pressable style={s.primary} disabled={busyPush} onPress={registrarPush}><Text style={s.primaryText}>Activar notificaciones en este dispositivo</Text></Pressable>
+        {mensajePush ? <View style={s.pushNotice}><Text style={s.pushNoticeText}>{mensajePush}</Text></View> : null}
+        <Pressable accessibilityRole="button" style={s.primary} disabled={busyPush} onPress={registrarPush}><Text style={s.primaryText}>{busyPush ? 'Registrando dispositivo...' : 'Activar notificaciones en este dispositivo'}</Text></Pressable>
         <View style={s.pushGrid}>
-          <Pressable style={s.secondary} disabled={busyPush} onPress={()=>void probarLocal('pedido')}><Text style={s.secondaryText}>Prueba local: pedido</Text></Pressable>
-          <Pressable style={s.secondary} disabled={busyPush} onPress={()=>void probarLocal('stock')}><Text style={s.secondaryText}>Prueba local: stock</Text></Pressable>
-          <Pressable style={s.primary} disabled={busyPush} onPress={()=>void probarFirebase('pedido')}><Text style={s.primaryText}>Firebase: pedido nuevo</Text></Pressable>
-          <Pressable style={s.primary} disabled={busyPush} onPress={()=>void probarFirebase('stock')}><Text style={s.primaryText}>Firebase: stock bajo</Text></Pressable>
+          <Pressable accessibilityRole="button" style={s.secondary} disabled={busyPush} onPress={()=>void probarLocal('pedido')}><Text style={s.secondaryText}>Prueba local: pedido</Text></Pressable>
+          <Pressable accessibilityRole="button" style={s.secondary} disabled={busyPush} onPress={()=>void probarLocal('stock')}><Text style={s.secondaryText}>Prueba local: stock</Text></Pressable>
+          <Pressable accessibilityRole="button" style={s.primary} disabled={busyPush} onPress={()=>void probarFirebase('pedido')}><Text style={s.primaryText}>Firebase: pedido nuevo</Text></Pressable>
+          <Pressable accessibilityRole="button" style={s.primary} disabled={busyPush} onPress={()=>void probarFirebase('stock')}><Text style={s.primaryText}>Firebase: stock bajo</Text></Pressable>
         </View>
         <Text style={s.help}>Las pruebas están habilitadas en el sandbox porque no cambian información del negocio. La prueba local demuestra los permisos; los botones Firebase comprueban el envío real desde el servidor.</Text>
       </View>
@@ -116,5 +120,5 @@ export default function SeguridadScreen() {
 }
 
 const s=StyleSheet.create({
-  page:{gap:18},heading:{fontSize:30,fontWeight:'800',color:'#123f42'},lead:{fontSize:16,color:'#557276'},card:{backgroundColor:'#fff',borderRadius:18,padding:22,borderWidth:1,borderColor:'#d6e5e5',gap:18,maxWidth:820},row:{flexDirection:'row',alignItems:'center',gap:16},title:{fontSize:20,fontWeight:'800',color:'#123f42',marginBottom:5},body:{fontSize:14,color:'#5c7275',lineHeight:21},status:{paddingHorizontal:12,paddingVertical:7,borderRadius:20,backgroundColor:'#f3d9d9'},statusOn:{backgroundColor:'#d8f2e6'},statusText:{fontSize:11,fontWeight:'800',color:'#164b47'},primary:{backgroundColor:'#087f73',padding:14,borderRadius:12,alignItems:'center',flex:1},secondary:{backgroundColor:'#e7f1f0',padding:13,borderRadius:12,alignItems:'center',flex:1},secondaryText:{color:'#087f73',fontWeight:'800'},danger:{backgroundColor:'#b33232',padding:14,borderRadius:12,alignItems:'center'},primaryText:{color:'#fff',fontWeight:'800'},setup:{gap:13},input:{backgroundColor:'#fff',borderWidth:1,borderColor:'#bad0d0',borderRadius:12,padding:13,fontSize:16},notice:{backgroundColor:'#e8f4f1',padding:13,borderRadius:12,maxWidth:820},noticeText:{color:'#124d47',fontWeight:'700'},warning:{backgroundColor:'#fff0cf',padding:13,borderRadius:12,maxWidth:820},warningText:{color:'#6d4700',fontWeight:'700'},pushGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},help:{fontSize:12,color:'#687f82',lineHeight:18}
+  page:{gap:18},heading:{fontSize:30,fontWeight:'800',color:'#123f42'},lead:{fontSize:16,color:'#557276'},card:{backgroundColor:'#fff',borderRadius:18,padding:22,borderWidth:1,borderColor:'#d6e5e5',gap:18,maxWidth:820},row:{flexDirection:'row',alignItems:'center',gap:16},title:{fontSize:20,fontWeight:'800',color:'#123f42',marginBottom:5},body:{fontSize:14,color:'#5c7275',lineHeight:21},status:{paddingHorizontal:12,paddingVertical:7,borderRadius:20,backgroundColor:'#f3d9d9'},statusOn:{backgroundColor:'#d8f2e6'},statusText:{fontSize:11,fontWeight:'800',color:'#164b47'},primary:{backgroundColor:'#087f73',padding:14,borderRadius:12,alignItems:'center',flex:1},secondary:{backgroundColor:'#e7f1f0',padding:13,borderRadius:12,alignItems:'center',flex:1},secondaryText:{color:'#087f73',fontWeight:'800'},danger:{backgroundColor:'#b33232',padding:14,borderRadius:12,alignItems:'center'},primaryText:{color:'#fff',fontWeight:'800'},setup:{gap:13},input:{backgroundColor:'#fff',borderWidth:1,borderColor:'#bad0d0',borderRadius:12,padding:13,fontSize:16},notice:{backgroundColor:'#e8f4f1',padding:13,borderRadius:12,maxWidth:820},noticeText:{color:'#124d47',fontWeight:'700'},warning:{backgroundColor:'#fff0cf',padding:13,borderRadius:12,maxWidth:820},warningText:{color:'#6d4700',fontWeight:'700'},pushNotice:{backgroundColor:'#e8f4f1',borderWidth:1,borderColor:'#b7d9d4',padding:12,borderRadius:10},pushNoticeText:{color:'#124d47',fontWeight:'700'},pushGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},help:{fontSize:12,color:'#687f82',lineHeight:18}
 });
