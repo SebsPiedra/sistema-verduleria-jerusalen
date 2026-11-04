@@ -313,7 +313,11 @@ const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
 
     const detalles = obtenerFilas(resultadoDetalles);
 
-    if (detalles.length === 0) {
+    const necesitaDetalles =
+      estadosQueGeneranVenta.includes(estadoNuevo) ||
+      (['Rechazado', 'Cancelado'].includes(estadoNuevo) && Number(pedido.inventario_descontado) === 1);
+
+    if (detalles.length === 0 && necesitaDetalles) {
       await rollbackSeguro();
       return res.status(400).json({
         mensaje: 'Este pedido no tiene productos registrados. No se puede cambiar el estado.',

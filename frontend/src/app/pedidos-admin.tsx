@@ -36,6 +36,7 @@ export default function PedidosAdminScreen() {
     textoAccion: string;
   } | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [errorRechazo, setErrorRechazo] = useState('');
   const [umbralEnvio, setUmbralEnvio] = useState('15000');
   const [costoEnvio, setCostoEnvio] = useState('1500');
   const [costosPorPedido, setCostosPorPedido] = useState<Record<number, string>>({});
@@ -328,7 +329,8 @@ export default function PedidosAdminScreen() {
     return (
       estado === 'pendiente' ||
       estado === 'aceptado' ||
-      estado === 'en preparación'
+      estado === 'en preparación' ||
+      estado === 'en entrega'
     );
   };
 
@@ -366,13 +368,16 @@ export default function PedidosAdminScreen() {
   const solicitarRechazo = (pedido: any) => {
     setPedidoParaRechazar(pedido);
     setMotivoRechazo('');
+    setErrorRechazo('');
   };
 
   const confirmarRechazo = async () => {
     if (!pedidoParaRechazar || motivoRechazo.trim().length < 5) {
-      mostrarMensaje('Escriba un motivo claro de al menos 5 caracteres.', 'error');
+      setErrorRechazo('Escriba un motivo claro de al menos 5 caracteres.');
       return;
     }
+
+    setErrorRechazo('');
 
     const pedido = pedidoParaRechazar;
     const idPedido = obtenerIdPedido(pedido);
@@ -1026,16 +1031,25 @@ export default function PedidosAdminScreen() {
               style={styles.modalInput}
               placeholder="Ejemplo: producto sin disponibilidad..."
               value={motivoRechazo}
-              onChangeText={setMotivoRechazo}
+              onChangeText={(valor) => {
+                setMotivoRechazo(valor);
+                if (valor.trim().length >= 5) setErrorRechazo('');
+              }}
               multiline
               maxLength={300}
               autoFocus
             />
+            {errorRechazo ? <Text style={styles.modalError}>{errorRechazo}</Text> : null}
             <View style={styles.modalAcciones}>
-              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => setPedidoParaRechazar(null)} disabled={actualizando}>
+              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => { setPedidoParaRechazar(null); setErrorRechazo(''); }} disabled={actualizando}>
                 <Text style={styles.modalCancelarTexto}>Volver</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" style={styles.modalConfirmar} onPress={confirmarRechazo} disabled={actualizando}>
+              <Pressable
+                accessibilityRole="button"
+                style={[styles.modalConfirmar, (actualizando || motivoRechazo.trim().length < 5) && styles.botonDesactivado]}
+                onPress={confirmarRechazo}
+                disabled={actualizando || motivoRechazo.trim().length < 5}
+              >
                 <Text style={styles.textoBotonAccion}>{actualizando ? 'Actualizando...' : 'Rechazar y avisar'}</Text>
               </Pressable>
             </View>
@@ -1097,6 +1111,7 @@ const baseStyles = createAppStyles({
     padding: 12,
     textAlignVertical: 'top',
   },
+  modalError: { color: '#a61b1b', fontSize: 13, fontWeight: '700', marginTop: 7 },
   modalAcciones: { flexDirection: 'row', gap: 10, marginTop: 16 },
   modalCancelar: { flex: 1, padding: 13, borderRadius: 11, borderWidth: 1, borderColor: '#8ba7aa', alignItems: 'center' },
   modalCancelarTexto: { color: '#31585a', fontWeight: 'bold' },
