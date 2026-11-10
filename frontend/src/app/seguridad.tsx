@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { View, Text, TextInput, Pressable, StyleSheet, Alert } from 'react-native';
+import { View, Text, TextInput, Pressable, StyleSheet, Alert, Platform } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
 import api from '../services/api';
 import { pruebaLocalNotificacion, registrarDispositivoNotificaciones } from '../services/notificaciones';
@@ -21,6 +21,16 @@ export default function SeguridadScreen() {
   };
 
   useEffect(() => { void cargar().catch(() => setMensaje('No se pudo consultar la configuración.')); }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const confirmarRecepcion = (evento: Event) => {
+      const detalle = (evento as CustomEvent<{ titulo?: string }>).detail;
+      setMensajePush(`Recibida desde Firebase: ${detalle?.titulo || 'notificación nueva'}.`);
+    };
+    window.addEventListener('verduleria:notificacion-recibida', confirmarRecepcion);
+    return () => window.removeEventListener('verduleria:notificacion-recibida', confirmarRecepcion);
+  }, []);
 
   const preparar = async () => {
     try {
@@ -66,7 +76,7 @@ export default function SeguridadScreen() {
     try {
       setBusyPush(true); setMensaje('');
       await pruebaLocalNotificacion(tipo);
-      setMensaje('Prueba local enviada. Debe aparecer como notificación del teléfono o del navegador.');
+      setMensajePush(`Prueba local de ${tipo === 'pedido' ? 'pedido' : 'stock bajo'} mostrada por el navegador.`);
     } catch (error: any) {
       setMensaje(error?.message || 'No se pudo mostrar la prueba local.');
     } finally { setBusyPush(false); }
@@ -76,7 +86,7 @@ export default function SeguridadScreen() {
     try {
       setBusyPush(true); setMensaje('');
       const respuesta = await api.post('/notificaciones/prueba', { tipo });
-      setMensaje(respuesta.data?.mensaje || 'Notificación remota enviada.');
+      setMensajePush(`${respuesta.data?.mensaje || 'Notificación remota enviada.'} Esperando recepción en este navegador...`);
     } catch (error: any) {
       setMensaje(error?.response?.data?.mensaje || 'No se pudo enviar la prueba remota de Firebase.');
     } finally { setBusyPush(false); }

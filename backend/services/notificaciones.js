@@ -81,6 +81,7 @@ const enviar = async ({ tokens, titulo, cuerpo, datos = {} }) => {
   const unicos = [...new Set((tokens || []).filter(Boolean))];
   if (!unicos.length) return { enviado: false, motivo: 'sin_dispositivos' };
   const pantalla = String(datos.pantalla || '/');
+  const tipo = String(datos.tipo || 'general');
   const frontend = String(process.env.FRONTEND_URL || 'https://frontend-verduleria.vercel.app').replace(/\/$/, '');
   const respuesta = await servicio.sendEachForMulticast({
     tokens: unicos,
@@ -88,7 +89,14 @@ const enviar = async ({ tokens, titulo, cuerpo, datos = {} }) => {
     data: Object.fromEntries(Object.entries(datos).map(([clave, valor]) => [clave, String(valor)])),
     android: { priority: 'high', notification: { channelId: 'operacion', sound: 'default' } },
     webpush: {
-      notification: { icon: '/favicon.png', badge: '/favicon.png' },
+      headers: { Urgency: 'high' },
+      notification: {
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: `${tipo}-${Date.now()}`,
+        renotify: true,
+        requireInteraction: true,
+      },
       fcmOptions: { link: `${frontend}${pantalla.startsWith('/') ? pantalla : `/${pantalla}`}` },
     },
   });

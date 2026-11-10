@@ -14,6 +14,20 @@ const firebaseWebConfig = {
 const vapidPublicKey = 'BNcKneSlGFeof9w56x5Swggq0ogfPDoUA4P2AIMBjFJV2pPs0cHnm0myFZnc-D93oDoyJc6Jv5bB7Ph_2oZUIzA';
 let escuchaWebPreparada = false;
 
+const mostrarNotificacionWeb = async (
+  registro: ServiceWorkerRegistration,
+  titulo: string,
+  cuerpo: string,
+  tipo = 'general',
+) => registro.showNotification(titulo, {
+  body: cuerpo,
+  icon: '/favicon.ico',
+  badge: '/favicon.ico',
+  tag: `${tipo}-${Date.now()}`,
+  requireInteraction: true,
+  data: { tipo, url: tipo === 'pedido' ? '/pedidos-admin' : '/alertas' },
+});
+
 const conTiempoLimite = <T>(promesa: Promise<T>, milisegundos: number, etapa: string) =>
   Promise.race<T>([
     promesa,
@@ -70,9 +84,15 @@ export async function registrarDispositivoNotificaciones(solicitarPermiso = fals
     if (!escuchaWebPreparada) {
       escuchaWebPreparada = true;
       onMessage(messaging, (mensaje) => {
-        const titulo = mensaje.notification?.title || 'Verdulería Jerusalén';
-        const cuerpo = mensaje.notification?.body || 'Tiene una notificación nueva.';
-        if (window.Notification.permission === 'granted') new window.Notification(titulo, { body: cuerpo, icon: '/favicon.png' });
+        const titulo = mensaje.notification?.title || mensaje.data?.titulo || 'Verdulería Jerusalén';
+        const cuerpo = mensaje.notification?.body || mensaje.data?.cuerpo || 'Tiene una notificación nueva.';
+        const tipo = mensaje.data?.tipo || 'general';
+        if (window.Notification.permission === 'granted') {
+          void mostrarNotificacionWeb(serviceWorkerRegistration, titulo, cuerpo, tipo);
+          window.dispatchEvent(new CustomEvent('verduleria:notificacion-recibida', {
+            detail: { titulo, cuerpo, tipo },
+          }));
+        }
       });
     }
     return { registrado: true };
@@ -108,11 +128,13 @@ export async function pruebaLocalNotificacion(tipo: 'pedido' | 'stock' | 'genera
       : { title: 'Notificaciones activas', body: 'La prueba local del sistema se realizó correctamente.' };
 
   if (Platform.OS === 'web') {
-    if (typeof window === 'undefined' || !('Notification' in window)) throw new Error('Este navegador no admite notificaciones.');
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) throw new Error('Este navegador no admite notificaciones.');
     let permiso = window.Notification.permission;
     if (permiso !== 'granted') permiso = await window.Notification.requestPermission();
     if (permiso !== 'granted') throw new Error('El navegador no concedió permiso para notificaciones.');
-    new window.Notification(contenido.title, { body: contenido.body });
+    const registro = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    await navigator.serviceWorker.ready;
+    await mostrarNotificacionWeb(registro, contenido.title, contenido.body, tipo);
     return;
   }
 

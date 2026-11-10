@@ -35,7 +35,7 @@ router.post('/prueba', async (req, res) => {
       general: ['Firebase funcionando', 'La aplicación recibió correctamente la notificación de prueba.'],
     };
     const [titulo, cuerpo] = mensajes[tipo] || mensajes.general;
-    const resultado = await enviar({ tokens, titulo, cuerpo, datos: { pantalla: tipo === 'pedido' ? '/pedidos-admin' : '/alertas', prueba: 'true' } });
+    const resultado = await enviar({ tokens, titulo, cuerpo, datos: { pantalla: tipo === 'pedido' ? '/pedidos-admin' : '/alertas', prueba: 'true', tipo } });
     if (!resultado.enviado) {
       const mensajesError = {
         firebase_no_configurado: 'Firebase todavía no tiene credenciales en el servidor.',
