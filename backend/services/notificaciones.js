@@ -45,6 +45,14 @@ const mensajeria = () => {
 
 const registrarDispositivo = async ({ token, plataforma, tipoUsuario, idUsuario }) => {
   await prepararTablas();
+  if (plataforma === 'web') {
+    await pool.query(
+      `UPDATE dispositivos_notificacion SET activo=FALSE, actualizado_en=CURRENT_TIMESTAMP
+       WHERE plataforma='web' AND tipo_usuario=$1 AND id_usuario=$2
+       AND activo=TRUE AND length(token) < 80`,
+      [tipoUsuario, idUsuario]
+    );
+  }
   await pool.query(
     `INSERT INTO dispositivos_notificacion (token, plataforma, tipo_usuario, id_usuario)
      VALUES ($1,$2,$3,$4)
@@ -80,15 +88,27 @@ const enviar = async ({ tokens, titulo, cuerpo, datos = {} }) => {
     data: Object.fromEntries(Object.entries(datos).map(([clave, valor]) => [clave, String(valor)])),
     android: { priority: 'high', notification: { channelId: 'operacion', sound: 'default' } },
     webpush: {
-      notification: { icon: '/favicon.ico', badge: '/favicon.ico' },
+      notification: { icon: '/favicon.png', badge: '/favicon.png' },
       fcmOptions: { link: `${frontend}${pantalla.startsWith('/') ? pantalla : `/${pantalla}`}` },
     },
   });
+  const codigosInvalidos = [
+    'messaging/registration-token-not-registered',
+    'messaging/invalid-registration-token',
+    'messaging/invalid-argument',
+  ];
   const invalidos = respuesta.responses
-    .map((resultado, indice) => (!resultado.success && ['messaging/registration-token-not-registered','messaging/invalid-registration-token'].includes(resultado.error?.code) ? unicos[indice] : null))
+    .map((resultado, indice) => (!resultado.success && codigosInvalidos.includes(resultado.error?.code) ? unicos[indice] : null))
     .filter(Boolean);
   if (invalidos.length) await pool.query('UPDATE dispositivos_notificacion SET activo=FALSE WHERE token=ANY($1::text[])', [invalidos]);
-  return { enviado: respuesta.successCount > 0, exitos: respuesta.successCount, fallidos: respuesta.failureCount };
+  const primerError = respuesta.responses.find((resultado) => !resultado.success)?.error;
+  return {
+    enviado: respuesta.successCount > 0,
+    motivo: respuesta.successCount > 0 ? undefined : 'envio_fallido',
+    exitos: respuesta.successCount,
+    fallidos: respuesta.failureCount,
+    codigo: primerError?.code || null,
+  };
 };
 
 const notificarAdministradores = async (titulo, cuerpo, datos) => enviar({

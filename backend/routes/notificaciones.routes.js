@@ -37,7 +37,15 @@ router.post('/prueba', async (req, res) => {
     const [titulo, cuerpo] = mensajes[tipo] || mensajes.general;
     const resultado = await enviar({ tokens, titulo, cuerpo, datos: { pantalla: tipo === 'pedido' ? '/pedidos-admin' : '/alertas', prueba: 'true' } });
     if (!resultado.enviado) {
-      return res.status(409).json({ mensaje: resultado.motivo === 'firebase_no_configurado' ? 'Firebase todavía no tiene credenciales en el servidor.' : 'Este administrador todavía no registró un dispositivo.' });
+      const mensajesError = {
+        firebase_no_configurado: 'Firebase todavía no tiene credenciales en el servidor.',
+        sin_dispositivos: 'Este administrador todavía no registró un dispositivo.',
+        envio_fallido: 'Firebase rechazó el token guardado. Active nuevamente las notificaciones en este dispositivo.',
+      };
+      return res.status(409).json({
+        mensaje: mensajesError[resultado.motivo] || 'Firebase no pudo enviar la notificación.',
+        codigo: resultado.codigo || null,
+      });
     }
     return res.json({ mensaje: 'Notificación de prueba enviada.', resultado });
   } catch (error) {

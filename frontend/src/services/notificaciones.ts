@@ -43,53 +43,36 @@ export async function registrarDispositivoNotificaciones(solicitarPermiso = fals
     }
     if (permiso !== 'granted') return { registrado: false, motivo: permiso === 'denied' ? 'permiso' : 'requiere_interaccion' };
 
-    const [{ initializeApp, getApps }, { getMessaging, isSupported, onMessage, onRegistered, register }] = await Promise.all([
+    const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported, onMessage }] = await Promise.all([
       import('firebase/app'), import('firebase/messaging'),
     ]);
     if (!(await isSupported())) return { registrado: false, motivo: 'navegador_no_compatible' };
     const app = getApps().length ? getApps()[0] : initializeApp(firebaseWebConfig);
-    await conTiempoLimite(
+    const serviceWorkerRegistration = await conTiempoLimite(
       navigator.serviceWorker.register('/firebase-messaging-sw.js'),
       15000,
       'el registro del servicio en segundo plano',
     );
-    const serviceWorkerRegistration = await conTiempoLimite(
-      navigator.serviceWorker.ready,
-      15000,
-      'la activación del servicio en segundo plano',
-    );
+    await conTiempoLimite(navigator.serviceWorker.ready, 15000, 'la activación del servicio en segundo plano');
     const messaging = getMessaging(app);
-    let cancelarRegistro = () => undefined;
-    const identificadorPromesa = new Promise<string>((resolver) => {
-      cancelarRegistro = onRegistered(messaging, (identificador) => resolver(identificador));
-    });
-    try {
-      await conTiempoLimite(
-        register(messaging, { vapidKey: vapidPublicKey, serviceWorkerRegistration }),
-        15000,
-        'el inicio del registro con Firebase',
-      );
-      const token = await conTiempoLimite(
-        identificadorPromesa,
-        20000,
-        'la creación del identificador del navegador',
-      );
-      if (!token) return { registrado: false, motivo: 'sin_token' };
-      await conTiempoLimite(
-        api.post('/notificaciones/registrar', { token, plataforma: 'web' }),
-        15000,
-        'el registro del dispositivo en el servidor',
-      );
-    } finally {
-      cancelarRegistro();
-    }
+    const token = await conTiempoLimite(
+      getToken(messaging, { vapidKey: vapidPublicKey, serviceWorkerRegistration }),
+      20000,
+      'la creación del token de notificaciones',
+    );
+    if (!token) return { registrado: false, motivo: 'sin_token' };
+    await conTiempoLimite(
+      api.post('/notificaciones/registrar', { token, plataforma: 'web' }),
+      15000,
+      'el registro del dispositivo en el servidor',
+    );
 
     if (!escuchaWebPreparada) {
       escuchaWebPreparada = true;
       onMessage(messaging, (mensaje) => {
         const titulo = mensaje.notification?.title || 'Verdulería Jerusalén';
         const cuerpo = mensaje.notification?.body || 'Tiene una notificación nueva.';
-        if (window.Notification.permission === 'granted') new window.Notification(titulo, { body: cuerpo, icon: '/favicon.ico' });
+        if (window.Notification.permission === 'granted') new window.Notification(titulo, { body: cuerpo, icon: '/favicon.png' });
       });
     }
     return { registrado: true };
