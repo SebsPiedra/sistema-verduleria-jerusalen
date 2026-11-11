@@ -27,7 +27,7 @@ export default function TareasScreen() {
     Alert.alert('Eliminar tarea', `¿Desea eliminar "${task.title}"?`, [{ text: 'Cancelar', style: 'cancel' }, { text: 'Eliminar', style: 'destructive', onPress: execute }]);
   };
 
-  return <AdminLayout titulo="Tareas">
+  return <AdminLayout titulo="Tareas" scroll={false}>
     <View style={styles.hero}>
       <View><Text style={styles.eyebrow}>ORGANIZACIÓN LOCAL</Text><Text style={styles.title}>Tareas de la verdulería</Text><Text style={styles.subtitle}>Planifique actividades aunque el dispositivo no tenga conexión.</Text></View>
       <View style={styles.stats}><View style={styles.stat}><Text style={styles.statNumber}>{todo.stats.total}</Text><Text style={styles.statLabel}>Todas</Text></View><View style={styles.stat}><Text style={styles.statNumber}>{todo.stats.pending}</Text><Text style={styles.statLabel}>Pendientes</Text></View><View style={styles.stat}><Text style={styles.statNumber}>{todo.stats.completed}</Text><Text style={styles.statLabel}>Completadas</Text></View></View>
@@ -38,7 +38,7 @@ export default function TareasScreen() {
       <View style={styles.listArea}>
         <TaskFilter value={todo.filter} onChange={todo.setFilter} />
         {todo.loading ? <ActivityIndicator style={styles.loader} color="#087f73" /> : (
-          <FlatList data={todo.tasks} keyExtractor={item => item.id} renderItem={({ item }) => <TaskItem task={item} onToggle={id => void todo.toggleTask(id)} onEdit={setEditing} onDelete={remove} />} ItemSeparatorComponent={() => <View style={styles.separator} />} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyIcon}>OK</Text><Text style={styles.emptyTitle}>No hay tareas en este filtro</Text><Text style={styles.emptyText}>Agregue una actividad para comenzar.</Text></View>} scrollEnabled={false} contentContainerStyle={todo.tasks.length === 0 ? styles.emptyList : undefined} />
+          <FlatList style={styles.list} data={todo.tasks} keyExtractor={item => item.id} renderItem={({ item }) => <TaskItem task={item} onToggle={id => void todo.toggleTask(id)} onEdit={setEditing} onDelete={remove} />} ItemSeparatorComponent={() => <View style={styles.separator} />} ListEmptyComponent={<View style={styles.empty}><Text style={styles.emptyIcon}>OK</Text><Text style={styles.emptyTitle}>No hay tareas en este filtro</Text><Text style={styles.emptyText}>Agregue una actividad para comenzar.</Text></View>} contentContainerStyle={todo.tasks.length === 0 ? styles.emptyList : styles.listContent} />
         )}
       </View>
     </View>
@@ -55,10 +55,12 @@ const styles = StyleSheet.create({
   statNumber: { color: '#087f73', fontSize: 22, fontWeight: '900' },
   statLabel: { color: '#6b8183', fontSize: 10, marginTop: 2 },
   error: { color: '#a12a22', backgroundColor: '#fff0ee', padding: 12, borderRadius: 10, marginBottom: 14 },
-  layout: { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
+  layout: { flex: 1, minHeight: 0, flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
   layoutPhone: { flexDirection: 'column' },
   form: { width: '100%', maxWidth: 420 },
   listArea: { flex: 1, width: '100%', gap: 14 },
+  list: { flex: 1, minHeight: 0 },
+  listContent: { paddingBottom: 20 },
   loader: { marginTop: 50 },
   separator: { height: 10 },
   emptyList: { flexGrow: 1 },

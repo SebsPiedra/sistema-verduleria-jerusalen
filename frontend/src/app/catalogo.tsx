@@ -568,7 +568,7 @@ const baseStyles = createAppStyles({
   },
   bannerCatalogoPhone: { paddingVertical: 26, paddingHorizontal: 16 },
   bannerCatalogoImagen: { opacity: 0.78 },
-  bannerCatalogoCapa: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(1,48,28,0.38)' },
+  bannerCatalogoCapa: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(1,48,28,0.38)' },
   bannerTitulo: {
     color: '#ffffff',
     fontSize: 42,

@@ -4,6 +4,7 @@ import { usePathname, useRouter } from 'expo-router';
 import { eliminarDato, obtenerDato } from '../services/storage';
 import api from '../services/api';
 import { registrarDispositivoNotificaciones } from '../services/notificaciones';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 let ultimoPedidoConocido: number | null = null;
 
@@ -12,7 +13,7 @@ const groups = [
   { name: 'OPERACIÓN', items: [['Inventario','/productos','▦'],['Ventas','/ventas','↗'],['Pedidos','/pedidos-admin','≡'],['Clientes','/clientes','◎']] },
   { name: 'CONTROL', items: [['Historial','/historial-ventas','↺'],['Resumen mensual','/resumen-mensual','◷'],['Desechos','/desechos','↘']] },
 ];
-export default function AdminLayout({ children, titulo }: { children: ReactNode; titulo?: string; subtitulo?: string }) {
+export default function AdminLayout({ children, titulo, scroll = true }: { children: ReactNode; titulo?: string; subtitulo?: string; scroll?: boolean }) {
   const router = useRouter(); const path = usePathname();
   const compact = useWindowDimensions().width < 1000;
   const [open,setOpen] = useState(false);
@@ -101,7 +102,7 @@ export default function AdminLayout({ children, titulo }: { children: ReactNode;
     </ScrollView>
     <Pressable accessibilityRole="button" onPress={confirmLogout} style={s.logout}><Text style={s.logoutText}>Cerrar sesión ↗</Text></Pressable>
   </>;
-  return <View style={s.root}>
+  return <SafeAreaView style={s.root} edges={['top', 'right', 'bottom', 'left']}>
     {!compact&&<View style={s.sidebar}>{navigation}</View>}
     <View style={s.main}>
       <View style={[s.topbar,compact&&s.topbarPhone]}>
@@ -109,17 +110,19 @@ export default function AdminLayout({ children, titulo }: { children: ReactNode;
         {!compact&&<View style={s.profile}><View style={s.dot}/><Text style={s.userName}>{user?.nombre || 'Administrador'}</Text></View>}
       </View>
       {user?.sandbox ? <View style={s.sandboxBanner}><Text style={s.sandboxBannerText}>Modo demostración: puede consultar la información, pero no modificarla.</Text></View> : null}
-      <ScrollView style={s.scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[s.content,compact&&s.contentPhone]}>{children}</ScrollView>
+      {scroll
+        ? <ScrollView style={s.scroll} keyboardShouldPersistTaps="handled" contentContainerStyle={[s.content,compact&&s.contentPhone]}>{children}</ScrollView>
+        : <View style={[s.content, s.contentFill, compact&&s.contentPhone]}>{children}</View>}
       {avisoPedido ? <Pressable accessibilityRole="alert" onPress={()=>router.push('/pedidos-admin' as any)} style={s.newOrderToast}><Text style={s.newOrderIcon}>🔔</Text><View style={{flex:1}}><Text style={s.newOrderTitle}>{avisoPedido}</Text><Text style={s.newOrderText}>Presione aquí para revisar los pedidos pendientes.</Text></View></Pressable> : null}
     </View>
     {compact&&open&&<View style={s.overlay}><Pressable accessibilityRole="button" accessibilityLabel="Cerrar menú" style={s.backdrop} onPress={()=>setOpen(false)}/><View style={s.drawer}><Pressable accessibilityRole="button" accessibilityLabel="Cerrar menú" onPress={()=>setOpen(false)} style={s.close}><Text style={s.logoutText}>Cerrar ✕</Text></Pressable>{navigation}</View></View>}
-  </View>;
+  </SafeAreaView>;
 }
 const s=StyleSheet.create({
   root:{flex:1,flexDirection:'row',backgroundColor:'#eef4f5'},loading:{flex:1,alignItems:'center',justifyContent:'center'},sidebar:{width:230,backgroundColor:'#092c30',padding:16},
   brand:{flexDirection:'row',alignItems:'center',gap:12,paddingVertical:18},brandMark:{width:40,height:40,borderRadius:13,backgroundColor:'#b8f3d6',alignItems:'center',justifyContent:'center'},brandSymbol:{fontSize:25,fontWeight:'800',color:'#092c30'},brandName:{color:'#fff',fontSize:22,fontWeight:'700',letterSpacing:-0.5},brandCaption:{color:'#a4c6c8',fontSize:9,letterSpacing:2,marginTop:3},
   navigation:{gap:20,paddingVertical:12},group:{fontSize:10,letterSpacing:1.8,color:'#96b9bb',paddingHorizontal:12,marginBottom:6},item:{flexDirection:'row',alignItems:'center',gap:12,paddingHorizontal:12,minHeight:44,borderRadius:12},active:{backgroundColor:'#b8f3d6'},icon:{color:'#97bfbc',fontSize:21,width:24,textAlign:'center'},itemText:{color:'#e2eeee',fontSize:14,fontWeight:'600',flex:1},activeText:{color:'#103f3c'},badge:{minWidth:25,height:25,paddingHorizontal:7,borderRadius:13,backgroundColor:'#ffb020',alignItems:'center',justifyContent:'center'},badgeText:{fontSize:12,fontWeight:'800',color:'#342000'},logout:{minHeight:48,justifyContent:'center',paddingHorizontal:12,borderTopWidth:1,borderColor:'#295155'},logoutText:{color:'#d4e8e8',fontSize:13},
-  main:{flex:1,minWidth:0},topbar:{minHeight:80,paddingHorizontal:28,paddingVertical:16,backgroundColor:'#ffffff',borderBottomWidth:1,borderColor:'#dce8e9',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:16},topbarPhone:{minHeight:68,padding:12},titleRow:{flexDirection:'row',alignItems:'center',gap:14,flex:1,minWidth:0},eyebrow:{fontSize:9,color:'#617d80',letterSpacing:1.8,marginBottom:3},title:{fontSize:21,color:'#133d41',fontWeight:'700'},profile:{flexDirection:'row',alignItems:'center',gap:8},dot:{width:7,height:7,borderRadius:4,backgroundColor:'#087f73'},userName:{fontSize:13,color:'#426064'},menuButton:{width:44,height:44,borderRadius:12,backgroundColor:'#e9f3f2',alignItems:'center',justifyContent:'center'},menuIcon:{fontSize:22,color:'#075e58'},scroll:{flex:1},content:{padding:28,width:'100%',maxWidth:1600,alignSelf:'center'},contentPhone:{padding:14},
+  main:{flex:1,minWidth:0},topbar:{minHeight:80,paddingHorizontal:28,paddingVertical:16,backgroundColor:'#ffffff',borderBottomWidth:1,borderColor:'#dce8e9',flexDirection:'row',alignItems:'center',justifyContent:'space-between',gap:16},topbarPhone:{minHeight:68,padding:12},titleRow:{flexDirection:'row',alignItems:'center',gap:14,flex:1,minWidth:0},eyebrow:{fontSize:9,color:'#617d80',letterSpacing:1.8,marginBottom:3},title:{fontSize:21,color:'#133d41',fontWeight:'700'},profile:{flexDirection:'row',alignItems:'center',gap:8},dot:{width:7,height:7,borderRadius:4,backgroundColor:'#087f73'},userName:{fontSize:13,color:'#426064'},menuButton:{width:44,height:44,borderRadius:12,backgroundColor:'#e9f3f2',alignItems:'center',justifyContent:'center'},menuIcon:{fontSize:22,color:'#075e58'},scroll:{flex:1},content:{padding:28,width:'100%',maxWidth:1600,alignSelf:'center'},contentFill:{flex:1},contentPhone:{padding:14},
   sandboxBanner:{backgroundColor:'#fff1ca',borderBottomWidth:1,borderColor:'#e6be56',paddingVertical:9,paddingHorizontal:18},sandboxBannerText:{color:'#654400',fontSize:13,fontWeight:'700',textAlign:'center'},
   newOrderToast:{position:'absolute',right:20,bottom:20,zIndex:30,width:'90%',maxWidth:430,flexDirection:'row',alignItems:'center',gap:12,backgroundColor:'#073d3a',padding:16,borderRadius:16,borderWidth:2,borderColor:'#76e1bd',shadowColor:'#000',shadowOpacity:0.24,shadowRadius:12,shadowOffset:{width:0,height:5},elevation:8},newOrderIcon:{fontSize:27},newOrderTitle:{color:'#fff',fontSize:16,fontWeight:'800'},newOrderText:{color:'#ccebe6',fontSize:12,marginTop:3},
   overlay:{position:'absolute',top:0,right:0,bottom:0,left:0,zIndex:20},backdrop:{position:'absolute',top:0,right:0,bottom:0,left:0,backgroundColor:'rgba(5,22,28,0.5)'},drawer:{width:'85%',maxWidth:310,height:'100%',backgroundColor:'#092c30',padding:18},close:{minHeight:44,alignItems:'flex-end',justifyContent:'center'}

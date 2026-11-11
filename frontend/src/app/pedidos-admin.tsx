@@ -1007,7 +1007,7 @@ export default function PedidosAdminScreen() {
         visible={cambioPendiente !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => !actualizando && setCambioPendiente(null)}
+        onRequestClose={() => { if (!actualizando) setCambioPendiente(null); }}
       >
         <View style={styles.modalFondo}>
           <View style={styles.modalCaja}>

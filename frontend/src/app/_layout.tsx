@@ -2,6 +2,7 @@ import { Stack, useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, View } from 'react-native';
 import * as Notifications from 'expo-notifications';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import WebPolish from '../components/WebPolish';
 
 export default function RootLayout() {
@@ -18,10 +19,9 @@ export default function RootLayout() {
   }, [router]);
   if(!mounted)return <View style={{flex:1,alignItems:'center',justifyContent:'center',backgroundColor:'#eef4f5'}}><ActivityIndicator color="#08736a" accessibilityLabel="Cargando aplicación"/></View>;
   return (
-    <><WebPolish/><Stack
-      screenOptions={{
-        headerShown: false,
-      }}
-    /></>
+    <SafeAreaProvider initialMetrics={initialWindowMetrics}>
+      <WebPolish/>
+      <Stack screenOptions={{ headerShown: false }} />
+    </SafeAreaProvider>
   );
 }

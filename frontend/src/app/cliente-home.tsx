@@ -452,7 +452,7 @@ const baseStyles = createAppStyles({
   },
   heroClientePhone: { minHeight: 380 },
   heroImagen: { opacity: 0.94 },
-  heroCapa: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,48,31,0.34)' },
+  heroCapa: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(0,48,31,0.34)' },
   heroContenido: { paddingHorizontal: 52, paddingVertical: 44, maxWidth: 680 },
   heroSaludo: { color: '#dff6dd', fontSize: 19, fontWeight: '700' },
   heroTitulo: { color: '#fff', fontSize: 46, lineHeight: 52, fontWeight: '900', marginTop: 5, letterSpacing: -1.2 },

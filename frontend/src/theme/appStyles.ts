@@ -2,6 +2,7 @@ import { StyleSheet, TextStyle, ViewStyle, ImageStyle, useWindowDimensions } fro
 import { useMemo } from 'react';
 
 type Rule = ViewStyle & TextStyle & ImageStyle;
+type NamedStyles<T> = { [P in keyof T]: ViewStyle | TextStyle | ImageStyle };
 const colors: Record<string, string> = {
   '#f7f5ee':'#eef4f5', '#fffdf6':'#f8fbfc', '#fffcf3':'#f8fbfc',
   '#ebe4d3':'#dce8e9', '#e0d7c2':'#cfdee0', '#d7cfae':'#cfdee0', '#f0eadb':'#e7eff0',
@@ -13,7 +14,7 @@ const colors: Record<string, string> = {
 };
 
 /** Shared visual tokens. Existing status colors and business logic stay intact. */
-export function createAppStyles<T extends StyleSheet.NamedStyles<T>>(rules: T): T {
+export function createAppStyles<T extends NamedStyles<T>>(rules: T): T {
   const result: Record<string, Rule> = {};
   for (const [name, original] of Object.entries(rules)) {
     const rule = { ...(original as Rule) };
@@ -37,7 +38,7 @@ export function createAppStyles<T extends StyleSheet.NamedStyles<T>>(rules: T): 
   return StyleSheet.create(result) as T;
 }
 
-export function useAppStyles<T extends StyleSheet.NamedStyles<T>>(base: T): T {
+export function useAppStyles<T extends NamedStyles<T>>(base: T): T {
   const phone = useWindowDimensions().width < 768;
   return useMemo(() => {
     if (!phone) return base;

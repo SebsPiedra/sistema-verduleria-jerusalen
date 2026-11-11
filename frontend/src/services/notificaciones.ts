@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import api from './api';
 
 const firebaseWebConfig = {
@@ -102,7 +103,7 @@ export async function registrarDispositivoNotificaciones(solicitarPermiso = fals
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('operacion', {
       name: 'Operación de la verdulería',
-      importance: Notifications.AndroidImportance.HIGH,
+      importance: AndroidImportance.HIGH,
       vibrationPattern: [0, 250, 250, 250],
       lightColor: '#087F73',
     });
