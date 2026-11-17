@@ -335,6 +335,10 @@ export default function LoginScreen() {
     router.push('/catalogo' as any);
   };
 
+  const irCondiciones = () => {
+    router.push('/condiciones' as any);
+  };
+
   return (
     <ImageBackground
       nativeID="login-background"
@@ -492,6 +496,10 @@ export default function LoginScreen() {
             <Text style={styles.accesoSeguroCandado}>▣</Text>
             <Text style={styles.accesoSeguroTexto}>Acceso seguro</Text>
           </View>
+
+          <Pressable accessibilityRole="link" style={styles.botonCondiciones} onPress={irCondiciones}>
+            <Text style={styles.textoCondiciones}>Políticas de seguridad y condiciones de uso</Text>
+          </Pressable>
         </View>
 
       </View>
@@ -777,6 +785,17 @@ const baseStyles = createAppStyles({
   accesoSeguroTexto: {
     color: '#d6f4df',
     fontSize: 12,
+  },
+  botonCondiciones: {
+    alignItems: 'center',
+    paddingVertical: 10,
+    marginTop: 4,
+  },
+  textoCondiciones: {
+    color: '#d6f4df',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+    textAlign: 'center',
   },
   nota: {
     color: '#555',

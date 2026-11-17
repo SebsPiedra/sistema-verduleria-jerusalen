@@ -26,6 +26,7 @@ export default function ClienteRegistroScreen() {
   const [clave, setClave] = useState('');
   const [confirmarClave, setConfirmarClave] = useState('');
   const [mostrarClave, setMostrarClave] = useState(false);
+  const [aceptaCondiciones, setAceptaCondiciones] = useState(false);
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
@@ -55,6 +56,7 @@ export default function ClienteRegistroScreen() {
     setClave('');
     setConfirmarClave('');
     setMostrarClave(false);
+    setAceptaCondiciones(false);
   };
 
   const obtenerMensajeError = (error: any) => {
@@ -135,6 +137,11 @@ export default function ClienteRegistroScreen() {
 
     if (claveLimpia !== confirmarLimpia) {
       mostrarMensaje('Las contraseñas no coinciden.', 'error', true);
+      return;
+    }
+
+    if (!aceptaCondiciones) {
+      mostrarMensaje('Debe aceptar las políticas de seguridad y las condiciones de uso.', 'error', true);
       return;
     }
 
@@ -274,6 +281,23 @@ export default function ClienteRegistroScreen() {
             secureTextEntry={!mostrarClave}
             editable={!cargando}
           />
+
+          <Pressable
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: aceptaCondiciones }}
+            style={styles.condicionesFila}
+            onPress={() => setAceptaCondiciones((valor) => !valor)}
+            disabled={cargando}
+          >
+            <View style={[styles.casilla, aceptaCondiciones && styles.casillaActiva]}>
+              <Text style={styles.casillaTexto}>{aceptaCondiciones ? '✓' : ''}</Text>
+            </View>
+            <Text style={styles.condicionesTexto}>Acepto las políticas de seguridad y las condiciones de uso.</Text>
+          </Pressable>
+
+          <Pressable accessibilityRole="link" style={styles.enlaceCondiciones} onPress={() => router.push('/condiciones' as any)}>
+            <Text style={styles.enlaceCondicionesTexto}>Leer políticas y condiciones</Text>
+          </Pressable>
 
           <Pressable accessibilityRole="button"
             style={[
@@ -438,6 +462,45 @@ const baseStyles = createAppStyles({
   textoMostrar: {
     color: '#1b5e20',
     fontWeight: 'bold',
+  },
+  condicionesFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 18,
+  },
+  casilla: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#0b8b7f',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ffffff',
+  },
+  casillaActiva: {
+    backgroundColor: '#0b8b7f',
+  },
+  casillaTexto: {
+    color: '#ffffff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  condicionesTexto: {
+    flex: 1,
+    color: '#38534e',
+    lineHeight: 20,
+  },
+  enlaceCondiciones: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    marginLeft: 34,
+  },
+  enlaceCondicionesTexto: {
+    color: '#076d64',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
   },
   botonPrincipal: {
     backgroundColor: '#f58220',
