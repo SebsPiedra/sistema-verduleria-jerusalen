@@ -11,6 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import api from '../services/api';
 import { obtenerCategoriaProducto } from '../utils/productos';
 import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
@@ -183,7 +184,9 @@ export default function HomeScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>PR</Text>
+          <View style={[styles.iconoResumen, styles.iconoResumenProductos]}>
+            <MaterialCommunityIcons name="basket-outline" size={28} color="#006c63" />
+          </View>
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Productos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
@@ -192,7 +195,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>OK</Text>
+          <View style={[styles.iconoResumen, styles.iconoResumenBueno]}>
+            <MaterialCommunityIcons name="shield-check-outline" size={29} color="#238636" />
+          </View>
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>En buen estado</Text>
             <Text style={styles.tarjetaNumero}>{enBuenEstado}</Text>
@@ -201,7 +206,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>!</Text>
+          <View style={[styles.iconoResumen, styles.iconoResumenBajo]}>
+            <MaterialCommunityIcons name="package-down" size={29} color="#b85100" />
+          </View>
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Stock bajo</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{stockBajo}</Text>
@@ -210,7 +217,9 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoRojo}>!</Text>
+          <View style={[styles.iconoResumen, styles.iconoResumenAgotado]}>
+            <MaterialCommunityIcons name="package-variant-closed-remove" size={29} color="#d72835" />
+          </View>
           <View style={styles.tarjetaContenido}>
             <Text style={styles.tarjetaLabel}>Sin stock</Text>
             <Text style={styles.tarjetaNumeroRojo}>{sinStock}</Text>
@@ -355,7 +364,7 @@ export default function HomeScreen() {
 }
 
 const baseStyles = createAppStyles({
-  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 12, backgroundColor: '#fff' }, productoMovil: { flexDirection: 'row', alignItems: 'center', gap: 10 }, imagenMovil: { width: 48, height: 48 }, datoMovil: { color: '#5b7375', fontSize: 12 }, resumenMovil: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderColor: '#e4eded' }, precioMovil: { color: '#006c63', fontWeight: '800' },
+  listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#e2ddcf', borderRadius: 14, padding: 12, backgroundColor: '#fffdf6' }, productoMovil: { flexDirection: 'row', alignItems: 'center', gap: 10 }, imagenMovil: { width: 48, height: 48 }, datoMovil: { color: '#5b7375', fontSize: 12 }, resumenMovil: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderColor: '#e4eded' }, precioMovil: { color: '#006c63', fontWeight: '800' },
   hero: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -417,9 +426,9 @@ const baseStyles = createAppStyles({
   tarjeta: {
     flex: 1,
     minWidth: 190,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#0b3d32',
     borderWidth: 1,
-    borderColor: '#ebe4d3',
+    borderColor: '#2b6658',
     borderRadius: 18,
     padding: 18,
     flexDirection: 'row',
@@ -430,9 +439,18 @@ const baseStyles = createAppStyles({
     flex: 1,
     minWidth: 0,
   },
-  tarjetaIcono: {
-    fontSize: 35,
+  iconoResumen: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
+  iconoResumenProductos: { backgroundColor: '#e4f5f1' },
+  iconoResumenBueno: { backgroundColor: '#e8f7e7' },
+  iconoResumenBajo: { backgroundColor: '#fff0dc' },
+  iconoResumenAgotado: { backgroundColor: '#ffe8e9' },
   tarjetaIconoVerde: {
     color: '#7bb51e',
     borderWidth: 3,
@@ -470,21 +488,21 @@ const baseStyles = createAppStyles({
     fontWeight: 'bold',
   },
   tarjetaLabel: {
-    color: '#333',
+    color: '#f4fbf8',
     fontWeight: 'bold',
   },
   tarjetaNumero: {
-    color: '#0f4f24',
+    color: '#b5efd2',
     fontSize: 30,
     fontWeight: 'bold',
   },
   tarjetaNumeroNaranja: {
-    color: '#f58220',
+    color: '#ffbd73',
     fontSize: 30,
     fontWeight: 'bold',
   },
   tarjetaNumeroRojo: {
-    color: '#d32f2f',
+    color: '#ff9299',
     fontSize: 30,
     fontWeight: 'bold',
   },
@@ -493,7 +511,7 @@ const baseStyles = createAppStyles({
     fontSize: 12,
   },
   tablaCaja: {
-    backgroundColor: '#ffffff',
+    backgroundColor: '#fffdf6',
     borderWidth: 1,
     borderColor: '#ebe4d3',
     borderRadius: 20,
