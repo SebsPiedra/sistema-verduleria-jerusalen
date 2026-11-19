@@ -35,8 +35,17 @@ export default function ClienteHomeScreen() {
   const [carritoCantidad, setCarritoCantidad] = useState(0);
   const [cargando, setCargando] = useState(false);
   const [sesionCargada, setSesionCargada] = useState(false);
-  const [mensaje,setMensaje] = useState('');
+  const [mensaje, setMensaje] = useState('');
+  const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
+  const [ultimoAgregado, setUltimoAgregado] = useState<number | null>(null);
   const [cantidades, setCantidades] = useState<Record<number, number>>({});
+
+  const mostrarMensaje = (texto: string, tipo: 'ok' | 'error' | 'info' = 'info') => {
+    setMensaje(texto);
+    setTipoMensaje(tipo);
+
+    setTimeout(() => setMensaje(''), 4000);
+  };
 
   useEffect(() => {
     cargarCliente();
@@ -192,7 +201,10 @@ export default function ClienteHomeScreen() {
       const disponible=Number(producto.cantidad ?? producto.stock ?? 0);
       const idProducto = Number(producto.id_producto || producto.id);
       const cantidadSolicitada = cantidades[idProducto] || 1;
-      if(disponible < 1){setMensaje('Este producto no tiene suficiente stock.');return;}
+      if (disponible < 1) {
+        mostrarMensaje('Este producto no tiene suficiente stock.', 'error');
+        return;
+      }
       const carritoGuardado =
         (await obtenerDato('carrito_cliente')) ||
         (await obtenerDato('carrito'));
@@ -203,7 +215,13 @@ export default function ClienteHomeScreen() {
       );
 
       if (productoExistente) {
-        if(Number(productoExistente.cantidad || 0)+cantidadSolicitada>disponible){setMensaje(`Solo quedan ${disponible} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`);return;}
+        if (Number(productoExistente.cantidad || 0) + cantidadSolicitada > disponible) {
+          mostrarMensaje(
+            `Solo quedan ${disponible} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)}.`,
+            'error'
+          );
+          return;
+        }
         productoExistente.cantidad =
           Math.round((Number(productoExistente.cantidad || 0) + cantidadSolicitada) * 100) / 100;
         productoExistente.subtotal =
@@ -234,10 +252,13 @@ export default function ClienteHomeScreen() {
         )
       );
 
-      setMensaje(`Producto agregado con éxito: ${cantidadSolicitada} ${obtenerUnidad(producto)} de ${obtenerNombre(producto)} OK`);
-      setTimeout(() => setMensaje(''), 5000);
+      setUltimoAgregado(idProducto);
+      mostrarMensaje(
+        `${obtenerNombre(producto)} se agregó con éxito al carrito. Cantidad: ${cantidadSolicitada} ${obtenerUnidad(producto)}.`,
+        'ok'
+      );
     } catch {
-      Alert.alert('Error', 'No se pudo agregar el producto al carrito.');
+      mostrarMensaje('No se pudo agregar el producto al carrito.', 'error');
     }
   };
 
@@ -253,11 +274,6 @@ export default function ClienteHomeScreen() {
   return (
     <ScrollView style={styles.pagina} contentContainerStyle={[styles.contenido, isPhone && styles.contenidoPhone]}>
       <View style={styles.contenedorPrincipal}>
-        {!!mensaje && (
-          <View pointerEvents="none" style={styles.mensajeFlotante}>
-            <Text accessibilityRole="alert" style={styles.mensajeFlotanteTexto}>{mensaje}</Text>
-          </View>
-        )}
         <ClientHeader />
 
         <ImageBackground source={require('../../assets/images/login-ejecutivo.png')} style={[styles.heroCliente, isPhone && styles.heroClientePhone]} imageStyle={styles.heroImagen} resizeMode="cover">
@@ -327,6 +343,18 @@ export default function ClienteHomeScreen() {
             </Pressable>
           </View>
 
+          {mensaje !== '' && tipoMensaje !== 'ok' && (
+            <View
+              style={[
+                styles.mensajeCaja,
+                tipoMensaje === 'error' && styles.mensajeError,
+                tipoMensaje === 'info' && styles.mensajeInfo,
+              ]}
+            >
+              <Text accessibilityRole="alert" style={styles.mensajeTexto}>{mensaje}</Text>
+            </View>
+          )}
+
           {cargando ? (
             <Text style={styles.mensaje}>Cargando productos...</Text>
           ) : productosDestacados.length === 0 ? (
@@ -380,12 +408,31 @@ export default function ClienteHomeScreen() {
                       />
 
                       <Pressable accessibilityRole="button"
-                        style={styles.botonCarritoProducto}
+                        accessibilityLabel={`Agregar ${obtenerNombre(producto)} al carrito`}
+                        style={[
+                          styles.botonCarritoProducto,
+                          ultimoAgregado === Number(producto.id_producto || producto.id) &&
+                            styles.botonCarritoProductoAgregado,
+                        ]}
                         onPress={() => agregarAlCarrito(producto)}
                       >
-                        <Text style={styles.botonCarritoTexto}>CR</Text>
+                        <Text style={styles.botonCarritoTexto}>
+                          {ultimoAgregado === Number(producto.id_producto || producto.id)
+                            ? 'Agregado'
+                            : 'Agregar'}
+                        </Text>
                       </Pressable>
                     </View>
+
+                    {mensaje !== '' &&
+                      tipoMensaje === 'ok' &&
+                      ultimoAgregado === Number(producto.id_producto || producto.id) && (
+                        <View style={[styles.mensajeCaja, styles.mensajeOk, styles.mensajeProducto]}>
+                          <Text accessibilityRole="alert" style={styles.mensajeTexto}>
+                            {mensaje}
+                          </Text>
+                        </View>
+                      )}
                   </View>
                 );
               })}
@@ -424,26 +471,28 @@ const baseStyles = createAppStyles({
     borderWidth: 1,
     borderColor: '#ebe4d3',
   },
-  mensajeFlotante: {
-    position: 'fixed' as any,
-    top: 14,
-    left: 14,
-    right: 14,
-    zIndex: 1000,
-    alignItems: 'center',
-  },
-  mensajeFlotanteTexto: {
+  mensajeCaja: {
     width: '100%',
-    maxWidth: 620,
-    paddingVertical: 13,
+    marginTop: 18,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    color: '#075e58',
-    backgroundColor: '#e0f4ec',
-    borderColor: '#75b5a3',
     borderWidth: 1,
     borderRadius: 12,
+  },
+  mensajeOk: { backgroundColor: '#e5f6ed', borderColor: '#68ad85' },
+  mensajeError: { backgroundColor: '#fff0f0', borderColor: '#d86a6a' },
+  mensajeInfo: { backgroundColor: '#eef6ff', borderColor: '#6d9fd1' },
+  mensajeTexto: {
+    color: '#174b3c',
+    fontSize: 15,
+    lineHeight: 21,
     textAlign: 'center',
-    fontWeight: 'bold',
+    fontWeight: '800',
+  },
+  mensajeProducto: {
+    marginTop: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
   },
   heroCliente: {
     minHeight: 360,
@@ -681,13 +730,19 @@ logoSubtitulo: {
   },
   botonCarritoProducto: {
     backgroundColor: '#1b5e20',
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    minWidth: 72,
+    minHeight: 40,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
     borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  botonCarritoProductoAgregado: { backgroundColor: '#0a806c' },
   botonCarritoTexto: {
     color: '#ffffff',
-    fontSize: 16,
+    fontSize: 13,
+    fontWeight: '900',
   },
   footerCliente: {
     padding: 18,
