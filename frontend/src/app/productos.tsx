@@ -16,6 +16,7 @@ import api from '../services/api';
 import { obtenerCategoriaProducto } from '../utils/productos';
 import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 import AdminLayout from '../components/AdminLayout';
+import MetricIcon from '../components/MetricIcon';
 
 export default function ProductosScreen() {
   const styles = useAppStyles(baseStyles);
@@ -262,7 +263,7 @@ export default function ProductosScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>PR</Text>
+          <MetricIcon name="basket-outline" />
           <View>
             <Text style={styles.tarjetaLabel}>Productos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalProductos}</Text>
@@ -271,7 +272,7 @@ export default function ProductosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>OK</Text>
+          <MetricIcon name="shield-check-outline" tone="green" />
           <View>
             <Text style={styles.tarjetaLabel}>Activos</Text>
             <Text style={styles.tarjetaNumero}>{totalActivos}</Text>
@@ -280,7 +281,7 @@ export default function ProductosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>!</Text>
+          <MetricIcon name="package-down" tone="amber" />
           <View>
             <Text style={styles.tarjetaLabel}>Stock bajo</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{totalStockBajo}</Text>
@@ -289,7 +290,7 @@ export default function ProductosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoRojo}>!</Text>
+          <MetricIcon name="package-variant-closed-remove" tone="red" />
           <View>
             <Text style={styles.tarjetaLabel}>Sin stock</Text>
             <Text style={styles.tarjetaNumeroRojo}>{totalSinStock}</Text>
@@ -298,7 +299,7 @@ export default function ProductosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>○</Text>
+          <MetricIcon name="archive-off-outline" tone="neutral" />
           <View>
             <Text style={styles.tarjetaLabel}>Inactivos</Text>
             <Text style={styles.tarjetaNumero}>{totalInactivos}</Text>
@@ -377,7 +378,7 @@ export default function ProductosScreen() {
         </View>
 
         {esTelefono ? <View style={styles.listaMovil}>{productosFiltrados.map((producto, index) => { const imagen = obtenerImagen(producto); const estado = obtenerEstadoProducto(producto); const estilosEstado = obtenerEstiloEstado(estado); return <View key={producto.id_producto || producto.id || index} style={styles.tarjetaMovil}>
-          <View style={styles.productoMovil}>{imagen ? <Image source={imagen} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.imagenEmoji}>PR</Text>}<View style={{flex:1}}><Text style={styles.nombreProducto}>{obtenerNombre(producto)}</Text><Text style={styles.descripcionProducto}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estilosEstado.badge]}><Text style={styles.estadoTexto}>{estado}</Text></View></View>
+          <View style={styles.productoMovil}>{imagen ? <Image source={imagen} style={styles.imagenMovil} resizeMode="contain" /> : <MetricIcon name="basket-outline" tone="neutral" compact />}<View style={{flex:1}}><Text style={styles.nombreProducto}>{obtenerNombre(producto)}</Text><Text style={styles.descripcionProducto}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estilosEstado.badge]}><Text style={styles.estadoTexto}>{estado}</Text></View></View>
           <View style={styles.resumenMovil}><Text style={styles.datoMovil}>{obtenerCantidad(producto)} {obtenerUnidad(producto)}</Text><Text style={styles.precioMovil}>{formatoColones(obtenerPrecio(producto))}</Text></View>
           <Pressable style={styles.botonEditarMovil} onPress={() => irEditar(producto)}><Text style={styles.botonEditarTexto}>Editar producto</Text></Pressable>
         </View>})}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
@@ -392,7 +393,7 @@ export default function ProductosScreen() {
 
         {productosFiltrados.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>IN</Text>
+            <MetricIcon name="basket-outline" tone="neutral" />
             <Text style={styles.vacioTitulo}>
               {cargando ? 'Cargando productos...' : 'No hay productos para mostrar'}
             </Text>
@@ -417,7 +418,7 @@ export default function ProductosScreen() {
                         resizeMode="contain"
                       />
                     ) : (
-                      <Text style={styles.imagenEmoji}>PR</Text>
+                      <MetricIcon name="basket-outline" tone="neutral" compact />
                     )}
                   </View>
 
@@ -471,7 +472,7 @@ export default function ProductosScreen() {
 
       <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>J</Text>
+          <MetricIcon name="shield-check-outline" tone="green" compact />
           <View>
             <Text style={styles.footerLabel}>Productos en buen estado</Text>
             <Text style={styles.footerValor}>{totalBuenEstado}</Text>
@@ -481,7 +482,7 @@ export default function ProductosScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>!</Text>
+          <MetricIcon name="alert-outline" tone="amber" compact />
           <View>
             <Text style={styles.footerLabel}>Requieren atención</Text>
             <Text style={styles.footerValor}>{totalStockBajo + totalSinStock}</Text>
@@ -491,7 +492,7 @@ export default function ProductosScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>CRC</Text>
+          <MetricIcon name="cash-multiple" tone="teal" compact />
           <View>
             <Text style={styles.footerLabel}>Valor compra estimado</Text>
             <Text style={styles.footerValor}>{formatoColones(valorInventario)}</Text>

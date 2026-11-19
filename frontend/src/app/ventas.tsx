@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import AdminLayout from '../components/AdminLayout';
+import MetricIcon from '../components/MetricIcon';
 import api from '../services/api';
 import { obtenerCategoriaProducto as inferirCategoriaProducto } from '../utils/productos';
 import { cantidadValidaParaUnidad, normalizarCantidad } from '../utils/unidades';
@@ -494,7 +495,7 @@ export default function VentasScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>FA</Text>
+          <MetricIcon name="receipt-text-outline" />
           <View>
             <Text style={styles.tarjetaLabel}>Ventas registradas</Text>
             <Text style={styles.tarjetaNumero}>{ventas.length}</Text>
@@ -503,7 +504,7 @@ export default function VentasScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>₡</Text>
+          <MetricIcon name="cash-multiple" tone="green" />
           <View>
             <Text style={styles.tarjetaLabel}>Total vendido</Text>
             <Text style={styles.tarjetaNumero}>{formatoColones(totalVendido)}</Text>
@@ -512,7 +513,7 @@ export default function VentasScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>IN</Text>
+          <MetricIcon name="store-check-outline" tone="amber" />
           <View>
             <Text style={styles.tarjetaLabel}>Disponibles para vender</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{productosConStock.length}</Text>
@@ -766,7 +767,7 @@ export default function VentasScreen() {
           </View>
         ) : ventasFiltradas.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>FA</Text>
+            <MetricIcon name="receipt-text-outline" tone="neutral" />
             <Text style={styles.vacioTitulo}>No hay ventas para mostrar</Text>
             <Text style={styles.vacioTexto}>
               Registre una venta manual para verla en esta tabla.

@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
+import MetricIcon from '../components/MetricIcon';
 import api from '../services/api';
 
 export default function DashboardScreen() {
@@ -230,7 +231,7 @@ export default function DashboardScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>IN</Text>
+          <MetricIcon name="package-variant-closed" />
           <View>
             <Text style={styles.tarjetaLabel}>Productos activos</Text>
             <Text style={styles.tarjetaNumero}>{productosActivos.length}</Text>
@@ -239,7 +240,7 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>₡</Text>
+          <MetricIcon name="cash-multiple" tone="green" />
           <View>
             <Text style={styles.tarjetaLabel}>Ventas registradas</Text>
             <Text style={styles.tarjetaNumero}>{formatoColones(totalVentas)}</Text>
@@ -248,7 +249,7 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>⏳</Text>
+          <MetricIcon name="clock-outline" tone="amber" />
           <View>
             <Text style={styles.tarjetaLabel}>Pedidos pendientes</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{pedidosPendientes.length}</Text>
@@ -257,7 +258,7 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoRojo}>!</Text>
+          <MetricIcon name="alert-circle-outline" tone="red" />
           <View>
             <Text style={styles.tarjetaLabel}>Alertas activas</Text>
             <Text style={styles.tarjetaNumeroRojo}>{totalAlertas}</Text>
@@ -370,7 +371,7 @@ export default function DashboardScreen() {
           </Text>
 
           <View style={styles.operacionFila}>
-            <Text style={styles.operacionIcono}>CL</Text>
+            <MetricIcon name="account-group-outline" compact />
             <View>
               <Text style={styles.operacionTitulo}>{clientes.length}</Text>
               <Text style={styles.operacionTexto}>Clientes registrados</Text>
@@ -378,7 +379,7 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.operacionFila}>
-            <Text style={styles.operacionIcono}>FA</Text>
+            <MetricIcon name="receipt-text-outline" tone="green" compact />
             <View>
               <Text style={styles.operacionTitulo}>{ventas.length}</Text>
               <Text style={styles.operacionTexto}>Ventas en historial</Text>
@@ -386,7 +387,7 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.operacionFila}>
-            <Text style={styles.operacionIcono}>DE</Text>
+            <MetricIcon name="delete-outline" tone="red" compact />
             <View>
               <Text style={styles.operacionTitulo}>{desechos.length}</Text>
               <Text style={styles.operacionTexto}>Desechos registrados</Text>

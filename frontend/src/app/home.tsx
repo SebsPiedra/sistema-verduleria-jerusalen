@@ -16,6 +16,7 @@ import api from '../services/api';
 import { obtenerCategoriaProducto } from '../utils/productos';
 import { obtenerFuenteImagenProducto } from '../utils/imagenesProductos';
 import AdminLayout from '../components/AdminLayout';
+import MetricIcon from '../components/MetricIcon';
 
 export default function HomeScreen() {
   const styles = useAppStyles(baseStyles);
@@ -245,7 +246,7 @@ export default function HomeScreen() {
         </View>
 
         {esTelefono ? <View style={styles.listaMovil}>{productosFiltrados.map((producto, index) => { const estado = obtenerEstadoVisual(producto); const imagen = obtenerImagen(producto); return <View key={producto.id_producto || index} style={styles.tarjetaMovil}>
-          <View style={styles.productoMovil}>{imagen ? <Image source={imagen} style={styles.imagenMovil} resizeMode="contain" /> : <Text style={styles.productoEmoji}>PR</Text>}<View style={{flex:1}}><Text style={styles.productoNombre}>{obtenerNombre(producto)}</Text><Text style={styles.datoMovil}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estado.estilo]}><Text style={styles.estadoTexto}>{estado.texto}</Text></View></View>
+          <View style={styles.productoMovil}>{imagen ? <Image source={imagen} style={styles.imagenMovil} resizeMode="contain" /> : <MetricIcon name="basket-outline" tone="neutral" compact />}<View style={{flex:1}}><Text style={styles.productoNombre}>{obtenerNombre(producto)}</Text><Text style={styles.datoMovil}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estado.estilo]}><Text style={styles.estadoTexto}>{estado.texto}</Text></View></View>
           <View style={styles.resumenMovil}><Text style={styles.datoMovil}>Stock: {obtenerCantidad(producto)} {obtenerUnidad(producto)}</Text><Text style={styles.precioMovil}>{formatoColones(obtenerPrecio(producto))}</Text></View>
         </View>})}</View> : <ResponsiveTable><View style={styles.tablaHeader}>
           <Text style={[styles.th, styles.colProducto]}>Producto</Text>
@@ -278,7 +279,7 @@ export default function HomeScreen() {
                         resizeMode="contain"
                       />
                     ) : (
-                      <Text style={styles.productoEmoji}>PR</Text>
+                      <MetricIcon name="basket-outline" tone="neutral" compact />
                     )}
                   </View>
 
@@ -330,7 +331,7 @@ export default function HomeScreen() {
 
       <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>EN</Text>
+          <MetricIcon name="clock-outline" tone="amber" compact />
           <View>
             <Text style={styles.footerLabel}>Pedidos pendientes</Text>
             <Text style={styles.footerValor}>
@@ -342,7 +343,7 @@ export default function HomeScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>J</Text>
+          <MetricIcon name="shield-check-outline" tone="green" compact />
           <View>
             <Text style={styles.footerLabel}>Productos en buen estado</Text>
             <Text style={styles.footerValor}>{enBuenEstado} productos</Text>
@@ -352,7 +353,7 @@ export default function HomeScreen() {
         <View style={[styles.footerSeparador, esTelefono && styles.footerSeparadorTelefono]} />
 
         <View style={styles.footerItem}>
-          <Text style={styles.footerIcono}>PR</Text>
+          <MetricIcon name="cash-multiple" compact />
           <View>
             <Text style={styles.footerLabel}>Total estimado</Text>
             <Text style={styles.footerValor}>{formatoColones(totalEstimado)}</Text>

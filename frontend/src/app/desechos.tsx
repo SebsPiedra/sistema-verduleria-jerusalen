@@ -12,6 +12,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
+import MetricIcon from '../components/MetricIcon';
 import { cantidadValidaParaUnidad, textoAyudaCantidad } from '../utils/unidades';
 import api from '../services/api';
 
@@ -359,7 +360,7 @@ export default function DesechosScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>DE</Text>
+          <MetricIcon name="delete-outline" />
           <View>
             <Text style={styles.tarjetaLabel}>Registros</Text>
             <Text style={styles.tarjetaNumero}>{totalDesechos}</Text>
@@ -368,7 +369,7 @@ export default function DesechosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoRojo}>₡</Text>
+          <MetricIcon name="cash-remove" tone="red" />
           <View>
             <Text style={styles.tarjetaLabel}>Pérdida total</Text>
             <Text style={styles.tarjetaNumeroRojo}>
@@ -379,7 +380,7 @@ export default function DesechosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>!</Text>
+          <MetricIcon name="delete-alert-outline" tone="amber" />
           <View>
             <Text style={styles.tarjetaLabel}>Cantidad desechada</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{cantidadTotalDesechada}</Text>
@@ -388,7 +389,7 @@ export default function DesechosScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>HOY</Text>
+          <MetricIcon name="calendar-today" tone="green" />
           <View>
             <Text style={styles.tarjetaLabel}>Desechos de hoy</Text>
             <Text style={styles.tarjetaNumero}>{desechosHoy.length}</Text>
@@ -594,7 +595,7 @@ export default function DesechosScreen() {
           </View>
         ) : desechosFiltrados.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>DE</Text>
+            <MetricIcon name="delete-outline" tone="neutral" />
             <Text style={styles.vacioTitulo}>No hay desechos para mostrar</Text>
             <Text style={styles.vacioTexto}>
               Registre un desecho o revise la búsqueda.
@@ -608,7 +609,7 @@ export default function DesechosScreen() {
             >
               <View style={[styles.colProducto, styles.productoInfo]}>
                 <View style={styles.avatarDesecho}>
-                  <Text style={styles.avatarTexto}>DE</Text>
+                  <MetricIcon name="delete-outline" tone="red" compact />
                 </View>
 
                 <View style={styles.nombreArea}>

@@ -13,6 +13,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
+import MetricIcon from '../components/MetricIcon';
 import api from '../services/api';
 
 export default function HistorialVentasScreen() {
@@ -610,7 +611,7 @@ export default function HistorialVentasScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>FA</Text>
+          <MetricIcon name="receipt-text-outline" />
           <View>
             <Text style={styles.tarjetaLabel}>Facturas</Text>
             <Text style={styles.tarjetaNumero}>{totalFacturas}</Text>
@@ -619,7 +620,7 @@ export default function HistorialVentasScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>₡</Text>
+          <MetricIcon name="cash-multiple" tone="green" />
           <View>
             <Text style={styles.tarjetaLabel}>Total facturado</Text>
             <Text style={styles.tarjetaNumero}>{formatoColones(totalFacturado)}</Text>
@@ -628,7 +629,7 @@ export default function HistorialVentasScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoAzul}>#</Text>
+          <MetricIcon name="trending-up" tone="blue" />
           <View>
             <Text style={styles.tarjetaLabel}>Venta mayor</Text>
             <Text style={styles.tarjetaNumeroAzul}>
@@ -694,7 +695,7 @@ export default function HistorialVentasScreen() {
             </View>
           ) : ventasFiltradas.length === 0 ? (
             <View style={styles.vacio}>
-              <Text style={styles.vacioIcono}>FA</Text>
+              <MetricIcon name="receipt-text-outline" tone="neutral" />
               <Text style={styles.vacioTitulo}>No hay ventas para mostrar</Text>
               <Text style={styles.vacioTexto}>
                 Cuando existan ventas registradas aparecerán aquí.
@@ -761,7 +762,7 @@ export default function HistorialVentasScreen() {
         <ScrollView keyboardShouldPersistTaps="handled">
           {!ventaSeleccionada ? (
             <View style={styles.facturaVacia}>
-              <Text style={styles.vacioIcono}>FA</Text>
+              <MetricIcon name="receipt-text-outline" tone="neutral" />
               <Text style={styles.vacioTitulo}>Seleccione una factura</Text>
               <Text style={styles.vacioTexto}>
                 Presione “Ver factura” en una venta para revisar el comprobante.

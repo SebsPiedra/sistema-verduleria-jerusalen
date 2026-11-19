@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import AdminLayout from '../components/AdminLayout';
+import MetricIcon from '../components/MetricIcon';
 import api from '../services/api';
 
 export default function PedidosAdminScreen() {
@@ -601,7 +602,7 @@ export default function PedidosAdminScreen() {
 
       <View style={[styles.tarjetas, esTelefono && styles.tarjetasTelefono]}>
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIcono}>PD</Text>
+          <MetricIcon name="clipboard-list-outline" />
           <View>
             <Text style={styles.tarjetaLabel}>Pedidos totales</Text>
             <Text style={styles.tarjetaNumero}>{totalPedidos}</Text>
@@ -610,7 +611,7 @@ export default function PedidosAdminScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoNaranja}>⏳</Text>
+          <MetricIcon name="clock-outline" tone="amber" />
           <View>
             <Text style={styles.tarjetaLabel}>Pendientes</Text>
             <Text style={styles.tarjetaNumeroNaranja}>{totalPendientes}</Text>
@@ -619,7 +620,7 @@ export default function PedidosAdminScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoVerde}>OK</Text>
+          <MetricIcon name="check-decagram-outline" tone="green" />
           <View>
             <Text style={styles.tarjetaLabel}>Aceptados</Text>
             <Text style={styles.tarjetaNumero}>{totalAceptados}</Text>
@@ -628,7 +629,7 @@ export default function PedidosAdminScreen() {
         </View>
 
         <View style={styles.tarjeta}>
-          <Text style={styles.tarjetaIconoAzul}>₡</Text>
+          <MetricIcon name="cash-multiple" tone="blue" />
           <View>
             <Text style={styles.tarjetaLabel}>Monto total</Text>
             <Text style={styles.tarjetaNumeroAzul}>
@@ -759,7 +760,7 @@ export default function PedidosAdminScreen() {
           </View>
         ) : pedidosFiltrados.length === 0 ? (
           <View style={styles.vacio}>
-            <Text style={styles.vacioIcono}>PD</Text>
+            <MetricIcon name="clipboard-list-outline" tone="neutral" />
             <Text style={styles.vacioTitulo}>No hay pedidos para mostrar</Text>
             <Text style={styles.vacioTexto}>
               Cuando un cliente registre un pedido aparecerá en esta sección.

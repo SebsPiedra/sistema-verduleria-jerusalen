@@ -26,6 +26,24 @@ export function createAppStyles<T extends NamedStyles<T>>(rules: T): T {
     if (/^(card|tarjeta|tablaCaja|formulario|formCard|productoCard|contenedorPrincipal)$/.test(name)) {
       rule.borderRadius = 20; rule.borderWidth = 1; rule.borderColor = '#dce8e9';
     }
+    if (/^(card|tablaCaja|formulario|formCard|tarjetaMovil)$/.test(name)) rule.backgroundColor = '#fffdf6';
+    if (name === 'tarjeta') {
+      rule.backgroundColor = '#0b3d32';
+      rule.borderColor = '#2b6658';
+    }
+    if (name === 'tarjetaLabel') rule.color = '#f4fbf8';
+    if (name === 'tarjetaNumero') rule.color = '#b5efd2';
+    if (name === 'tarjetaNumeroNaranja') rule.color = '#ffbd73';
+    if (name === 'tarjetaNumeroRojo') rule.color = '#ff9299';
+    if (name === 'tarjetaNumeroAzul') rule.color = '#90c8ff';
+    if (name === 'tarjetaDetalle') rule.color = '#cfe4de';
+    if (name === 'footerResumen') {
+      rule.backgroundColor = '#0b3d32';
+      rule.borderColor = '#2b6658';
+    }
+    if (name === 'footerLabel') rule.color = '#f4fbf8';
+    if (name === 'footerValor') rule.color = '#b5efd2';
+    if (name === 'footerSeparador') rule.backgroundColor = '#4d756a';
     if (/^(boton|button)/.test(name) && !/(Texto|Text|Icon|Desactivado|Disabled)/i.test(name)) {
       rule.minHeight = Math.max(rule.minHeight as number || 0, 44);
       rule.justifyContent = 'center';
@@ -56,7 +74,6 @@ export function useAppStyles<T extends NamedStyles<T>>(base: T): T {
       if (/^(input|textArea)/.test(name)) rule.minWidth = 0;
       if (name === 'tarjetasTelefono') { rule.flexDirection='row'; rule.flexWrap='wrap'; }
       if (name === 'tarjeta') { rule.minWidth=120; rule.flexBasis='45%'; rule.flexGrow=1; rule.padding=14; }
-      if (/^tarjetaIcono/.test(name)) rule.display='none';
       if (name === 'contenedorPrincipal') rule.padding=0;
       if (name === 'bannerTitulo') rule.fontSize=28;
       if (/^(catalogoContenido|filtros|seccionProductos)$/.test(name)) rule.paddingHorizontal=16;
