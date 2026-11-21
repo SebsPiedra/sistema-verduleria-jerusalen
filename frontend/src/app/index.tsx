@@ -361,7 +361,7 @@ export default function LoginScreen() {
           <View style={styles.lineaNaranja} />
         </View>
 
-        <View nativeID="login-card" style={styles.card}>
+        <View nativeID="login-card" style={styles.loginCard}>
           <Text style={styles.titulo}>Bienvenido</Text>
 
           <Text style={styles.descripcion}>Acceso seguro al sistema de gestión</Text>
@@ -608,7 +608,7 @@ const baseStyles = createAppStyles({
     letterSpacing: 5,
     marginTop: 18,
   },
-  card: {
+  loginCard: {
     width: '100%',
     maxWidth: 470,
     backgroundColor: 'rgba(5, 48, 37, 0.90)',
