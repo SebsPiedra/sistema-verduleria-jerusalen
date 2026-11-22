@@ -82,6 +82,98 @@ async function cargarDetalles(idsVentas) {
 
 router.get('/', async (req, res) => {
   try {
+    const usaPaginacion = req.query.page !== undefined || req.query.limit !== undefined;
+
+    if (usaPaginacion) {
+      const pagina = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+      const limite = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 25, 1), 100);
+      const offset = (pagina - 1) * limite;
+      const busqueda = String(req.query.search || '').trim().toLowerCase();
+      const metodo = String(req.query.metodo || '').trim();
+      const condiciones = [];
+      const parametros = [];
+
+      if (busqueda) {
+        condiciones.push(`(
+          LOWER(COALESCE(numero_factura, '')) LIKE ? OR
+          LOWER(COALESCE(cliente, 'Cliente general')) LIKE ? OR
+          LOWER(COALESCE(metodo_pago, 'Efectivo')) LIKE ? OR
+          LOWER(COALESCE(estado, 'Completada')) LIKE ?
+        )`);
+        const patron = `%${busqueda}%`;
+        parametros.push(patron, patron, patron, patron);
+      }
+
+      if (metodo && metodo !== 'Todos') {
+        condiciones.push(`COALESCE(metodo_pago, 'Efectivo') = ?`);
+        parametros.push(metodo);
+      }
+
+      const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+
+      const [resultadoVentas, resultadoConteo, resultadoResumen, resultadoMetodos] = await Promise.all([
+        ejecutar(
+          `
+            SELECT
+              id_venta,
+              id_cliente,
+              COALESCE(cliente, 'Cliente general') AS cliente,
+              COALESCE(numero_factura, '') AS numero_factura,
+              COALESCE(total, 0) AS total,
+              COALESCE(metodo_pago, 'Efectivo') AS metodo_pago,
+              COALESCE(estado, 'Completada') AS estado,
+              observacion,
+              fecha_venta
+            FROM ventas
+            ${where}
+            ORDER BY id_venta DESC
+            LIMIT ? OFFSET ?
+          `,
+          [...parametros, limite, offset]
+        ),
+        ejecutar(`SELECT COUNT(*) AS total FROM ventas ${where}`, parametros),
+        ejecutar(`
+          SELECT
+            COUNT(*) AS total_facturas,
+            COALESCE(SUM(total), 0) AS total_facturado,
+            COALESCE(MAX(total), 0) AS venta_mayor
+          FROM ventas
+        `),
+        ejecutar(`
+          SELECT DISTINCT COALESCE(metodo_pago, 'Efectivo') AS metodo
+          FROM ventas
+          ORDER BY metodo ASC
+        `),
+      ]);
+
+      const ventas = obtenerFilas(resultadoVentas).map((venta) => {
+        const idVenta = Number(venta.id_venta);
+        return {
+          ...venta,
+          numero_factura: venta.numero_factura || generarFactura(idVenta),
+          factura: venta.numero_factura || generarFactura(idVenta),
+        };
+      });
+      const total = Number(obtenerPrimero(resultadoConteo)?.total || 0);
+      const resumen = obtenerPrimero(resultadoResumen) || {};
+
+      return res.json({
+        ventas,
+        paginacion: {
+          pagina,
+          limite,
+          total,
+          total_paginas: Math.max(Math.ceil(total / limite), 1),
+        },
+        resumen: {
+          total_facturas: Number(resumen.total_facturas || 0),
+          total_facturado: Number(resumen.total_facturado || 0),
+          venta_mayor: Number(resumen.venta_mayor || 0),
+        },
+        metodos: obtenerFilas(resultadoMetodos).map((fila) => fila.metodo),
+      });
+    }
+
     const resultadoVentas = await ejecutar(`
       SELECT
         id_venta,

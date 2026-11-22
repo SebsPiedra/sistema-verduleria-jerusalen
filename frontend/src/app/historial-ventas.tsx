@@ -27,25 +27,49 @@ export default function HistorialVentasScreen() {
   const [filtroMetodo, setFiltroMetodo] = useState('Todos');
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [totalResultados, setTotalResultados] = useState(0);
+  const [resumen, setResumen] = useState({ total_facturas: 0, total_facturado: 0, venta_mayor: 0 });
+  const [metodosDisponibles, setMetodosDisponibles] = useState<string[]>([]);
+  const LIMITE_POR_PAGINA = 25;
 
   useEffect(() => {
-    cargarVentas();
-  }, []);
+    const temporizador = setTimeout(() => cargarVentas(pagina), busqueda ? 300 : 0);
+    return () => clearTimeout(temporizador);
+    // Los filtros y la página determinan la consulta remota.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagina, busqueda, filtroMetodo]);
 
-  const cargarVentas = async () => {
+  const cargarVentas = async (paginaSolicitada = pagina) => {
     try {
       setCargando(true);
       setMensaje('');
       setDetalles({});
       setVentaSeleccionada(null);
 
-      const respuesta = await api.get('/ventas');
+      const respuesta = await api.get('/ventas', {
+        params: {
+          page: paginaSolicitada,
+          limit: LIMITE_POR_PAGINA,
+          search: busqueda.trim() || undefined,
+          metodo: filtroMetodo !== 'Todos' ? filtroMetodo : undefined,
+        },
+      });
 
       const datos = Array.isArray(respuesta.data)
         ? respuesta.data
         : respuesta.data?.ventas || respuesta.data?.facturas || [];
 
       setVentas(datos);
+      setTotalPaginas(Number(respuesta.data?.paginacion?.total_paginas || 1));
+      setTotalResultados(Number(respuesta.data?.paginacion?.total || datos.length));
+      setResumen({
+        total_facturas: Number(respuesta.data?.resumen?.total_facturas || datos.length),
+        total_facturado: Number(respuesta.data?.resumen?.total_facturado || 0),
+        venta_mayor: Number(respuesta.data?.resumen?.venta_mayor || 0),
+      });
+      setMetodosDisponibles(Array.isArray(respuesta.data?.metodos) ? respuesta.data.metodos : []);
     } catch (error: any) {
       console.log('Error historial ventas:', error?.response?.data || error);
       setVentas([]);
@@ -553,35 +577,11 @@ export default function HistorialVentasScreen() {
     `;
   };
 
-  const metodos = [
-    'Todos',
-    ...Array.from(new Set(ventas.map((venta) => obtenerMetodo(venta)))),
-  ];
-
-  const ventasFiltradas = ventas.filter((venta) => {
-    const texto = busqueda.toLowerCase();
-
-    const coincideBusqueda =
-      obtenerFactura(venta).toLowerCase().includes(texto) ||
-      obtenerCliente(venta).toLowerCase().includes(texto) ||
-      obtenerMetodo(venta).toLowerCase().includes(texto) ||
-      obtenerEstado(venta).toLowerCase().includes(texto);
-
-    const coincideMetodo =
-      filtroMetodo === 'Todos' || obtenerMetodo(venta) === filtroMetodo;
-
-    return coincideBusqueda && coincideMetodo;
-  });
-
-  const totalFacturado = ventas.reduce((total, venta) => {
-    return total + obtenerTotal(venta);
-  }, 0);
-
-  const totalFacturas = ventas.length;
-
-  const ventaMayor = ventas.reduce((mayor, venta) => {
-    return obtenerTotal(venta) > obtenerTotal(mayor) ? venta : mayor;
-  }, ventas[0] || {});
+  const metodos = ['Todos', ...metodosDisponibles];
+  const ventasFiltradas = ventas;
+  const totalFacturado = resumen.total_facturado;
+  const totalFacturas = resumen.total_facturas;
+  const ventaMayor = resumen.venta_mayor;
 
   const detalleActual = obtenerDetalleActual();
 
@@ -596,7 +596,7 @@ export default function HistorialVentasScreen() {
           
         </View>
 
-        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarVentas}>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={() => cargarVentas(pagina)}>
           <Text style={styles.textoActualizar}>
             {cargando ? 'Actualizando...' : 'Actualizar historial'}
           </Text>
@@ -633,10 +633,10 @@ export default function HistorialVentasScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Venta mayor</Text>
             <Text style={styles.tarjetaNumeroAzul}>
-              {formatoColones(obtenerTotal(ventaMayor))}
+              {formatoColones(ventaMayor)}
             </Text>
             <Text style={styles.tarjetaDetalle}>
-              {ventaMayor ? obtenerFactura(ventaMayor) : 'Sin datos'}
+              {ventaMayor > 0 ? 'Mayor venta registrada' : 'Sin datos'}
             </Text>
           </View>
         </View>
@@ -649,7 +649,10 @@ export default function HistorialVentasScreen() {
               style={styles.input}
               placeholder="Buscar por factura, cliente, método o estado..."
               value={busqueda}
-              onChangeText={setBusqueda}
+              onChangeText={(texto) => {
+                setBusqueda(texto);
+                setPagina(1);
+              }}
             />
 
             <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
@@ -661,7 +664,10 @@ export default function HistorialVentasScreen() {
                       styles.filtroBoton,
                       filtroMetodo === metodo && styles.filtroBotonActivo,
                     ]}
-                    onPress={() => setFiltroMetodo(metodo)}
+                    onPress={() => {
+                      setFiltroMetodo(metodo);
+                      setPagina(1);
+                    }}
                   >
                     <Text
                       style={[
@@ -748,8 +754,28 @@ export default function HistorialVentasScreen() {
 
           <View style={styles.footerTabla}>
             <Text style={styles.footerTexto}>
-              Mostrando {ventasFiltradas.length} de {ventas.length} ventas
+              Mostrando {ventasFiltradas.length} de {totalResultados} ventas · Página {pagina} de {totalPaginas}
             </Text>
+            <View style={styles.paginacion}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Página anterior"
+                disabled={pagina <= 1 || cargando}
+                style={[styles.botonPagina, (pagina <= 1 || cargando) && styles.botonPaginaDesactivado]}
+                onPress={() => setPagina((actual) => Math.max(actual - 1, 1))}
+              >
+                <Text style={styles.textoPagina}>Anterior</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Página siguiente"
+                disabled={pagina >= totalPaginas || cargando}
+                style={[styles.botonPagina, (pagina >= totalPaginas || cargando) && styles.botonPaginaDesactivado]}
+                onPress={() => setPagina((actual) => Math.min(actual + 1, totalPaginas))}
+              >
+                <Text style={styles.textoPagina}>Siguiente</Text>
+              </Pressable>
+            </View>
           </View>
         </View>
 
@@ -1126,11 +1152,25 @@ const baseStyles = createAppStyles({
   },
   footerTabla: {
     paddingTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
   },
   footerTexto: {
     color: '#777',
     fontWeight: 'bold',
   },
+  paginacion: { flexDirection: 'row', gap: 8 },
+  botonPagina: {
+    backgroundColor: '#0f4f24',
+    borderRadius: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+  },
+  botonPaginaDesactivado: { opacity: 0.4 },
+  textoPagina: { color: '#ffffff', fontWeight: 'bold', fontSize: 12 },
   vacio: {
     padding: 34,
     alignItems: 'center',

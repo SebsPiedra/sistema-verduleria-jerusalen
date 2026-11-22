@@ -31,6 +31,8 @@ export default function ProductosScreen() {
   const [cargando, setCargando] = useState(false);
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
+  const [pagina, setPagina] = useState(1);
+  const PRODUCTOS_POR_PAGINA = esTelefono ? 12 : 25;
 
   useEffect(() => {
     cargarProductos();
@@ -207,6 +209,20 @@ export default function ProductosScreen() {
     return coincideBusqueda && coincideEstado && coincideCategoria;
   });
 
+  const totalPaginas = Math.max(
+    Math.ceil(productosFiltrados.length / PRODUCTOS_POR_PAGINA),
+    1
+  );
+  const inicioPagina = (pagina - 1) * PRODUCTOS_POR_PAGINA;
+  const productosPagina = productosFiltrados.slice(
+    inicioPagina,
+    inicioPagina + PRODUCTOS_POR_PAGINA
+  );
+
+  useEffect(() => {
+    setPagina(1);
+  }, [busqueda, filtroEstado, filtroCategoria, PRODUCTOS_POR_PAGINA]);
+
   const totalProductos = productos.length;
 
   const totalActivos = productos.filter(
@@ -367,7 +383,7 @@ export default function ProductosScreen() {
 
         <View style={[styles.accionesFila, esTelefono && styles.accionesTelefono]}>
           <Text style={styles.resultadoTexto}>
-            Mostrando {productosFiltrados.length} de {productos.length} productos
+            Mostrando {productosPagina.length} de {productosFiltrados.length} productos encontrados
           </Text>
 
           <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarProductos}>
@@ -377,7 +393,7 @@ export default function ProductosScreen() {
           </Pressable>
         </View>
 
-        {esTelefono ? <View style={styles.listaMovil}>{productosFiltrados.map((producto, index) => { const imagen = obtenerImagen(producto); const estado = obtenerEstadoProducto(producto); const estilosEstado = obtenerEstiloEstado(estado); return <View key={producto.id_producto || producto.id || index} style={styles.tarjetaMovil}>
+        {esTelefono ? <View style={styles.listaMovil}>{productosPagina.map((producto, index) => { const imagen = obtenerImagen(producto); const estado = obtenerEstadoProducto(producto); const estilosEstado = obtenerEstiloEstado(estado); return <View key={producto.id_producto || producto.id || index} style={styles.tarjetaMovil}>
           <View style={styles.productoMovil}>{imagen ? <Image source={imagen} style={styles.imagenMovil} resizeMode="contain" /> : <MetricIcon name="basket-outline" tone="neutral" compact />}<View style={{flex:1}}><Text style={styles.nombreProducto}>{obtenerNombre(producto)}</Text><Text style={styles.descripcionProducto}>{obtenerCategoria(producto)}</Text></View><View style={[styles.estadoBadge, estilosEstado.badge]}><Text style={styles.estadoTexto}>{estado}</Text></View></View>
           <View style={styles.resumenMovil}><Text style={styles.datoMovil}>{obtenerCantidad(producto)} {obtenerUnidad(producto)}</Text><Text style={styles.precioMovil}>{formatoColones(obtenerPrecio(producto))}</Text></View>
           <Pressable style={styles.botonEditarMovil} onPress={() => irEditar(producto)}><Text style={styles.botonEditarTexto}>Editar producto</Text></Pressable>
@@ -402,7 +418,7 @@ export default function ProductosScreen() {
             </Text>
           </View>
         ) : (
-          productosFiltrados.map((producto, index) => {
+          productosPagina.map((producto, index) => {
             const imagen = obtenerImagen(producto);
             const estado = obtenerEstadoProducto(producto);
             const estilosEstado = obtenerEstiloEstado(estado);
@@ -468,6 +484,32 @@ export default function ProductosScreen() {
             );
           })
         )}</ResponsiveTable>}
+
+        <View style={styles.paginacionProductos}>
+          <Text style={styles.paginacionTexto}>
+            Página {pagina} de {totalPaginas}
+          </Text>
+          <View style={styles.paginacionBotones}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Página anterior de productos"
+              disabled={pagina <= 1}
+              style={[styles.botonPagina, pagina <= 1 && styles.botonPaginaDesactivado]}
+              onPress={() => setPagina((actual) => Math.max(actual - 1, 1))}
+            >
+              <Text style={styles.botonPaginaTexto}>Anterior</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Página siguiente de productos"
+              disabled={pagina >= totalPaginas}
+              style={[styles.botonPagina, pagina >= totalPaginas && styles.botonPaginaDesactivado]}
+              onPress={() => setPagina((actual) => Math.min(actual + 1, totalPaginas))}
+            >
+              <Text style={styles.botonPaginaTexto}>Siguiente</Text>
+            </Pressable>
+          </View>
+        </View>
       </View>
 
       <View style={[styles.footerResumen, esTelefono && styles.footerResumenTelefono]}>
@@ -504,6 +546,12 @@ export default function ProductosScreen() {
 }
 
 const baseStyles = createAppStyles({
+  paginacionProductos: { marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' },
+  paginacionTexto: { color: '#5b7375', fontWeight: '700' },
+  paginacionBotones: { flexDirection: 'row', gap: 8 },
+  botonPagina: { backgroundColor: '#006c63', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 14 },
+  botonPaginaDesactivado: { opacity: 0.4 },
+  botonPaginaTexto: { color: '#ffffff', fontWeight: '800', fontSize: 12 },
   listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 12, backgroundColor: '#fff' }, productoMovil: { flexDirection: 'row', alignItems: 'center', gap: 10 }, imagenMovil: { width: 54, height: 54 }, resumenMovil: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 9, borderTopWidth: 1, borderColor: '#e4eded' }, datoMovil: { color: '#5b7375', fontSize: 13 }, precioMovil: { color: '#006c63', fontWeight: '800' }, botonEditarMovil: { backgroundColor: '#006c63', borderRadius: 10, alignItems: 'center', padding: 11, marginTop: 10 },
   hero: {
     flexDirection: 'row',
