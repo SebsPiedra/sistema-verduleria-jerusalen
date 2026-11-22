@@ -37,6 +37,8 @@ export default function VentasScreen() {
   const [observacion, setObservacion] = useState('');
   const [clientes, setClientes] = useState<any[]>([]);
   const [idCliente, setIdCliente] = useState<number | null>(null);
+  const [busquedaCliente, setBusquedaCliente] = useState('');
+  const [resumenVentas, setResumenVentas] = useState({ total_facturas: 0, total_facturado: 0 });
   const [cantidadesProducto, setCantidadesProducto] = useState<Record<number, number>>({});
 
   const [cargando, setCargando] = useState(false);
@@ -89,7 +91,7 @@ export default function VentasScreen() {
       setMensaje('');
 
       const [respuestaVentas, respuestaProductos, respuestaClientes] = await Promise.allSettled([
-        api.get('/ventas'),
+        api.get('/ventas', { params: { page: 1, limit: 50 } }),
         api.get('/productos'),
         api.get('/clientes'),
       ]);
@@ -101,6 +103,10 @@ export default function VentasScreen() {
         ]);
 
         setVentas(datosVentas);
+        setResumenVentas({
+          total_facturas: Number(respuestaVentas.value.data?.resumen?.total_facturas || datosVentas.length),
+          total_facturado: Number(respuestaVentas.value.data?.resumen?.total_facturado || 0),
+        });
       } else {
         console.log(
           'No se pudieron cargar ventas:',
@@ -258,13 +264,33 @@ export default function VentasScreen() {
     );
   });
 
+  const textoBusquedaCliente = normalizarBusqueda(busquedaCliente);
+  const clientesVisibles = clientes
+    .filter((item) => String(item.estado || 'Activo').toLowerCase() === 'activo')
+    .filter((item) => {
+      if (!textoBusquedaCliente) return true;
+      return [item.nombre, item.telefono, item.correo]
+        .some((valor) => normalizarBusqueda(valor).includes(textoBusquedaCliente));
+    });
+
   const totalCarrito = carrito.reduce((total, item) => {
     return total + Number(item.subtotal || 0);
   }, 0);
 
-  const totalVendido = ventas.reduce((total, venta) => {
+  const totalVendido = resumenVentas.total_facturado || ventas.reduce((total, venta) => {
     return total + obtenerTotalVenta(venta);
   }, 0);
+
+  const abrirFormulario = async () => {
+    setMostrarFormulario(true);
+    try {
+      const respuesta = await api.get('/clientes');
+      setClientes(extraerLista(respuesta.data, ['clientes']));
+    } catch (error: any) {
+      console.log('No se pudieron actualizar los clientes:', error?.response?.data || error);
+      mostrarMensaje('No se pudo actualizar la lista de clientes.', 'error');
+    }
+  };
 
   const agregarProducto = (producto: any) => {
     const idProducto = obtenerIdProducto(producto);
@@ -474,7 +500,7 @@ export default function VentasScreen() {
 
         <Pressable accessibilityRole="button"
           style={styles.botonAgregar}
-          onPress={() => setMostrarFormulario(true)}
+          onPress={abrirFormulario}
         >
           <Text style={styles.textoAgregar}>＋ Registrar venta</Text>
         </Pressable>
@@ -498,7 +524,7 @@ export default function VentasScreen() {
           <MetricIcon name="receipt-text-outline" />
           <View>
             <Text style={styles.tarjetaLabel}>Ventas registradas</Text>
-            <Text style={styles.tarjetaNumero}>{ventas.length}</Text>
+            <Text style={styles.tarjetaNumero}>{resumenVentas.total_facturas || ventas.length}</Text>
             
           </View>
         </View>
@@ -540,21 +566,34 @@ export default function VentasScreen() {
           <View style={[styles.filaDoble, esTelefono && styles.filaDobleTelefono]}>
             <View style={styles.campo}>
               <Text style={styles.label}>Cliente</Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.clientesScroll}>
+              <TextInput
+                style={styles.input}
+                placeholder="Buscar cliente por nombre, teléfono o correo..."
+                value={busquedaCliente}
+                onChangeText={setBusquedaCliente}
+                editable={!guardando}
+              />
+              <ScrollView style={styles.clientesScroll} nestedScrollEnabled>
                 <View style={styles.clientesFila}>
                   <Pressable style={[styles.clienteChip, idCliente === null && styles.clienteChipActivo]} onPress={() => { setIdCliente(null); setCliente('Cliente general'); }}>
                     <Text style={[styles.clienteChipTexto, idCliente === null && styles.clienteChipTextoActivo]}>Cliente general</Text>
                   </Pressable>
-                  {clientes.map((item) => <Pressable key={item.id_cliente} style={[styles.clienteChip, idCliente === Number(item.id_cliente) && styles.clienteChipActivo]} onPress={() => { setIdCliente(Number(item.id_cliente)); setCliente(item.nombre); }}>
+                  {clientesVisibles.map((item) => <Pressable key={item.id_cliente} style={[styles.clienteChip, idCliente === Number(item.id_cliente) && styles.clienteChipActivo]} onPress={() => { setIdCliente(Number(item.id_cliente)); setCliente(item.nombre); }}>
                     <Text style={[styles.clienteChipTexto, idCliente === Number(item.id_cliente) && styles.clienteChipTextoActivo]}>{item.nombre}</Text>
                   </Pressable>)}
                 </View>
               </ScrollView>
+              <Text style={styles.ayudaCliente}>
+                {clientesVisibles.length} cliente(s) disponibles. Seleccione uno o escriba un nombre manualmente.
+              </Text>
               <TextInput
                 style={styles.input}
                 placeholder="Cliente general"
                 value={cliente}
-                onChangeText={setCliente}
+                onChangeText={(texto) => {
+                  setCliente(texto);
+                  setIdCliente(null);
+                }}
                 editable={!guardando}
               />
             </View>
@@ -819,12 +858,13 @@ export default function VentasScreen() {
 }
 
 const baseStyles = createAppStyles({
-  clientesScroll: { marginTop: 4 },
-  clientesFila: { flexDirection: 'row', gap: 8, paddingBottom: 8 },
+  clientesScroll: { marginTop: 8, maxHeight: 150, borderWidth: 1, borderColor: '#d8e5e3', borderRadius: 12, padding: 8 },
+  clientesFila: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingBottom: 8 },
   clienteChip: { borderWidth: 1, borderColor: '#bfd4d2', borderRadius: 18, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: '#f5faf9' },
   clienteChipActivo: { backgroundColor: '#007d72', borderColor: '#007d72' },
   clienteChipTexto: { color: '#006c63', fontWeight: '700' },
   clienteChipTextoActivo: { color: '#fff' },
+  ayudaCliente: { color: '#5b7375', fontSize: 12, marginTop: 6, marginBottom: 8 },
   selectorVenta: { minWidth: 150, flex: 1 },
   listaMovil: { gap: 10 }, tarjetaMovil: { borderWidth: 1, borderColor: '#dce8e8', borderRadius: 14, padding: 14, backgroundColor: '#fff' }, cabeceraMovil: { flexDirection: 'row', justifyContent: 'space-between', gap: 8, marginBottom: 8 }, datoMovil: { color: '#4d686a', fontSize: 13, lineHeight: 20 },
   hero: {
