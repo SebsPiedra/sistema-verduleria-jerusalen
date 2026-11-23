@@ -11,7 +11,7 @@ let ultimoPedidoConocido: number | null = null;
 const groups = [
   { name: 'GENERAL', items: [['Inicio','/home','◈'],['Estadísticas','/dashboard','▥'],['Alertas','/alertas','!'],['Tareas','/tareas','✓'],['Seguridad','/seguridad','◆']] },
   { name: 'OPERACIÓN', items: [['Inventario','/productos','▦'],['Ventas','/ventas','↗'],['Pedidos','/pedidos-admin','≡'],['Clientes','/clientes','◎']] },
-  { name: 'CONTROL', items: [['Historial','/historial-ventas','↺'],['Resumen mensual','/resumen-mensual','◷'],['Desechos','/desechos','↘']] },
+  { name: 'CONTROL', items: [['Historial','/historial-ventas','↺'],['Resumen semanal','/resumen-semanal','◴'],['Resumen mensual','/resumen-mensual','◷'],['Desechos','/desechos','↘']] },
 ];
 export default function AdminLayout({ children, titulo, scroll = true }: { children: ReactNode; titulo?: string; subtitulo?: string; scroll?: boolean }) {
   const router = useRouter(); const path = usePathname();

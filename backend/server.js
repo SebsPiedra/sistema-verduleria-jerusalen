@@ -125,6 +125,7 @@ app.use('/api/pedidos', pedidosRoutes);
 app.use('/api/proveedores', proveedoresRoutes);
 app.use('/api/configuracion', require('./routes/configuracion.routes'));
 app.use('/api/resumen-mensual', require('./routes/resumen-mensual.routes'));
+app.use('/api/resumen-semanal', require('./routes/resumen-semanal.routes'));
 app.use('/api/notificaciones', require('./routes/notificaciones.routes'));
 
 app.use((req, res) => {

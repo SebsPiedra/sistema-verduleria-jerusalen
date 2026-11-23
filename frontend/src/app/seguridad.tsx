@@ -13,6 +13,15 @@ export default function SeguridadScreen() {
   const [busy, setBusy] = useState(false);
   const [busyPush, setBusyPush] = useState(false);
   const [mensajePush, setMensajePush] = useState('');
+  const [administradores, setAdministradores] = useState<any[]>([]);
+  const [nombreAdmin, setNombreAdmin] = useState('');
+  const [correoAdmin, setCorreoAdmin] = useState('');
+  const [telefonoAdmin, setTelefonoAdmin] = useState('');
+  const [claveAdmin, setClaveAdmin] = useState('');
+  const [confirmarClave, setConfirmarClave] = useState('');
+  const [mostrarClave, setMostrarClave] = useState(false);
+  const [busyAdmin, setBusyAdmin] = useState(false);
+  const [mensajeAdmin, setMensajeAdmin] = useState('');
 
   const cargar = async () => {
     const respuesta = await api.get('/auth/2fa/estado');
@@ -21,6 +30,30 @@ export default function SeguridadScreen() {
   };
 
   useEffect(() => { void cargar().catch(() => setMensaje('No se pudo consultar la configuración.')); }, []);
+
+  const cargarAdministradores = async () => {
+    try {
+      const respuesta = await api.get('/auth/administradores');
+      setAdministradores(Array.isArray(respuesta.data) ? respuesta.data : []);
+    } catch (error: any) {
+      if (error?.response?.status !== 403) setMensajeAdmin(error?.response?.data?.mensaje || 'No se pudieron consultar los administradores.');
+    }
+  };
+
+  useEffect(() => { void cargarAdministradores(); }, []);
+
+  const crearAdministrador = async () => {
+    if (claveAdmin !== confirmarClave) { setMensajeAdmin('Las contraseñas no coinciden.'); return; }
+    try {
+      setBusyAdmin(true); setMensajeAdmin('');
+      const respuesta = await api.post('/auth/administradores', { nombre: nombreAdmin, correo: correoAdmin, telefono: telefonoAdmin, clave: claveAdmin });
+      setMensajeAdmin(respuesta.data?.mensaje || 'Cuenta administrativa creada con éxito.');
+      setNombreAdmin(''); setCorreoAdmin(''); setTelefonoAdmin(''); setClaveAdmin(''); setConfirmarClave('');
+      await cargarAdministradores();
+    } catch (error: any) {
+      setMensajeAdmin(error?.response?.data?.mensaje || 'No se pudo crear la cuenta administrativa.');
+    } finally { setBusyAdmin(false); }
+  };
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -114,6 +147,21 @@ export default function SeguridadScreen() {
       </View>
 
       <View style={s.card}>
+        <View><Text style={s.title}>Cuentas administrativas</Text><Text style={s.body}>Cree otra cuenta con acceso al panel. En el primer ingreso, el nuevo administrador deberá verificar su correo con el código de seis dígitos.</Text></View>
+        {mensajeAdmin ? <View style={s.pushNotice}><Text accessibilityRole="alert" style={s.pushNoticeText}>{mensajeAdmin}</Text></View> : null}
+        {sandbox ? <Text style={s.help}>La creación de cuentas está deshabilitada en el modo demostración.</Text> : <View style={s.setup}>
+          <Text style={s.label}>Nombre completo</Text><TextInput accessibilityLabel="Nombre del nuevo administrador" style={s.input} value={nombreAdmin} onChangeText={setNombreAdmin} maxLength={100} placeholder="Nombre y apellidos" autoCapitalize="words" />
+          <Text style={s.label}>Correo electrónico</Text><TextInput accessibilityLabel="Correo del nuevo administrador" style={s.input} value={correoAdmin} onChangeText={setCorreoAdmin} maxLength={150} placeholder="administrador@correo.com" keyboardType="email-address" autoCapitalize="none" />
+          <Text style={s.label}>Teléfono</Text><TextInput accessibilityLabel="Teléfono del nuevo administrador" style={s.input} value={telefonoAdmin} onChangeText={setTelefonoAdmin} maxLength={30} placeholder="8888-8888" keyboardType="phone-pad" />
+          <Text style={s.label}>Contraseña temporal</Text><TextInput accessibilityLabel="Contraseña del nuevo administrador" style={s.input} value={claveAdmin} onChangeText={setClaveAdmin} maxLength={72} secureTextEntry={!mostrarClave} placeholder="Mínimo 10 caracteres" autoCapitalize="none" />
+          <Text style={s.label}>Confirmar contraseña</Text><TextInput accessibilityLabel="Confirmar contraseña del nuevo administrador" style={s.input} value={confirmarClave} onChangeText={setConfirmarClave} maxLength={72} secureTextEntry={!mostrarClave} placeholder="Repita la contraseña" autoCapitalize="none" />
+          <Pressable accessibilityRole="button" style={s.secondary} onPress={() => setMostrarClave(value => !value)}><Text style={s.secondaryText}>{mostrarClave ? 'Ocultar contraseñas' : 'Mostrar contraseñas'}</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityState={{disabled:busyAdmin}} style={s.primary} disabled={busyAdmin} onPress={() => void crearAdministrador()}><Text style={s.primaryText}>{busyAdmin ? 'Creando cuenta...' : 'Crear cuenta administrativa'}</Text></Pressable>
+        </View>}
+        <View style={s.adminList}><Text style={s.label}>Administradores registrados</Text>{administradores.map((admin) => <View key={String(admin.id)} style={s.adminRow}><View><Text style={s.adminName}>{admin.nombre}</Text><Text style={s.body}>{admin.correo} · {admin.telefono}</Text></View><Text style={s.adminRole}>ADMIN</Text></View>)}</View>
+      </View>
+
+      <View style={s.card}>
         <View><Text style={s.title}>Notificaciones importantes</Text><Text style={s.body}>Firebase avisará sobre pedidos nuevos, cambios de estado, stock bajo o agotado y pérdidas importantes por desechos.</Text></View>
         {mensajePush ? <View style={s.pushNotice}><Text style={s.pushNoticeText}>{mensajePush}</Text></View> : null}
         <Pressable accessibilityRole="button" style={s.primary} disabled={busyPush} onPress={registrarPush}><Text style={s.primaryText}>{busyPush ? 'Registrando dispositivo...' : 'Activar notificaciones en este dispositivo'}</Text></Pressable>
@@ -130,5 +178,5 @@ export default function SeguridadScreen() {
 }
 
 const s=StyleSheet.create({
-  page:{gap:18},heading:{fontSize:30,fontWeight:'800',color:'#123f42'},lead:{fontSize:16,color:'#557276'},card:{backgroundColor:'#fff',borderRadius:18,padding:22,borderWidth:1,borderColor:'#d6e5e5',gap:18,maxWidth:820},row:{flexDirection:'row',alignItems:'center',gap:16},title:{fontSize:20,fontWeight:'800',color:'#123f42',marginBottom:5},body:{fontSize:14,color:'#5c7275',lineHeight:21},status:{paddingHorizontal:12,paddingVertical:7,borderRadius:20,backgroundColor:'#f3d9d9'},statusOn:{backgroundColor:'#d8f2e6'},statusText:{fontSize:11,fontWeight:'800',color:'#164b47'},primary:{backgroundColor:'#087f73',padding:14,borderRadius:12,alignItems:'center',flex:1},secondary:{backgroundColor:'#e7f1f0',padding:13,borderRadius:12,alignItems:'center',flex:1},secondaryText:{color:'#087f73',fontWeight:'800'},danger:{backgroundColor:'#b33232',padding:14,borderRadius:12,alignItems:'center'},primaryText:{color:'#fff',fontWeight:'800'},setup:{gap:13},input:{backgroundColor:'#fff',borderWidth:1,borderColor:'#bad0d0',borderRadius:12,padding:13,fontSize:16},notice:{backgroundColor:'#e8f4f1',padding:13,borderRadius:12,maxWidth:820},noticeText:{color:'#124d47',fontWeight:'700'},warning:{backgroundColor:'#fff0cf',padding:13,borderRadius:12,maxWidth:820},warningText:{color:'#6d4700',fontWeight:'700'},pushNotice:{backgroundColor:'#e8f4f1',borderWidth:1,borderColor:'#b7d9d4',padding:12,borderRadius:10},pushNoticeText:{color:'#124d47',fontWeight:'700'},pushGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},help:{fontSize:12,color:'#687f82',lineHeight:18}
+  page:{gap:18},heading:{fontSize:30,fontWeight:'800',color:'#123f42'},lead:{fontSize:16,color:'#557276'},card:{backgroundColor:'#fff',borderRadius:18,padding:22,borderWidth:1,borderColor:'#d6e5e5',gap:18,maxWidth:820},row:{flexDirection:'row',alignItems:'center',gap:16},title:{fontSize:20,fontWeight:'800',color:'#123f42',marginBottom:5},body:{fontSize:14,color:'#5c7275',lineHeight:21},label:{fontSize:13,fontWeight:'800',color:'#34595b'},status:{paddingHorizontal:12,paddingVertical:7,borderRadius:20,backgroundColor:'#f3d9d9'},statusOn:{backgroundColor:'#d8f2e6'},statusText:{fontSize:11,fontWeight:'800',color:'#164b47'},primary:{backgroundColor:'#087f73',padding:14,borderRadius:12,alignItems:'center',flex:1},secondary:{backgroundColor:'#e7f1f0',padding:13,borderRadius:12,alignItems:'center',flex:1},secondaryText:{color:'#087f73',fontWeight:'800'},danger:{backgroundColor:'#b33232',padding:14,borderRadius:12,alignItems:'center'},primaryText:{color:'#fff',fontWeight:'800'},setup:{gap:13},input:{backgroundColor:'#fff',borderWidth:1,borderColor:'#bad0d0',borderRadius:12,padding:13,fontSize:16},notice:{backgroundColor:'#e8f4f1',padding:13,borderRadius:12,maxWidth:820},noticeText:{color:'#124d47',fontWeight:'700'},warning:{backgroundColor:'#fff0cf',padding:13,borderRadius:12,maxWidth:820},warningText:{color:'#6d4700',fontWeight:'700'},pushNotice:{backgroundColor:'#e8f4f1',borderWidth:1,borderColor:'#b7d9d4',padding:12,borderRadius:10},pushNoticeText:{color:'#124d47',fontWeight:'700'},pushGrid:{flexDirection:'row',flexWrap:'wrap',gap:10},help:{fontSize:12,color:'#687f82',lineHeight:18},adminList:{gap:10,borderTopWidth:1,borderTopColor:'#d6e5e5',paddingTop:16},adminRow:{flexDirection:'row',justifyContent:'space-between',alignItems:'center',gap:12,padding:12,backgroundColor:'#f5f9f8',borderRadius:10},adminName:{fontSize:15,fontWeight:'800',color:'#123f42'},adminRole:{fontSize:10,fontWeight:'900',color:'#087f73',backgroundColor:'#d8f2e6',paddingHorizontal:9,paddingVertical:5,borderRadius:12}
 });

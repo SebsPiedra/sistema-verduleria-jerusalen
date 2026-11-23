@@ -164,6 +164,74 @@ const obtenerUsuarioAutenticado = async (req) => {
   return payload;
 };
 
+const obtenerAdministradorAutorizado = async (req) => {
+  const payload = await obtenerUsuarioAutenticado(req);
+  if (payload.sandbox) throw Object.assign(new Error('La cuenta de demostración es de solo lectura.'), { status: 403 });
+  const usuario = obtenerPrimero(await ejecutar(
+    `SELECT id, nombre, COALESCE(correo, email) AS correo, rol
+     FROM usuarios WHERE id = ? LIMIT 1`,
+    [payload.id_usuario]
+  ));
+  if (!usuario || !['admin', 'administrador'].includes(String(usuario.rol || '').toLowerCase())) {
+    throw Object.assign(new Error('Acceso exclusivo del administrador.'), { status: 403 });
+  }
+  return usuario;
+};
+
+router.get('/administradores', async (req, res) => {
+  try {
+    await obtenerAdministradorAutorizado(req);
+    const resultado = await ejecutar(
+      `SELECT id, nombre, COALESCE(correo, email) AS correo, telefono, rol, fecha_creacion
+       FROM usuarios
+       WHERE LOWER(COALESCE(rol, 'admin')) IN ('admin', 'administrador')
+       ORDER BY nombre, id`
+    );
+    return res.json(Array.isArray(resultado) ? resultado : resultado.rows || []);
+  } catch (error) {
+    const status = error.status || (['JsonWebTokenError', 'TokenExpiredError'].includes(error.name) ? 401 : 500);
+    return res.status(status).json({ mensaje: status === 500 ? 'No se pudieron consultar los administradores.' : error.message });
+  }
+});
+
+router.post('/administradores', async (req, res) => {
+  try {
+    await obtenerAdministradorAutorizado(req);
+    const nombre = String(req.body?.nombre || '').trim();
+    const correo = String(req.body?.correo || '').trim().toLowerCase();
+    const telefono = String(req.body?.telefono || '').trim();
+    const clave = String(req.body?.clave || '');
+    if (nombre.length < 3 || nombre.length > 100 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo) ||
+        telefono.length < 8 || telefono.length > 30 || clave.length < 10 || clave.length > 72 ||
+        !/[a-z]/.test(clave) || !/[A-Z]/.test(clave) || !/\d/.test(clave)) {
+      return res.status(400).json({
+        mensaje: 'Ingrese nombre, correo válido, teléfono y una contraseña de 10 a 72 caracteres con mayúscula, minúscula y número.',
+      });
+    }
+    const existente = obtenerPrimero(await ejecutar(
+      `SELECT id FROM usuarios WHERE LOWER(COALESCE(correo, email)) = LOWER(?) LIMIT 1`,
+      [correo]
+    ));
+    if (existente) return res.status(409).json({ mensaje: 'Ya existe una cuenta con ese correo.' });
+    const hash = await bcrypt.hash(clave, 12);
+    const insertado = obtenerPrimero(await ejecutar(
+      `INSERT INTO usuarios (nombre, email, correo, telefono, password, clave, rol)
+       VALUES (?, ?, ?, ?, ?, ?, 'admin')
+       RETURNING id, nombre, COALESCE(correo, email) AS correo, telefono, rol, fecha_creacion`,
+      [nombre, correo, correo, telefono, hash, hash]
+    ));
+    await marcarRequerida('admin', insertado.id);
+    return res.status(201).json({
+      mensaje: 'Cuenta administrativa creada. En su primer ingreso deberá verificar el correo.',
+      administrador: insertado,
+    });
+  } catch (error) {
+    const duplicate = error.code === '23505';
+    const status = error.status || (duplicate ? 409 : (['JsonWebTokenError', 'TokenExpiredError'].includes(error.name) ? 401 : 500));
+    return res.status(status).json({ mensaje: duplicate ? 'Ya existe una cuenta con ese correo.' : (status === 500 ? 'No se pudo crear la cuenta administrativa.' : error.message) });
+  }
+});
+
 router.post('/login', async (req, res) => {
   const { correo, clave } = req.body;
 

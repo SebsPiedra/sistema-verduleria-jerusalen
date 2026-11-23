@@ -6,6 +6,7 @@ node_modules/
 # Expo
 .expo/
 dist/
+dist-weekly-admin/
 web-build/
 expo-env.d.ts
 
