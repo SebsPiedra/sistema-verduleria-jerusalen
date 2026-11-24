@@ -3,6 +3,7 @@ const conexion = require('../db');
 const { cantidadValidaParaUnidad } = require('../utils/unidades');
 
 const router = express.Router();
+const METODOS_PAGO_PERMITIDOS = new Set(['Efectivo', 'SINPE Móvil', 'Tarjeta', 'Transferencia']);
 
 function ejecutar(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -206,12 +207,27 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const {
-      cliente,
       id_cliente,
       metodo_pago,
       observacion,
       productos,
     } = req.body;
+
+    const metodoPagoFinal = String(metodo_pago || 'Efectivo').trim();
+    const idClienteFinal = id_cliente === null || id_cliente === undefined || id_cliente === ''
+      ? null
+      : Number(id_cliente);
+    const observacionFinal = String(observacion || '').trim();
+
+    if (!METODOS_PAGO_PERMITIDOS.has(metodoPagoFinal)) {
+      return res.status(400).json({ mensaje: 'Debe seleccionar un método de pago válido.' });
+    }
+    if (idClienteFinal !== null && (!Number.isSafeInteger(idClienteFinal) || idClienteFinal <= 0)) {
+      return res.status(400).json({ mensaje: 'El cliente seleccionado no es válido.' });
+    }
+    if (observacionFinal.length > 500) {
+      return res.status(400).json({ mensaje: 'La observación no puede superar 500 caracteres.' });
+    }
 
     if (!Array.isArray(productos) || productos.length === 0) {
       return res.status(400).json({
@@ -227,6 +243,22 @@ router.post('/', async (req, res) => {
 
     let totalVenta = 0;
     const detallesVenta = [];
+    let clienteFinal = 'Cliente general';
+
+    if (idClienteFinal !== null) {
+      const clienteBD = obtenerPrimero(await ejecutar(
+        `SELECT id_cliente, nombre, COALESCE(estado, 'Activo') AS estado
+         FROM clientes WHERE id_cliente = ? LIMIT 1`,
+        [idClienteFinal]
+      ));
+      if (!clienteBD) {
+        return rechazarTransaccion(res, 404, 'El cliente seleccionado no existe.');
+      }
+      if (String(clienteBD.estado).toLowerCase() !== 'activo') {
+        return rechazarTransaccion(res, 400, 'El cliente seleccionado está inactivo.');
+      }
+      clienteFinal = String(clienteBD.nombre || '').trim() || 'Cliente registrado';
+    }
 
     for (const item of productos) {
       const idProducto = Number(item.id_producto);
@@ -304,12 +336,12 @@ router.post('/', async (req, res) => {
         RETURNING id_venta
       `,
       [
-        id_cliente || null,
-        cliente || 'Cliente general',
+        idClienteFinal,
+        clienteFinal,
         totalVenta,
         totalVenta,
-        metodo_pago || 'Efectivo',
-        observacion || '',
+        metodoPagoFinal,
+        observacionFinal,
       ]
     );
 
@@ -369,8 +401,8 @@ router.post('/', async (req, res) => {
       id_venta: idVenta,
       numero_factura: numeroFactura,
       factura: numeroFactura,
-      cliente: cliente || 'Cliente general',
-      metodo_pago: metodo_pago || 'Efectivo',
+      cliente: clienteFinal,
+      metodo_pago: metodoPagoFinal,
       total: totalVenta,
       detalles: detallesVenta,
     });
