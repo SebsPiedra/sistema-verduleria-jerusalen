@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test test/*.test.js && node scripts/test-static.cjs",
-    "test:integration": "node scripts/test-access.cjs && node scripts/test-purchase.cjs && node scripts/test-monthly.js --serve",
+    "test:integration": "node scripts/test-access.cjs && node scripts/test-purchase.cjs && node scripts/test-monthly.js",
     "check": "node --check server.js && node --check routes/pedidos.routes.js && node --check utils/email.js && npm test",
     "sandbox:create": "node scripts/create-sandbox.cjs",
     "start": "node server.js",

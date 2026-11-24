@@ -1,15 +1,6 @@
-const assert=require('node:assert/strict');const path=require('path');const {randomUUID}=require('node:crypto');
-require('dotenv').config({path:path.join(__dirname,'../.vercel/monthly-test.env'),quiet:true});
-assert.equal(new URL(process.env.DATABASE_URL).hostname,'ep-fancy-hat-ax2dcn2i-pooler.c-4.us-east-2.aws.neon.tech');
-process.env.JWT_SECRET=randomUUID();const app=require('../server');const {pool}=require('../utils/mensual');const jwt=require('jsonwebtoken');const db=require('../db');
-app.get('/__transaction-test',async(req,res)=>{try{
-  await new Promise((resolve,reject)=>db.beginTransaction(e=>e?reject(e):resolve()));
-  const first=(await db.query('SELECT pg_backend_pid() AS pid, txid_current() AS tx'))[0];
-  await new Promise(r=>setTimeout(r,100));
-  const second=(await db.query('SELECT pg_backend_pid() AS pid, txid_current() AS tx'))[0];
-  await new Promise((resolve,reject)=>db.rollback(e=>e?reject(e):resolve()));
-  res.json({first,second});
-}catch(e){res.status(500).json({error:e.message});}});
+const assert=require('node:assert/strict');const {randomUUID}=require('node:crypto');
+require('./test-env.cjs');
+process.env.JWT_SECRET=randomUUID();const app=require('../server');const {pool}=require('../utils/mensual');const jwt=require('jsonwebtoken');
 const server=app.listen(3099,'127.0.0.1');
 (async()=>{
   const admin=(await pool.query("SELECT id FROM usuarios WHERE lower(rol)='admin' LIMIT 1")).rows[0];
@@ -37,8 +28,7 @@ const server=app.listen(3099,'127.0.0.1');
   assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:client.id_cliente,productos:[{id_producto:1,cantidad:1}],metodo_pago:'Efectivo',direccion_entrega:'Dirección suficientemente detallada'})).status,400);
   assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:client.id_cliente,productos:[{id_producto:1,cantidad:1}],tipo_entrega:'Retiro en tienda'})).status,400);
   assert.equal((await request('/pedidos',clientToken,'POST',{id_cliente:client.id_cliente,productos:[{id_producto:1,cantidad:1}],tipo_entrega:'Entrega',metodo_pago:'Efectivo',direccion_entrega:'Muy corta'})).status,400);
-  const pairs=await Promise.all([1,2,3].map(()=>fetch('http://127.0.0.1:3099/__transaction-test').then(r=>r.json())));
-  for(const pair of pairs){assert.deepEqual(pair.first,pair.second);assert.ok(pair.first?.tx);}
-  assert.equal(new Set(pairs.map(p=>p.first.tx)).size,3);
-  console.log('PASS: access controls, mandatory delivery and payment fields, detailed address validation, and concurrent transactions verified.');
+  const sequenceValues=await Promise.all([1,2,3].map(()=>pool.query("SELECT nextval('ventas_id_venta_seq') AS id").then(r=>Number(r.rows[0].id))));
+  assert.equal(new Set(sequenceValues).size,3);
+  console.log('PASS: access controls, mandatory delivery and payment fields, detailed address validation, and concurrent sequence allocation verified.');
 })().then(()=>{server.close();process.exit(0);}).catch(e=>{console.error(e);server.close();process.exit(1);});

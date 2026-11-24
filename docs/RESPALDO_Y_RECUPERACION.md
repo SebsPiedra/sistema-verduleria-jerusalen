@@ -21,6 +21,13 @@ GitHub conserva el historial principal. GitLab puede configurarse como espejo ad
 pero no sustituye el respaldo de la base de datos. Para añadirlo se necesita crear primero
 un repositorio vacío en GitLab y agregar su URL como segundo remoto.
 
+El espejo privado está configurado en:
+`https://gitlab.com/piedco-group/sistema-verduleria-jerusalen`.
+
+Las pruebas de integración deben ejecutarse exclusivamente contra una rama temporal de
+Neon, indicando `TEST_DATABASE_URL` y `ALLOW_INTEGRATION_TESTS=true`. Los scripts rechazan
+su ejecución accidental si no se habilita expresamente el entorno aislado.
+
 ## Comprobaciones después de recuperar
 
 1. Abrir `/health` y confirmar que API y base de datos estén saludables.

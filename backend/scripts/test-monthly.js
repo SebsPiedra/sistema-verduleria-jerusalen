@@ -2,9 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
-require('dotenv').config({path:path.join(__dirname,'../.vercel/monthly-test.env'),quiet:true});
-// Guard against accidentally creating fixtures in the real business database.
-assert.equal(new URL(process.env.DATABASE_URL).hostname,'ep-fancy-hat-ax2dcn2i-pooler.c-4.us-east-2.aws.neon.tech');
+require('./test-env.cjs');
 process.env.JWT_SECRET=randomUUID()+randomUUID();
 const {pool,resumen}=require('../utils/mensual');
 const app=require('../server');
