@@ -34,6 +34,7 @@ export default function VentasScreen() {
   const [busquedaVenta, setBusquedaVenta] = useState('');
   const [cliente, setCliente] = useState('Cliente general');
   const [metodoPago, setMetodoPago] = useState('Efectivo');
+  const [costoEnvio, setCostoEnvio] = useState('');
   const [observacion, setObservacion] = useState('');
   const [clientes, setClientes] = useState<any[]>([]);
   const [idCliente, setIdCliente] = useState<number | null>(null);
@@ -276,6 +277,11 @@ export default function VentasScreen() {
   const totalCarrito = carrito.reduce((total, item) => {
     return total + Number(item.subtotal || 0);
   }, 0);
+  const costoEnvioNumero = Number(String(costoEnvio || '0').replace(',', '.'));
+  const costoEnvioValido = Number.isFinite(costoEnvioNumero) && costoEnvioNumero >= 0
+    ? costoEnvioNumero
+    : 0;
+  const totalVentaConEnvio = totalCarrito + costoEnvioValido;
 
   const totalVendido = resumenVentas.total_facturado || ventas.reduce((total, venta) => {
     return total + obtenerTotalVenta(venta);
@@ -397,6 +403,7 @@ export default function VentasScreen() {
     setCliente('Cliente general');
     setIdCliente(null);
     setMetodoPago('Efectivo');
+    setCostoEnvio('');
     setObservacion('');
     setBusquedaProducto('');
     if (notificar) mostrarMensaje('Formulario de venta limpiado con éxito.', 'ok');
@@ -435,6 +442,16 @@ export default function VentasScreen() {
       return;
     }
 
+    if (!Number.isFinite(costoEnvioNumero) || costoEnvioNumero < 0) {
+      mostrarMensaje('El costo de envío debe ser un número igual o mayor a cero.', 'error', true);
+      return;
+    }
+
+    if (costoEnvioNumero > 1000000) {
+      mostrarMensaje('El costo de envío no puede superar ₡1 000 000.', 'error', true);
+      return;
+    }
+
     try {
       setGuardando(true);
       mostrarMensaje('Registrando venta y generando factura...', 'info');
@@ -443,6 +460,7 @@ export default function VentasScreen() {
         cliente: clienteLimpio,
         id_cliente: idCliente,
         metodo_pago: metodoPago,
+        costo_envio: costoEnvioNumero,
         observacion: observacion.trim(),
         productos: carrito.map((item) => ({
           id_producto: item.id_producto,
@@ -728,10 +746,28 @@ export default function VentasScreen() {
             )}
 
             <View style={styles.totalCaja}>
+              <Text style={styles.totalLabel}>Subtotal de productos</Text>
+              <Text style={styles.totalDetalle}>{formatoColones(totalCarrito)}</Text>
+              <Text style={styles.totalLabel}>Costo de envío</Text>
+              <Text style={styles.totalDetalle}>{formatoColones(costoEnvioValido)}</Text>
               <Text style={styles.totalLabel}>Total de la venta</Text>
-              <Text style={styles.totalValor}>{formatoColones(totalCarrito)}</Text>
+              <Text style={styles.totalValor}>{formatoColones(totalVentaConEnvio)}</Text>
             </View>
           </View>
+
+          <Text style={styles.label}>Costo de envío (opcional)</Text>
+          <TextInput
+            accessibilityLabel="Costo de envío de la venta manual"
+            style={styles.input}
+            placeholder="Ejemplo: 1500"
+            value={costoEnvio}
+            onChangeText={setCostoEnvio}
+            keyboardType="decimal-pad"
+            editable={!guardando}
+          />
+          <Text style={styles.ayudaCliente}>
+            Déjelo vacío o escriba 0 cuando la venta no requiera entrega.
+          </Text>
 
           <Text style={styles.label}>Observación</Text>
           <TextInput
@@ -1226,6 +1262,13 @@ const baseStyles = createAppStyles({
   totalLabel: {
     color: '#1b5e20',
     fontWeight: 'bold',
+    marginTop: 5,
+  },
+  totalDetalle: {
+    color: '#315c43',
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 2,
   },
   totalValor: {
     color: '#0f4f24',

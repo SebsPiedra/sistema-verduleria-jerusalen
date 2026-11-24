@@ -286,6 +286,7 @@ router.post('/', async (req, res) => {
     const {
       id_cliente,
       metodo_pago,
+      costo_envio,
       observacion,
       productos,
     } = req.body;
@@ -295,6 +296,7 @@ router.post('/', async (req, res) => {
       ? null
       : Number(id_cliente);
     const observacionFinal = String(observacion || '').trim();
+    const costoEnvioFinal = Number(String(costo_envio ?? 0).replace(',', '.'));
 
     if (!METODOS_PAGO_PERMITIDOS.has(metodoPagoFinal)) {
       return res.status(400).json({ mensaje: 'Debe seleccionar un método de pago válido.' });
@@ -304,6 +306,9 @@ router.post('/', async (req, res) => {
     }
     if (observacionFinal.length > 500) {
       return res.status(400).json({ mensaje: 'La observación no puede superar 500 caracteres.' });
+    }
+    if (!Number.isFinite(costoEnvioFinal) || costoEnvioFinal < 0 || costoEnvioFinal > 1000000) {
+      return res.status(400).json({ mensaje: 'El costo de envío debe estar entre ₡0 y ₡1 000 000.' });
     }
 
     if (!Array.isArray(productos) || productos.length === 0) {
@@ -407,14 +412,15 @@ router.post('/', async (req, res) => {
       `
         INSERT INTO ventas
         (id_cliente, cliente, subtotal_productos, costo_envio, total, metodo_pago, fecha_venta, estado, observacion)
-        VALUES (?, ?, ?, 0, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
         RETURNING id_venta
       `,
       [
         idClienteFinal,
         clienteFinal,
         totalVenta,
-        totalVenta,
+        costoEnvioFinal,
+        totalVenta + costoEnvioFinal,
         metodoPagoFinal,
         observacionFinal,
       ]
@@ -462,7 +468,9 @@ router.post('/', async (req, res) => {
       factura: numeroFactura,
       cliente: clienteFinal,
       metodo_pago: metodoPagoFinal,
-      total: totalVenta,
+      subtotal_productos: totalVenta,
+      costo_envio: costoEnvioFinal,
+      total: totalVenta + costoEnvioFinal,
       detalles: detallesVenta,
     });
   } catch (error) {
