@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const { pool, resumenSemanal } = require('../utils/semanal');
+const generarPdfSemanal = require('../utils/semanal-pdf');
 
 const router = express.Router();
 
@@ -33,6 +34,24 @@ router.get('/', async (req, res, next) => {
     res.json(result);
   } catch (error) {
     await client.query('ROLLBACK');
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+router.get('/pdf', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+    const report = await resumenSemanal(client, req.query.fecha);
+    await client.query('COMMIT');
+    const buffer = await generarPdfSemanal(report);
+    res.set('Content-Type', 'application/pdf');
+    res.set('Content-Disposition', `attachment; filename="Resumen-semanal-${report.inicio}-${report.fin}.pdf"`);
+    res.send(buffer);
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     next(error);
   } finally {
     client.release();

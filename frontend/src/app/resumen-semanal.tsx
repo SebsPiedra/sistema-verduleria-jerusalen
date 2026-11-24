@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import AdminLayout from '../components/AdminLayout';
 import HelpText from '../components/HelpText';
@@ -30,6 +30,8 @@ function WeeklyScreen() {
   const [report, setReport] = useState<WeeklyReport | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
+  const [downloading, setDownloading] = useState(false);
   const [tab, setTab] = useState<'ventas' | 'detalles' | 'pedidos' | 'desechos' | 'gastos'>('ventas');
 
   const load = useCallback(async () => {
@@ -54,6 +56,22 @@ function WeeklyScreen() {
   const monetary = new Set(['total', 'subtotal', 'costo', 'perdida', 'monto']);
   const format = (key: string, value: any) => typeof value === 'boolean' ? (value ? 'Sí' : 'No') : monetary.has(key) ? money(Number(value || 0) * 100) : String(value ?? '—');
   const rows = report?.[tab] || [];
+  const downloadPdf = async () => {
+    if (!report) return;
+    if (Platform.OS !== 'web' || typeof document === 'undefined') { setError('Abra la versión web para descargar el PDF.'); return; }
+    try {
+      setDownloading(true); setError(''); setNotice('');
+      const response = await api.get('/resumen-semanal/pdf', { params: { fecha: report.inicio }, responseType: 'blob', timeout: 60000 });
+      const url = URL.createObjectURL(response.data);
+      const anchor = document.createElement('a');
+      anchor.href = url; anchor.download = `Resumen-semanal-${report.inicio}-${report.fin}.pdf`;
+      document.body.appendChild(anchor); anchor.click(); anchor.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setNotice('PDF semanal descargado con éxito.');
+    } catch (cause: any) {
+      setError(cause?.response?.data?.mensaje || 'No se pudo generar el PDF semanal.');
+    } finally { setDownloading(false); }
+  };
 
   return <AdminLayout titulo="Resumen semanal">
     <ScrollView contentContainerStyle={[s.content, phone && s.phone]}>
@@ -68,8 +86,9 @@ function WeeklyScreen() {
       </View>
       {loading ? <ActivityIndicator accessibilityLabel="Cargando resumen semanal" color="#075333" /> : null}
       {error ? <Text accessibilityRole="alert" style={s.error}>{error}</Text> : null}
+      {notice ? <Text accessibilityRole="alert" style={s.success}>{notice}</Text> : null}
       {report ? <>
-        <View style={s.card}><Text style={s.heading}>Semana del {report.inicio} al {report.fin}</Text><Text style={s.muted}>Actualizado: {new Date(report.generado_en).toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' })}</Text></View>
+        <View style={s.card}><Text style={s.heading}>Semana del {report.inicio} al {report.fin}</Text><Text style={s.muted}>Actualizado: {new Date(report.generado_en).toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' })}</Text><Pressable accessibilityRole="button" accessibilityState={{ disabled: downloading }} disabled={downloading} style={[s.button, downloading && s.disabled]} onPress={() => void downloadPdf()}><Text style={s.buttonText}>{downloading ? 'Generando PDF...' : 'Descargar PDF semanal'}</Text></Pressable></View>
         <View style={s.metrics}>{([
           ['ingresos', 'Ingresos por ventas'], ['costo', 'Costo de lo vendido'], ['perdidas', 'Pérdidas por desechos'], ['gastos', 'Gastos adicionales'], ['ganancia', 'Ganancia estimada'],
         ] as const).map(([key, label]) => <View key={key} style={[s.metric, phone && s.metricPhone, key === 'ganancia' && s.profit]}><Text style={s.label}>{label}</Text><Text style={s.amount}>{money(report.totales[key])}</Text></View>)}</View>
@@ -86,5 +105,5 @@ function WeeklyScreen() {
 }
 
 const s = createAppStyles({
-  content:{padding:24,gap:18,backgroundColor:'#fffcf3',flexGrow:1},phone:{padding:12},title:{fontSize:27,fontWeight:'800',color:'#064c30'},muted:{color:'#5b665f',lineHeight:21},row:{flexDirection:'row',flexWrap:'wrap',gap:10,alignItems:'flex-end'},input:{borderWidth:1,borderColor:'#b3beb5',borderRadius:8,padding:12,backgroundColor:'#fff',minHeight:44,fontSize:16,minWidth:190,color:'#172b20'},label:{fontSize:12,fontWeight:'700',color:'#46604e',marginBottom:5},button:{backgroundColor:'#0b5a37',paddingHorizontal:16,paddingVertical:13,borderRadius:9,minHeight:44},buttonText:{color:'#fff',fontWeight:'700'},card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e4decf',borderRadius:14,padding:18,gap:12},heading:{fontSize:19,fontWeight:'700',color:'#075333'},metrics:{flexDirection:'row',flexWrap:'wrap',gap:12},metric:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e4decf',borderRadius:12,padding:18,flexGrow:1,minWidth:190},metricPhone:{width:'100%'},profit:{backgroundColor:'#e8f2d8',borderColor:'#86a549'},amount:{fontSize:24,fontWeight:'800',color:'#075333'},warning:{backgroundColor:'#fff1ce',padding:15,borderRadius:10},error:{color:'#9b2525',backgroundColor:'#ffe7e7',padding:12,borderRadius:8},tab:{backgroundColor:'#edf4e8',borderWidth:1,borderColor:'#a3bea4',paddingHorizontal:14,paddingVertical:11,borderRadius:9},tabActive:{backgroundColor:'#0b5a37'},tabText:{color:'#075333',fontWeight:'700'},tabTextActive:{color:'#fff'},record:{padding:14,gap:12,borderWidth:1,borderColor:'#e3e8e1',borderRadius:9},recordDesktop:{flexDirection:'row',flexWrap:'wrap'},field:{flexGrow:1,flexBasis:120},value:{color:'#22392a',lineHeight:21},empty:{color:'#68756a',paddingVertical:14},
+  content:{padding:24,gap:18,backgroundColor:'#fffcf3',flexGrow:1},phone:{padding:12},title:{fontSize:27,fontWeight:'800',color:'#064c30'},muted:{color:'#5b665f',lineHeight:21},row:{flexDirection:'row',flexWrap:'wrap',gap:10,alignItems:'flex-end'},input:{borderWidth:1,borderColor:'#b3beb5',borderRadius:8,padding:12,backgroundColor:'#fff',minHeight:44,fontSize:16,minWidth:190,color:'#172b20'},label:{fontSize:12,fontWeight:'700',color:'#46604e',marginBottom:5},button:{backgroundColor:'#0b5a37',paddingHorizontal:16,paddingVertical:13,borderRadius:9,minHeight:44,alignSelf:'flex-start'},buttonText:{color:'#fff',fontWeight:'700'},disabled:{opacity:0.5},card:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e4decf',borderRadius:14,padding:18,gap:12},heading:{fontSize:19,fontWeight:'700',color:'#075333'},metrics:{flexDirection:'row',flexWrap:'wrap',gap:12},metric:{backgroundColor:'#fff',borderWidth:1,borderColor:'#e4decf',borderRadius:12,padding:18,flexGrow:1,minWidth:190},metricPhone:{width:'100%'},profit:{backgroundColor:'#e8f2d8',borderColor:'#86a549'},amount:{fontSize:24,fontWeight:'800',color:'#075333'},warning:{backgroundColor:'#fff1ce',padding:15,borderRadius:10},error:{color:'#9b2525',backgroundColor:'#ffe7e7',padding:12,borderRadius:8},success:{color:'#075333',backgroundColor:'#e8f4e8',padding:12,borderRadius:8},tab:{backgroundColor:'#edf4e8',borderWidth:1,borderColor:'#a3bea4',paddingHorizontal:14,paddingVertical:11,borderRadius:9},tabActive:{backgroundColor:'#0b5a37'},tabText:{color:'#075333',fontWeight:'700'},tabTextActive:{color:'#fff'},record:{padding:14,gap:12,borderWidth:1,borderColor:'#e3e8e1',borderRadius:9},recordDesktop:{flexDirection:'row',flexWrap:'wrap'},field:{flexGrow:1,flexBasis:120},value:{color:'#22392a',lineHeight:21},empty:{color:'#68756a',paddingVertical:14},
 });
