@@ -736,6 +736,28 @@ router.get('/', async (req, res) => {
   }
 });
 
+router.get('/resumen/notificaciones', async (_req, res) => {
+  try {
+    const resultado = await query(`
+      SELECT
+        COALESCE(MAX(id_pedido), 0) AS ultimo_id,
+        COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'pendiente') AS pendientes
+      FROM pedidos
+    `);
+    const resumen = obtenerPrimero(resultado) || {};
+
+    return res.json({
+      ultimo_id: Number(resumen.ultimo_id || 0),
+      pendientes: Number(resumen.pendientes || 0),
+    });
+  } catch (error) {
+    console.log('Error al obtener resumen de pedidos:', error);
+    return res.status(500).json({
+      mensaje: 'No se pudo consultar el resumen de pedidos.',
+    });
+  }
+});
+
 router.get('/cliente/:id_cliente', async (req, res) => {
   const { id_cliente } = req.params;
 

@@ -44,27 +44,13 @@ export default function AdminLayout({ children, titulo, scroll = true }: { child
 
     const revisarPedidos = async () => {
       try {
-        const respuesta = await api.get('/pedidos');
-        const pedidos = Array.isArray(respuesta.data)
-          ? respuesta.data
-          : respuesta.data?.pedidos || [];
+        const respuesta = await api.get('/pedidos/resumen/notificaciones');
         if (!active) return;
 
-        setPendientes(
-          pedidos.filter((pedido: any) =>
-            String(pedido.estado || 'Pendiente').toLowerCase() === 'pendiente'
-          ).length
-        );
-
-        const mayorId = pedidos.reduce(
-          (mayor: number, pedido: any) =>
-            Math.max(mayor, Number(pedido.id_pedido || pedido.id || 0)),
-          0
-        );
+        setPendientes(Number(respuesta.data?.pendientes || 0));
+        const mayorId = Number(respuesta.data?.ultimo_id || 0);
         if (ultimoPedidoConocido !== null && mayorId > ultimoPedidoConocido) {
-          const nuevos = pedidos.filter(
-            (pedido: any) => Number(pedido.id_pedido || pedido.id || 0) > ultimoPedidoConocido!
-          ).length;
+          const nuevos = mayorId - ultimoPedidoConocido;
           setAvisoPedido(
             nuevos === 1 ? '¡Se acaba de recibir un pedido nuevo!' : `¡Se recibieron ${nuevos} pedidos nuevos!`
           );
@@ -78,7 +64,7 @@ export default function AdminLayout({ children, titulo, scroll = true }: { child
     };
 
     void revisarPedidos();
-    const interval = setInterval(() => void revisarPedidos(), 10000);
+    const interval = setInterval(() => void revisarPedidos(), 30000);
     return () => {
       active = false;
       clearInterval(interval);
