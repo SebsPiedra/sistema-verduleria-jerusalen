@@ -207,13 +207,7 @@ const conexion = {
           return;
         }
 
-        // Legacy IDs use MAX + 1 across sales, orders and details. Serialize these
-        // transactions until that schema can be migrated to database sequences.
-        client.query('SELECT pg_advisory_xact_lock(20260904)', (lockError) => {
-          if (lockError) {
-            client.query('ROLLBACK', () => { client.release(); state.client = null; callback(lockError); });
-          } else if (callback) callback(null);
-        });
+        if (callback) callback(null);
       });
     });
   },

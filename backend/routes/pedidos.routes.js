@@ -51,15 +51,6 @@ const rollbackSeguro = async () => {
   }
 };
 
-const obtenerSiguienteId = async (tabla, columna) => {
-  const resultado = await query(
-    `SELECT COALESCE(MAX(${columna}), 0) + 1 AS siguiente FROM ${tabla}`
-  );
-
-  const fila = obtenerPrimero(resultado);
-  return Number(fila?.siguiente || 1);
-};
-
 const generarFactura = (idVenta) => {
   return `FAC-${String(idVenta).padStart(6, '0')}`;
 };
@@ -173,17 +164,12 @@ const crearVentaDesdePedido = async (pedido, detalles) => {
     return Number(pedido.id_venta);
   }
 
-  const idVenta = await obtenerSiguienteId('ventas', 'id_venta');
-  const numeroFactura = generarFactura(idVenta);
-
-  await query(
+  const resultadoVenta = await query(
     `
       INSERT INTO ventas
       (
-        id_venta,
         id_cliente,
         cliente,
-        numero_factura,
         subtotal_productos,
         costo_envio,
         total,
@@ -192,13 +178,12 @@ const crearVentaDesdePedido = async (pedido, detalles) => {
         estado,
         observacion
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+      RETURNING id_venta
     `,
     [
-      idVenta,
       pedido.id_cliente || null,
       pedido.cliente || 'Cliente general',
-      numeroFactura,
       formatoNumero(pedido.subtotal_productos),
       formatoNumero(pedido.costo_envio),
       formatoNumero(pedido.total),
@@ -206,15 +191,16 @@ const crearVentaDesdePedido = async (pedido, detalles) => {
       `Venta generada desde pedido #${pedido.id_pedido}`,
     ]
   );
-
-  let idDetalle = await obtenerSiguienteId('detalle_ventas', 'id_detalle');
+  const idVenta = Number(obtenerPrimero(resultadoVenta)?.id_venta);
+  if (!idVenta) throw new Error('No se obtuvo el identificador de la venta');
+  const numeroFactura = generarFactura(idVenta);
+  await query('UPDATE ventas SET numero_factura = ? WHERE id_venta = ?', [numeroFactura, idVenta]);
 
   for (const detalle of detalles) {
     await query(
       `
         INSERT INTO detalle_ventas
         (
-          id_detalle,
           id_venta,
           id_producto,
           producto,
@@ -223,10 +209,9 @@ const crearVentaDesdePedido = async (pedido, detalles) => {
           precio_unitario,
           subtotal
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `,
       [
-        idDetalle,
         idVenta,
         detalle.id_producto,
         detalle.nombre || 'Producto',
@@ -237,7 +222,6 @@ const crearVentaDesdePedido = async (pedido, detalles) => {
       ]
     );
 
-    idDetalle += 1;
   }
 
   return idVenta;
@@ -610,12 +594,10 @@ router.post('/', async (req, res) => {
     }
     total = subtotalProductos + costoEnvio;
 
-    const idPedido = await obtenerSiguienteId('pedidos', 'id_pedido');
-    await query(
+    const resultadoPedido = await query(
       `
         INSERT INTO pedidos
         (
-          id_pedido,
           id_cliente,
           subtotal_productos,
           costo_envio,
@@ -628,10 +610,10 @@ router.post('/', async (req, res) => {
           inventario_descontado,
           fecha_pedido
         )
-        VALUES (?, ?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, 0, CURRENT_TIMESTAMP)
+        RETURNING id_pedido
       `,
       [
-        idPedido,
         Number(id_cliente),
         subtotalProductos,
         costoEnvio,
@@ -642,18 +624,14 @@ router.post('/', async (req, res) => {
         observacionLimpia,
       ]
     );
-
-    let idDetallePedido = await obtenerSiguienteId(
-      'detalle_pedidos',
-      'id_detalle_pedido'
-    );
+    const idPedido = Number(obtenerPrimero(resultadoPedido)?.id_pedido);
+    if (!idPedido) throw new Error('No se obtuvo el identificador del pedido');
 
     for (const detalle of detalles) {
       await query(
         `
           INSERT INTO detalle_pedidos
           (
-            id_detalle_pedido,
             id_pedido,
             id_producto,
             producto,
@@ -662,10 +640,9 @@ router.post('/', async (req, res) => {
             precio_unitario,
             subtotal
           )
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `,
         [
-          idDetallePedido,
           idPedido,
           detalle.id_producto,
           detalle.producto,
@@ -675,8 +652,6 @@ router.post('/', async (req, res) => {
           detalle.subtotal,
         ]
       );
-
-      idDetallePedido += 1;
     }
 
     await commit();

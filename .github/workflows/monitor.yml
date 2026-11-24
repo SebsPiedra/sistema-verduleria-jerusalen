@@ -8,12 +8,22 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: monitoreo-produccion
+  cancel-in-progress: true
+
 jobs:
   disponibilidad:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - name: Verificar API y base de datos
-        run: curl --fail --silent --show-error --max-time 25 --retry 2 https://backend-verduleria.vercel.app/health
+        shell: bash
+        run: |
+          respuesta="$(curl --fail --silent --show-error --max-time 25 --retry 2 https://backend-verduleria.vercel.app/health)"
+          echo "$respuesta" | grep -Eq '"(estado|status)"[[:space:]]*:[[:space:]]*"(saludable|ok)"'
       - name: Verificar aplicación web
-        run: curl --fail --silent --show-error --max-time 25 --retry 2 https://frontend-verduleria.vercel.app/
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --max-time 25 --retry 2 https://frontend-verduleria.vercel.app/ \
+            | grep -Eqi '<!doctype html|<html'

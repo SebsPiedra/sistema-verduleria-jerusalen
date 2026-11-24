@@ -30,17 +30,18 @@ const rows = (result) => Array.isArray(result) ? result : (result?.rows || []);
   ))[0];
   if (existente) throw new Error('Ya existe una cuenta con ese correo.');
 
-  const siguiente = rows(await query('SELECT COALESCE(MAX(id), 0) + 1 AS id FROM usuarios'))[0];
   const hash = await bcrypt.hash(clave, 12);
-  await query(
-    `INSERT INTO usuarios (id,nombre,correo,email,clave,password,rol,estado)
-     VALUES (?,?,?,?,?,?,?,?)`,
-    [Number(siguiente.id), nombre, correo, correo, hash, hash, 'admin', 'Activo']
-  );
+  const insertado = rows(await query(
+    `INSERT INTO usuarios (nombre,correo,email,clave,password,rol,estado)
+     VALUES (?,?,?,?,?,?,?) RETURNING id`,
+    [nombre, correo, correo, hash, hash, 'admin', 'Activo']
+  ))[0];
+  const id = Number(insertado?.id);
+  if (!id) throw new Error('No se obtuvo el identificador del administrador.');
 
   const creado = rows(await query(
     'SELECT id,nombre,COALESCE(correo,email) AS correo,rol,estado FROM usuarios WHERE id=?',
-    [Number(siguiente.id)]
+    [id]
   ))[0];
   console.log(JSON.stringify({ ok: true, usuario: creado }));
   db.end?.();

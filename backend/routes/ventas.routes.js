@@ -44,16 +44,6 @@ function generarFactura(idVenta) {
   return `FAC-${String(idVenta).padStart(6, '0')}`;
 }
 
-async function obtenerSiguienteId(tabla, columna) {
-  const resultado = await ejecutar(
-    `SELECT COALESCE(MAX(${columna}), 0) + 1 AS siguiente FROM ${tabla}`
-  );
-
-  const fila = obtenerPrimero(resultado);
-
-  return Number(fila?.siguiente || 1);
-}
-
 async function cargarDetalles(idsVentas) {
   if (!idsVentas.length) return {};
 
@@ -413,38 +403,35 @@ router.post('/', async (req, res) => {
       });
     }
 
-    const idVenta = await obtenerSiguienteId('ventas', 'id_venta');
-    const numeroFactura = generarFactura(idVenta);
-
-    await ejecutar(
+    const resultadoVenta = await ejecutar(
       `
         INSERT INTO ventas
-        (id_venta, id_cliente, cliente, numero_factura, subtotal_productos, costo_envio, total, metodo_pago, fecha_venta, estado, observacion)
-        VALUES (?, ?, ?, ?, ?, 0, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+        (id_cliente, cliente, subtotal_productos, costo_envio, total, metodo_pago, fecha_venta, estado, observacion)
+        VALUES (?, ?, ?, 0, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+        RETURNING id_venta
       `,
       [
-        idVenta,
         idClienteFinal,
         clienteFinal,
-        numeroFactura,
         totalVenta,
         totalVenta,
         metodoPagoFinal,
         observacionFinal,
       ]
     );
-
-    let idDetalle = await obtenerSiguienteId('detalle_ventas', 'id_detalle');
+    const idVenta = Number(obtenerPrimero(resultadoVenta)?.id_venta);
+    if (!idVenta) throw new Error('No se obtuvo el identificador de la venta');
+    const numeroFactura = generarFactura(idVenta);
+    await ejecutar('UPDATE ventas SET numero_factura = ? WHERE id_venta = ?', [numeroFactura, idVenta]);
 
     for (const item of detallesVenta) {
       await ejecutar(
         `
           INSERT INTO detalle_ventas
-          (id_detalle, id_venta, id_producto, producto, nombre_producto, cantidad, precio_unitario, subtotal)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+          (id_venta, id_producto, producto, nombre_producto, cantidad, precio_unitario, subtotal)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
         `,
         [
-          idDetalle,
           idVenta,
           item.id_producto,
           item.producto,
@@ -454,8 +441,6 @@ router.post('/', async (req, res) => {
           item.subtotal,
         ]
       );
-
-      idDetalle += 1;
 
       await ejecutar(
         `

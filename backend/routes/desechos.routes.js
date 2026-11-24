@@ -35,15 +35,6 @@ const rollbackSeguro = async () => {
   }
 };
 
-const obtenerSiguienteId = async (tabla, columna) => {
-  const resultado = await query(
-    `SELECT COALESCE(MAX(${columna}), 0) + 1 AS siguiente FROM ${tabla}`
-  );
-
-  const fila = obtenerPrimero(resultado);
-  return Number(fila?.siguiente || 1);
-};
-
 router.post('/', async (req, res) => {
   const { id_producto, cantidad, motivo, observacion } = req.body;
 
@@ -115,13 +106,10 @@ router.post('/', async (req, res) => {
 
     const precioCompra = formatoNumero(producto.precio_compra);
     const perdidaTotal = cantidadDesechada * precioCompra;
-    const idDesecho = await obtenerSiguienteId('desechos', 'id_desecho');
-
-    await query(
+    const resultadoDesecho = await query(
       `
         INSERT INTO desechos
         (
-          id_desecho,
           id_producto,
           producto,
           nombre_producto,
@@ -132,10 +120,10 @@ router.post('/', async (req, res) => {
           observacion,
           fecha_desecho
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+        RETURNING id_desecho
       `,
       [
-        idDesecho,
         producto.id_producto,
         producto.nombre,
         producto.nombre,
@@ -146,6 +134,8 @@ router.post('/', async (req, res) => {
         String(observacion || '').trim(),
       ]
     );
+    const idDesecho = Number(obtenerPrimero(resultadoDesecho)?.id_desecho);
+    if (!idDesecho) throw new Error('No se obtuvo el identificador del desecho');
 
     await query(
       `

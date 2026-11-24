@@ -36,16 +36,6 @@ function obtenerPrimero(resultado) {
   return filas[0] || null;
 }
 
-async function obtenerSiguienteId(tabla, columna) {
-  const resultado = await ejecutar(
-    `SELECT COALESCE(MAX(${columna}), 0) + 1 AS siguiente FROM ${tabla}`
-  );
-
-  const fila = obtenerPrimero(resultado);
-
-  return Number(fila?.siguiente || 1);
-}
-
 router.post('/registrar', async (req, res) => {
   try {
     const { nombre, telefono, correo, clave, direccion } = req.body;
@@ -99,15 +89,12 @@ router.post('/registrar', async (req, res) => {
       });
     }
 
-    const idCliente = await obtenerSiguienteId('clientes', 'id_cliente');
-
     const claveHash = await bcrypt.hash(claveLimpia, 12);
 
-    await ejecutar(
+    const resultadoCliente = await ejecutar(
       `
         INSERT INTO clientes
         (
-          id_cliente,
           nombre,
           telefono,
           correo,
@@ -118,10 +105,10 @@ router.post('/registrar', async (req, res) => {
           estado,
           fecha_registro
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Activo', CURRENT_TIMESTAMP)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'Activo', CURRENT_TIMESTAMP)
+        RETURNING id_cliente
       `,
       [
-        idCliente,
         nombreLimpio,
         telefonoLimpio,
         correoLimpio,
@@ -131,6 +118,8 @@ router.post('/registrar', async (req, res) => {
         direccionLimpia,
       ]
     );
+    const idCliente = Number(obtenerPrimero(resultadoCliente)?.id_cliente);
+    if (!idCliente) throw new Error('No se obtuvo el identificador del cliente');
 
     await marcarRequerida('cliente', idCliente);
 
@@ -309,9 +298,10 @@ router.post('/admin', async (req, res) => {
       if (existente) return res.status(409).json({ mensaje: 'Ya existe un cliente con ese correo.' });
     }
 
-    const id = await obtenerSiguienteId('clientes', 'id_cliente');
-    const claveTemporal = await bcrypt.hash(`venta-${id}-${Date.now()}`, 10);
-    await ejecutar(`INSERT INTO clientes (id_cliente,nombre,telefono,correo,email,direccion,clave,password,estado,fecha_registro) VALUES (?,?,?,?,?,?,?,?, 'Activo',CURRENT_TIMESTAMP)`, [id,nombre,telefono||null,correo||null,correo||null,direccion||null,claveTemporal,claveTemporal]);
+    const claveTemporal = await bcrypt.hash(`venta-${Date.now()}-${Math.random()}`, 10);
+    const resultado = await ejecutar(`INSERT INTO clientes (nombre,telefono,correo,email,direccion,clave,password,estado,fecha_registro) VALUES (?,?,?,?,?,?,?, 'Activo',CURRENT_TIMESTAMP) RETURNING id_cliente`, [nombre,telefono||null,correo||null,correo||null,direccion||null,claveTemporal,claveTemporal]);
+    const id = Number(obtenerPrimero(resultado)?.id_cliente);
+    if (!id) throw new Error('No se obtuvo el identificador del cliente');
     return res.status(201).json({ mensaje: 'Cliente agregado correctamente.', cliente: { id_cliente:id,nombre,telefono,correo,direccion,estado:'Activo' } });
   } catch (error) {
     console.error('Error al agregar cliente desde administración:', error);

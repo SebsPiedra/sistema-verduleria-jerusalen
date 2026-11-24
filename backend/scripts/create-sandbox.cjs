@@ -6,26 +6,17 @@ const email = String(process.env.SANDBOX_EMAIL || 'demo@verduleria.local').trim(
 const password = String(process.env.SANDBOX_PASSWORD || 'DemoVerduleria2026!');
 
 (async () => {
-  await db.query(`CREATE TABLE IF NOT EXISTS usuario_seguridad (
-    id_usuario BIGINT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
-    two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    two_factor_secret TEXT NULL,
-    two_factor_pending_secret TEXT NULL,
-    recovery_codes JSONB NOT NULL DEFAULT '[]'::jsonb,
-    es_sandbox BOOLEAN NOT NULL DEFAULT FALSE,
-    actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-  )`);
   let [rows] = await db.query('SELECT id FROM usuarios WHERE LOWER(COALESCE(correo,email)) = LOWER(?) LIMIT 1', [email]);
   let id = rows[0]?.id;
   if (!id) {
-    const [nextRows] = await db.query('SELECT COALESCE(MAX(id),0)+1 AS id FROM usuarios');
-    id = Number(nextRows[0].id);
     const hash = await bcrypt.hash(password, 12);
-    await db.query(
-      `INSERT INTO usuarios (id,nombre,correo,email,clave,password,rol)
-       VALUES (?,?,?,?,?,?, 'admin')`,
-      [id, 'Demostración Verdulería', email, email, hash, hash]
+    const [insertados] = await db.query(
+      `INSERT INTO usuarios (nombre,correo,email,clave,password,rol)
+       VALUES (?,?,?,?,?, 'admin') RETURNING id`,
+      ['Demostración Verdulería', email, email, hash, hash]
     );
+    id = Number(insertados[0]?.id);
+    if (!id) throw new Error('No se obtuvo el identificador de la cuenta demostrativa.');
   }
   await db.query(
     `INSERT INTO usuario_seguridad (id_usuario, es_sandbox)
