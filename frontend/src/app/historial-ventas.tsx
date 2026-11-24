@@ -154,6 +154,13 @@ export default function HistorialVentasScreen() {
     return Number(venta.total || venta.monto_total || venta.total_venta || 0);
   };
 
+  const obtenerCostoEnvio = (venta: any) => Number(venta.costo_envio || 0);
+
+  const obtenerSubtotalProductos = (venta: any) => {
+    const subtotal = Number(venta.subtotal_productos || 0);
+    return subtotal > 0 ? subtotal : Math.max(obtenerTotal(venta) - obtenerCostoEnvio(venta), 0);
+  };
+
   const cargarDetalle = async (venta: any) => {
     const idVenta = Number(obtenerIdVenta(venta));
 
@@ -464,6 +471,11 @@ export default function HistorialVentasScreen() {
             margin-top: 5px;
           }
 
+          .total-caja strong.detalle {
+            font-size: 18px;
+            margin-bottom: 10px;
+          }
+
           .pie {
             margin-top: 35px;
             border-top: 1px solid #eeeeee;
@@ -558,6 +570,10 @@ export default function HistorialVentasScreen() {
 
           <div class="total">
             <div class="total-caja">
+              <span>Subtotal de productos</span>
+              <strong class="detalle">${limpiarHTML(formatoColones(obtenerSubtotalProductos(venta)))}</strong>
+              <span>Envío</span>
+              <strong class="detalle">${limpiarHTML(formatoColones(obtenerCostoEnvio(venta)))}</strong>
               <span>Total de la factura</span>
               <strong>${limpiarHTML(formatoColones(obtenerTotal(venta)))}</strong>
             </div>
@@ -868,6 +884,14 @@ export default function HistorialVentasScreen() {
               )}
 
               <View style={styles.totalFacturaCaja}>
+                <Text style={styles.totalFacturaLabel}>Subtotal de productos</Text>
+                <Text style={styles.totalFacturaDetalleValor}>
+                  {formatoColones(obtenerSubtotalProductos(ventaSeleccionada))}
+                </Text>
+                <Text style={styles.totalFacturaLabel}>Envío</Text>
+                <Text style={styles.totalFacturaDetalleValor}>
+                  {formatoColones(obtenerCostoEnvio(ventaSeleccionada))}
+                </Text>
                 <Text style={styles.totalFacturaLabel}>Total de la factura</Text>
                 <Text style={styles.totalFacturaValor}>
                   {formatoColones(obtenerTotal(ventaSeleccionada))}
@@ -1333,6 +1357,13 @@ const baseStyles = createAppStyles({
     fontSize: 28,
     fontWeight: 'bold',
     marginTop: 4,
+  },
+  totalFacturaDetalleValor: {
+    color: '#0f4f24',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 3,
+    marginBottom: 10,
   },
   botonesFactura: {
     flexDirection: 'row',

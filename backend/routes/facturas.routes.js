@@ -40,6 +40,8 @@ router.get('/', async (req, res) => {
         COALESCE(v.cliente, c.nombre, 'Cliente general') AS cliente,
         COALESCE(v.numero_factura, 'FAC-' || LPAD(v.id_venta::TEXT, 6, '0')) AS numero_factura,
         COALESCE(v.total, 0) AS total,
+        COALESCE(v.subtotal_productos, v.total, 0) AS subtotal_productos,
+        COALESCE(v.costo_envio, 0) AS costo_envio,
         COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago,
         COALESCE(v.estado, 'Completada') AS estado,
         v.observacion,
@@ -130,6 +132,8 @@ router.get('/:id', async (req, res) => {
           COALESCE(v.cliente, c.nombre, 'Cliente general') AS cliente,
           COALESCE(v.numero_factura, 'FAC-' || LPAD(v.id_venta::TEXT, 6, '0')) AS numero_factura,
           COALESCE(v.total, 0) AS total,
+          COALESCE(v.subtotal_productos, v.total, 0) AS subtotal_productos,
+          COALESCE(v.costo_envio, 0) AS costo_envio,
           COALESCE(v.metodo_pago, 'Efectivo') AS metodo_pago,
           COALESCE(v.estado, 'Completada') AS estado,
           v.observacion,
@@ -294,13 +298,14 @@ router.post('/', async (req, res) => {
     const resultadoVenta = await ejecutar(
       `
         INSERT INTO ventas
-        (id_cliente, cliente, total, metodo_pago, fecha_venta, estado, observacion)
-        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+        (id_cliente, cliente, subtotal_productos, costo_envio, total, metodo_pago, fecha_venta, estado, observacion)
+        VALUES (?, ?, ?, 0, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
         RETURNING id_venta
       `,
       [
         id_cliente || null,
         cliente || 'Cliente general',
+        totalVenta,
         totalVenta,
         metodo_pago || 'Efectivo',
         observacion || '',

@@ -120,6 +120,8 @@ router.get('/', async (req, res) => {
               COALESCE(cliente, 'Cliente general') AS cliente,
               COALESCE(numero_factura, '') AS numero_factura,
               COALESCE(total, 0) AS total,
+              COALESCE(subtotal_productos, total, 0) AS subtotal_productos,
+              COALESCE(costo_envio, 0) AS costo_envio,
               COALESCE(metodo_pago, 'Efectivo') AS metodo_pago,
               COALESCE(estado, 'Completada') AS estado,
               observacion,
@@ -181,6 +183,8 @@ router.get('/', async (req, res) => {
         COALESCE(cliente, 'Cliente general') AS cliente,
         COALESCE(numero_factura, '') AS numero_factura,
         COALESCE(total, 0) AS total,
+        COALESCE(subtotal_productos, total, 0) AS subtotal_productos,
+        COALESCE(costo_envio, 0) AS costo_envio,
         COALESCE(metodo_pago, 'Efectivo') AS metodo_pago,
         COALESCE(estado, 'Completada') AS estado,
         observacion,
@@ -237,6 +241,8 @@ router.get('/:id', async (req, res) => {
           COALESCE(cliente, 'Cliente general') AS cliente,
           COALESCE(numero_factura, '') AS numero_factura,
           COALESCE(total, 0) AS total,
+          COALESCE(subtotal_productos, total, 0) AS subtotal_productos,
+          COALESCE(costo_envio, 0) AS costo_envio,
           COALESCE(metodo_pago, 'Efectivo') AS metodo_pago,
           COALESCE(estado, 'Completada') AS estado,
           observacion,
@@ -391,14 +397,15 @@ router.post('/', async (req, res) => {
     await ejecutar(
       `
         INSERT INTO ventas
-        (id_venta, id_cliente, cliente, numero_factura, total, metodo_pago, fecha_venta, estado, observacion)
-        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+        (id_venta, id_cliente, cliente, numero_factura, subtotal_productos, costo_envio, total, metodo_pago, fecha_venta, estado, observacion)
+        VALUES (?, ?, ?, ?, ?, 0, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
       `,
       [
         idVenta,
         id_cliente || null,
         cliente || 'Cliente general',
         numeroFactura,
+        totalVenta,
         totalVenta,
         metodo_pago || 'Efectivo',
         observacion || '',

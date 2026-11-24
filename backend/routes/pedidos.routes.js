@@ -199,19 +199,23 @@ const crearVentaDesdePedido = async (pedido, detalles) => {
         id_cliente,
         cliente,
         numero_factura,
+        subtotal_productos,
+        costo_envio,
         total,
         metodo_pago,
         fecha_venta,
         estado,
         observacion
       )
-      VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, 'Completada', ?)
     `,
     [
       idVenta,
       pedido.id_cliente || null,
       pedido.cliente || 'Cliente general',
       numeroFactura,
+      formatoNumero(pedido.subtotal_productos),
+      formatoNumero(pedido.costo_envio),
       formatoNumero(pedido.total),
       pedido.metodo_pago || 'Efectivo',
       `Venta generada desde pedido #${pedido.id_pedido}`,

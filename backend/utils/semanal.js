@@ -27,7 +27,7 @@ async function resumenSemanal(client, fecha) {
   const range = [inicio, finExclusivo];
   const rows = async (sql) => (await client.query(sql, range)).rows;
   const ventas = await rows(`SELECT v.id_venta, v.numero_factura, v.cliente, v.fecha_venta::text AS fecha,
-    v.estado, v.metodo_pago, v.total,
+    v.estado, v.metodo_pago, v.subtotal_productos, v.costo_envio, v.total,
     lower(coalesce(v.estado,'Completada')) IN ('completada','completado','pagada','pagado') AS contabilizada
     FROM ventas v WHERE fecha_venta >= $1::date AND fecha_venta < $2::date ORDER BY fecha_venta,id_venta`);
   const detalles = await rows(`SELECT d.id_venta, d.id_producto, coalesce(d.nombre_producto,d.producto,p.nombre,'Producto') AS producto,
