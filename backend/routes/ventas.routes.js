@@ -16,6 +16,18 @@ function ejecutar(sql, params = []) {
   });
 }
 
+const iniciarTransaccion = () => new Promise((resolve, reject) =>
+  conexion.beginTransaction((error) => error ? reject(error) : resolve())
+);
+const confirmarTransaccion = () => new Promise((resolve, reject) =>
+  conexion.commit((error) => error ? reject(error) : resolve())
+);
+const revertirTransaccion = () => new Promise((resolve) => conexion.rollback(() => resolve()));
+const rechazarTransaccion = async (res, estado, mensaje) => {
+  await revertirTransaccion();
+  return res.status(estado).json({ mensaje });
+};
+
 function obtenerFilas(resultado) {
   if (Array.isArray(resultado)) return resultado;
   if (resultado?.rows) return resultado.rows;
@@ -297,7 +309,7 @@ router.post('/', async (req, res) => {
     if (new Set(productos.map(p=>Number(p.id_producto))).size !== productos.length) {
       return res.status(400).json({mensaje:'Agrupa las cantidades de cada producto en una sola línea.'});
     }
-    await new Promise((resolve,reject)=>conexion.beginTransaction(e=>e?reject(e):resolve()));
+    await iniciarTransaccion();
     let totalVenta = 0;
     const detallesVenta = [];
 
@@ -306,9 +318,7 @@ router.post('/', async (req, res) => {
       const cantidad = Number(item.cantidad);
 
       if (!Number.isSafeInteger(idProducto) || idProducto<=0 || !Number.isFinite(cantidad) || cantidad <= 0) {
-        return res.status(400).json({
-          mensaje: 'Hay un producto con cantidad inválida.',
-        });
+        return rechazarTransaccion(res, 400, 'Hay un producto con cantidad inválida.');
       }
 
       const resultadoProducto = await ejecutar(
@@ -324,6 +334,7 @@ router.post('/', async (req, res) => {
           FROM productos
           WHERE id_producto = ?
           LIMIT 1
+          FOR UPDATE
         `,
         [idProducto]
       );
@@ -331,48 +342,29 @@ router.post('/', async (req, res) => {
       const productoBD = obtenerPrimero(resultadoProducto);
 
       if (!productoBD) {
-        return res.status(404).json({
-          mensaje: `No se encontró el producto con ID ${idProducto}.`,
-        });
+        return rechazarTransaccion(res, 404, `No se encontró el producto con ID ${idProducto}.`);
       }
 
       if (String(productoBD.estado || 'Activo').toLowerCase() === 'inactivo') {
-        return res.status(400).json({
-          mensaje: `El producto ${productoBD.nombre} está inactivo.`,
-        });
+        return rechazarTransaccion(res, 400, `El producto ${productoBD.nombre} está inactivo.`);
       }
 
       if (!cantidadValidaParaUnidad(cantidad, productoBD.unidad_medida)) {
-        return res.status(400).json({
-          mensaje: `La cantidad indicada no es válida para ${productoBD.nombre} (${productoBD.unidad_medida}).`,
-        });
+        return rechazarTransaccion(res, 400, `La cantidad indicada no es válida para ${productoBD.nombre} (${productoBD.unidad_medida}).`);
       }
 
       const disponible = Number(productoBD.cantidad ?? productoBD.stock ?? 0);
 
       if (cantidad > disponible) {
-        return res.status(400).json({
-          mensaje: `No hay suficiente inventario para ${productoBD.nombre}. Disponible: ${disponible}.`,
-        });
+        return rechazarTransaccion(res, 400, `No hay suficiente inventario para ${productoBD.nombre}. Disponible: ${disponible}.`);
       }
 
-      const nombreProducto =
-        item.nombre_producto ||
-        item.producto ||
-        item.nombre ||
-        productoBD.nombre ||
-        'Producto';
+      const nombreProducto = productoBD.nombre || 'Producto';
 
-      const precioUnitario = Number(
-        item.precio_unitario ||
-        productoBD.precio_venta ||
-        0
-      );
+      const precioUnitario = Number(productoBD.precio_venta || 0);
 
       if (!Number.isFinite(precioUnitario) || precioUnitario <= 0) {
-        return res.status(400).json({
-          mensaje: `El producto ${nombreProducto} no tiene precio válido.`,
-        });
+        return rechazarTransaccion(res, 400, `El producto ${nombreProducto} no tiene precio válido.`);
       }
 
       const subtotal = cantidad * precioUnitario;
@@ -445,7 +437,7 @@ router.post('/', async (req, res) => {
       );
     }
 
-    await new Promise((resolve,reject)=>conexion.commit(e=>e?reject(e):resolve()));
+    await confirmarTransaccion();
     res.json({
       mensaje: 'Venta registrada correctamente.',
       id_venta: idVenta,
@@ -458,7 +450,7 @@ router.post('/', async (req, res) => {
     });
   } catch (error) {
     console.log('ERROR POST /ventas:', error);
-    await new Promise(resolve=>conexion.rollback(()=>resolve()));
+    await revertirTransaccion();
 
     res.status(500).json({
       mensaje: 'No se pudo registrar la venta.',
