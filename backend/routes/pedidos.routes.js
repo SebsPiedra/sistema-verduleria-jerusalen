@@ -121,7 +121,7 @@ const cargarDetallesPorPedidos = async (pedidos) => {
   return obtenerFilas(resultadoDetalles);
 };
 
-const cargarPedidosConDetalles = async (condicion = '', parametros = []) => {
+const cargarPedidosConDetalles = async (condicion = '', parametros = [], paginacion = null) => {
   await prepararEsquemaEnvio();
   const resultadoPedidos = await query(
     `
@@ -167,8 +167,9 @@ const cargarPedidosConDetalles = async (condicion = '', parametros = []) => {
         c.correo,
         c.direccion
       ORDER BY p.id_pedido DESC
+      ${paginacion ? 'LIMIT ? OFFSET ?' : ''}
     `,
-    parametros
+    paginacion ? [...parametros, paginacion.limite, paginacion.offset] : parametros
   );
 
   const pedidos = obtenerFilas(resultadoPedidos);
@@ -724,6 +725,77 @@ router.post('/', async (req, res) => {
 
 router.get('/', async (req, res) => {
   try {
+    const usaPaginacion = req.query.page !== undefined || req.query.limit !== undefined;
+
+    if (usaPaginacion) {
+      const pagina = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+      const limite = Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 20, 1), 100);
+      const offset = (pagina - 1) * limite;
+      const busqueda = String(req.query.search || '').trim().toLowerCase();
+      const estado = String(req.query.estado || '').trim();
+      const condiciones = [];
+      const parametros = [];
+
+      if (busqueda) {
+        condiciones.push(`(
+          CAST(p.id_pedido AS TEXT) LIKE ? OR
+          LOWER(COALESCE(c.nombre, 'Cliente')) LIKE ? OR
+          LOWER(COALESCE(c.telefono, '')) LIKE ? OR
+          LOWER(COALESCE(c.correo, '')) LIKE ? OR
+          LOWER(COALESCE(p.direccion_entrega, c.direccion, '')) LIKE ? OR
+          LOWER(COALESCE(p.tipo_entrega, 'Entrega')) LIKE ? OR
+          LOWER(COALESCE(p.metodo_pago, 'Efectivo')) LIKE ? OR
+          LOWER(COALESCE(p.estado, 'Pendiente')) LIKE ?
+        )`);
+        const patron = `%${busqueda}%`;
+        parametros.push(patron, patron, patron, patron, patron, patron, patron, patron);
+      }
+
+      if (estado && estado !== 'Todos') {
+        condiciones.push(`LOWER(COALESCE(p.estado, 'Pendiente')) = LOWER(?)`);
+        parametros.push(estado);
+      }
+
+      const where = condiciones.length ? `WHERE ${condiciones.join(' AND ')}` : '';
+      const [pedidos, resultadoConteo, resultadoResumen] = await Promise.all([
+        cargarPedidosConDetalles(where, parametros, { limite, offset }),
+        query(`
+          SELECT COUNT(*) AS total
+          FROM pedidos p
+          LEFT JOIN clientes c ON p.id_cliente = c.id_cliente
+          ${where}
+        `, parametros),
+        query(`
+          SELECT
+            COUNT(*) AS total_pedidos,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'pendiente') AS pendientes,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'aceptado') AS aceptados,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'entregado') AS entregados,
+            COALESCE(SUM(total), 0) AS monto_total
+          FROM pedidos
+        `),
+      ]);
+      const total = Number(obtenerPrimero(resultadoConteo)?.total || 0);
+      const resumen = obtenerPrimero(resultadoResumen) || {};
+
+      return res.json({
+        pedidos,
+        paginacion: {
+          pagina,
+          limite,
+          total,
+          total_paginas: Math.max(Math.ceil(total / limite), 1),
+        },
+        resumen: {
+          total_pedidos: Number(resumen.total_pedidos || 0),
+          pendientes: Number(resumen.pendientes || 0),
+          aceptados: Number(resumen.aceptados || 0),
+          entregados: Number(resumen.entregados || 0),
+          monto_total: Number(resumen.monto_total || 0),
+        },
+      });
+    }
+
     const pedidos = await cargarPedidosConDetalles();
     res.json(pedidos);
   } catch (error) {

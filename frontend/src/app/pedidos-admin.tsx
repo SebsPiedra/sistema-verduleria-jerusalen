@@ -41,13 +41,22 @@ export default function PedidosAdminScreen() {
   const [umbralEnvio, setUmbralEnvio] = useState('15000');
   const [costoEnvio, setCostoEnvio] = useState('1500');
   const [costosPorPedido, setCostosPorPedido] = useState<Record<number, string>>({});
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
+  const [totalResultados, setTotalResultados] = useState(0);
+  const [resumen, setResumen] = useState({ total_pedidos: 0, pendientes: 0, aceptados: 0, entregados: 0, monto_total: 0 });
+  const LIMITE_POR_PAGINA = 20;
 
   useEffect(() => {
-    cargarPedidos();
     api.get('/configuracion/envio').then(({data}) => { setUmbralEnvio(String(data.umbral_envio_gratis)); setCostoEnvio(String(data.costo_envio_base)); }).catch(() => {});
-    // La actualización posterior se realiza mediante la acción de la pantalla.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    const temporizador = setTimeout(() => cargarPedidos(pagina), busqueda ? 300 : 0);
+    return () => clearTimeout(temporizador);
+    // La página, la búsqueda y el estado determinan la consulta remota.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pagina, busqueda, filtroEstado]);
 
   const mostrarMensaje = (
     texto: string,
@@ -66,18 +75,34 @@ export default function PedidosAdminScreen() {
     }, 4500);
   };
 
-  const cargarPedidos = async () => {
+  const cargarPedidos = async (paginaSolicitada = pagina) => {
     try {
       setCargando(true);
       setMensaje('');
 
-      const respuesta = await api.get('/pedidos');
+      const respuesta = await api.get('/pedidos', {
+        params: {
+          page: paginaSolicitada,
+          limit: LIMITE_POR_PAGINA,
+          search: busqueda.trim() || undefined,
+          estado: filtroEstado !== 'Todos' ? filtroEstado : undefined,
+        },
+      });
 
       const datos = Array.isArray(respuesta.data)
         ? respuesta.data
         : respuesta.data?.pedidos || [];
 
       setPedidos(datos);
+      setTotalPaginas(Number(respuesta.data?.paginacion?.total_paginas || 1));
+      setTotalResultados(Number(respuesta.data?.paginacion?.total || datos.length));
+      setResumen({
+        total_pedidos: Number(respuesta.data?.resumen?.total_pedidos || 0),
+        pendientes: Number(respuesta.data?.resumen?.pendientes || 0),
+        aceptados: Number(respuesta.data?.resumen?.aceptados || 0),
+        entregados: Number(respuesta.data?.resumen?.entregados || 0),
+        monto_total: Number(respuesta.data?.resumen?.monto_total || 0),
+      });
     } catch (error: any) {
       console.log('Error al cargar pedidos:', error?.response?.data || error);
       setPedidos([]);
@@ -522,45 +547,12 @@ export default function PedidosAdminScreen() {
     'Cancelado',
   ];
 
-  const pedidosFiltrados = pedidos.filter((pedido) => {
-    const texto = busqueda.toLowerCase();
-    const idPedido = obtenerIdPedido(pedido);
-    const estadoPedido = obtenerEstado(pedido);
-
-    const coincideBusqueda =
-      String(idPedido).includes(texto) ||
-      obtenerCliente(pedido).toLowerCase().includes(texto) ||
-      obtenerDireccion(pedido).toLowerCase().includes(texto) ||
-      obtenerTipoEntrega(pedido).toLowerCase().includes(texto) ||
-      obtenerMetodoPago(pedido).toLowerCase().includes(texto) ||
-      obtenerTelefono(pedido).toLowerCase().includes(texto) ||
-      obtenerCorreo(pedido).toLowerCase().includes(texto) ||
-      estadoPedido.toLowerCase().includes(texto);
-
-    const coincideEstado =
-      filtroEstado === 'Todos' ||
-      estadoPedido.toLowerCase() === filtroEstado.toLowerCase();
-
-    return coincideBusqueda && coincideEstado;
-  });
-
-  const totalPedidos = pedidos.length;
-
-  const totalPendientes = pedidos.filter(
-    (pedido) => obtenerEstado(pedido).toLowerCase() === 'pendiente'
-  ).length;
-
-  const totalAceptados = pedidos.filter(
-    (pedido) => obtenerEstado(pedido).toLowerCase() === 'aceptado'
-  ).length;
-
-  const totalEntregados = pedidos.filter(
-    (pedido) => obtenerEstado(pedido).toLowerCase() === 'entregado'
-  ).length;
-
-  const totalMontoPedidos = pedidos.reduce((total, pedido) => {
-    return total + obtenerTotal(pedido);
-  }, 0);
+  const pedidosFiltrados = pedidos;
+  const totalPedidos = resumen.total_pedidos;
+  const totalPendientes = resumen.pendientes;
+  const totalAceptados = resumen.aceptados;
+  const totalEntregados = resumen.entregados;
+  const totalMontoPedidos = resumen.monto_total;
 
   return (
     <AdminLayout
@@ -573,7 +565,7 @@ export default function PedidosAdminScreen() {
           
         </View>
 
-        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={cargarPedidos}>
+        <Pressable accessibilityRole="button" style={styles.botonActualizar} onPress={() => cargarPedidos(pagina)}>
           <Text style={styles.textoActualizar}>
             {cargando ? 'Actualizando...' : 'Actualizar pedidos'}
           </Text>
@@ -646,7 +638,7 @@ export default function PedidosAdminScreen() {
             style={styles.input}
             placeholder="Buscar por número, cliente, teléfono, dirección, entrega, método o estado..."
             value={busqueda}
-            onChangeText={setBusqueda}
+            onChangeText={(texto) => { setPagina(1); setBusqueda(texto); }}
           />
 
           <ScrollView horizontal={!esTelefono} showsHorizontalScrollIndicator={false}>
@@ -658,7 +650,7 @@ export default function PedidosAdminScreen() {
                     styles.filtroBoton,
                     filtroEstado === estado && styles.filtroBotonActivo,
                   ]}
-                  onPress={() => setFiltroEstado(estado)}
+                  onPress={() => { setPagina(1); setFiltroEstado(estado); }}
                 >
                   <Text
                     style={[
@@ -1000,8 +992,16 @@ export default function PedidosAdminScreen() {
 
         <View style={styles.footerTabla}>
           <Text style={styles.footerTexto}>
-            Mostrando {pedidosFiltrados.length} de {pedidos.length} pedidos
+            Mostrando {pedidosFiltrados.length} de {totalResultados} pedidos · Página {pagina} de {totalPaginas}
           </Text>
+          <View style={styles.paginacion}>
+            <Pressable accessibilityRole="button" accessibilityLabel="Página anterior" disabled={pagina <= 1 || cargando} style={[styles.botonPagina, (pagina <= 1 || cargando) && styles.botonPaginaDesactivado]} onPress={() => setPagina((actual) => Math.max(actual - 1, 1))}>
+              <Text style={styles.textoPagina}>Anterior</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel="Página siguiente" disabled={pagina >= totalPaginas || cargando} style={[styles.botonPagina, (pagina >= totalPaginas || cargando) && styles.botonPaginaDesactivado]} onPress={() => setPagina((actual) => Math.min(actual + 1, totalPaginas))}>
+              <Text style={styles.textoPagina}>Siguiente</Text>
+            </Pressable>
+          </View>
         </View>
       </View>
       <Modal
@@ -1630,9 +1630,18 @@ const baseStyles = createAppStyles({
   },
   footerTabla: {
     paddingTop: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+    flexWrap: 'wrap',
   },
   footerTexto: {
     color: '#777',
     fontWeight: 'bold',
   },
+  paginacion: { flexDirection: 'row', gap: 8 },
+  botonPagina: { backgroundColor: '#075e58', borderRadius: 10, paddingVertical: 9, paddingHorizontal: 14 },
+  botonPaginaDesactivado: { opacity: 0.4 },
+  textoPagina: { color: '#ffffff', fontWeight: 'bold', fontSize: 12 },
 });
