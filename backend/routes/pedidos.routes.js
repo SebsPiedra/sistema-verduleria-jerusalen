@@ -437,7 +437,6 @@ const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
 
     return res.status(500).json({
       mensaje: 'Error al cambiar el estado del pedido',
-      error: error.message || error,
     });
   }
 };
@@ -706,7 +705,6 @@ router.post('/', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error al registrar pedido',
-      error: error.message || error,
     });
   }
 });
@@ -791,7 +789,6 @@ router.get('/', async (req, res) => {
 
     res.status(500).json({
       mensaje: 'Error al obtener pedidos',
-      error: error.message || error,
     });
   }
 });
@@ -832,7 +829,6 @@ router.get('/cliente/:id_cliente', async (req, res) => {
 
     res.status(500).json({
       mensaje: 'Error al obtener pedidos del cliente',
-      error: error.message || error,
     });
   }
 });
@@ -859,7 +855,6 @@ router.get('/:id', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error al obtener detalle del pedido',
-      error: error.message || error,
     });
   }
 });

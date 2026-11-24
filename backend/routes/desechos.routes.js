@@ -187,7 +187,6 @@ router.post('/', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error al registrar desecho.',
-      error: error.message || error,
     });
   }
 });
@@ -237,7 +236,6 @@ router.get('/', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error al obtener desechos.',
-      error: error.message || error,
     });
   }
 });

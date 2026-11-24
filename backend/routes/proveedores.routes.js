@@ -18,8 +18,7 @@ router.get('/', (req, res) => {
   conexion.query(sql, (error, resultados) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al obtener proveedores',
-        error
+        mensaje: 'Error al obtener proveedores'
       });
     }
 
@@ -44,8 +43,7 @@ router.get('/:id', (req, res) => {
   conexion.query(sql, [id], (error, resultados) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al obtener proveedor',
-        error
+        mensaje: 'Error al obtener proveedor'
       });
     }
 
@@ -85,8 +83,7 @@ router.post('/', (req, res) => {
     (error, resultado) => {
       if (error) {
         return res.status(500).json({
-          mensaje: 'Error al registrar proveedor',
-          error
+          mensaje: 'Error al registrar proveedor'
         });
       }
 
@@ -129,8 +126,7 @@ router.put('/:id', (req, res) => {
     (error, resultado) => {
       if (error) {
         return res.status(500).json({
-          mensaje: 'Error al editar proveedor',
-          error
+          mensaje: 'Error al editar proveedor'
         });
       }
 

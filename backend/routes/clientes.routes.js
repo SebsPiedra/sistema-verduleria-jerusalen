@@ -153,7 +153,6 @@ router.post('/registrar', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error al registrar cliente.',
-      error: error.message || error,
     });
   }
 });
@@ -263,7 +262,6 @@ router.post('/login', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error en el servidor.',
-      error: error.message || error,
     });
   }
 });
@@ -291,7 +289,6 @@ router.get('/', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error al obtener clientes.',
-      error: error.message || error,
     });
   }
 });
@@ -347,7 +344,6 @@ router.patch('/:id/estado', async (req, res) => {
 
     return res.status(500).json({
       mensaje: 'Error al actualizar cliente.',
-      error: error.message || error,
     });
   }
 });

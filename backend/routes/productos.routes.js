@@ -44,8 +44,7 @@ router.get('/', (req, res) => {
   conexion.query(sql, (error, resultados) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al obtener productos',
-        error
+        mensaje: 'Error al obtener productos'
       });
     }
 
@@ -76,8 +75,7 @@ router.get('/stock-bajo', (req, res) => {
   conexion.query(sql, (error, resultados) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al obtener productos con stock bajo',
-        error
+        mensaje: 'Error al obtener productos con stock bajo'
       });
     }
 
@@ -103,8 +101,7 @@ router.get('/alertas', (req, res) => {
   conexion.query(sqlStockBajo, (error, stockBajo) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al obtener alertas de productos',
-        error
+        mensaje: 'Error al obtener alertas de productos'
       });
     }
 
@@ -140,8 +137,7 @@ router.get('/:id', (req, res) => {
   conexion.query(sql, [id], (error, resultados) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al obtener producto',
-        error
+        mensaje: 'Error al obtener producto'
       });
     }
 
@@ -236,8 +232,7 @@ router.post('/', (req, res) => {
         (error, resultado) => {
           if (error) {
             return res.status(500).json({
-              mensaje: 'Error al registrar producto',
-              error
+              mensaje: 'Error al registrar producto'
             });
           }
 
@@ -337,8 +332,7 @@ router.put('/:id', (req, res) => {
         (error, resultado) => {
           if (error) {
             return res.status(500).json({
-              mensaje: 'Error al editar producto',
-              error
+              mensaje: 'Error al editar producto'
             });
           }
 
@@ -378,8 +372,7 @@ router.patch('/:id/aumentar', (req, res) => {
   conexion.query(sql, [Number(cantidad), id], (error, resultado) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al aumentar inventario',
-        error
+        mensaje: 'Error al aumentar inventario'
       });
     }
 
@@ -416,8 +409,7 @@ router.patch('/:id/disminuir', (req, res) => {
   conexion.query(sql, [Number(cantidad), id, Number(cantidad)], (error, resultado) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al disminuir inventario',
-        error
+        mensaje: 'Error al disminuir inventario'
       });
     }
 

@@ -109,7 +109,6 @@ router.get('/', async (req, res) => {
 
     res.status(500).json({
       mensaje: 'Error al cargar facturas',
-      error: error.message || error,
     });
   }
 });
@@ -188,7 +187,6 @@ router.get('/:id', async (req, res) => {
 
     res.status(500).json({
       mensaje: 'Error al cargar detalle de factura',
-      error: error.message || error,
     });
   }
 });
@@ -377,7 +375,6 @@ router.post('/', async (req, res) => {
 
     res.status(500).json({
       mensaje: 'No se pudo registrar la venta.',
-      error: error.message || error,
     });
   }
 });

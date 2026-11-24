@@ -30,8 +30,7 @@ router.get('/resumen', (req, res) => {
   conexion.query(sql, (error, resultados) => {
     if (error) {
       return res.status(500).json({
-        mensaje: 'Error al obtener resumen del dashboard',
-        error
+        mensaje: 'Error al obtener resumen del dashboard'
       });
     }
 
