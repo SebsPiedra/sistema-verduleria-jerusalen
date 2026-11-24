@@ -6,8 +6,8 @@
     "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@vercel/analytics": "^2.0.1",
-    "@vercel/speed-insights": "^2.0.0",
-    "axios": "^1.18.1",
+    "@vercel/speed-insights": "^2.1.0",
+    "axios": "^1.21.1",
     "expo": "~58.0.26",
     "expo-asset": "~58.0.21",
     "expo-constants": "~58.0.16",
@@ -24,7 +24,7 @@
     "expo-symbols": "~58.0.5",
     "expo-system-ui": "~58.0.7",
     "expo-web-browser": "~58.1.0",
-    "firebase": "^13.2.0",
+    "firebase": "^13.4.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-native": "0.88.1",
@@ -51,6 +51,10 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "^1.14.7",
+    "minimatch": "^11.0.9"
   },
   "private": true
 }
