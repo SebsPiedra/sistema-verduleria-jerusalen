@@ -2,26 +2,6 @@ const { getApps, initializeApp, cert } = require('firebase-admin/app');
 const { getMessaging } = require('firebase-admin/messaging');
 const { pool } = require('../utils/mensual');
 
-let tablasListas;
-
-const prepararTablas = async () => {
-  if (!tablasListas) {
-    tablasListas = pool.query(`
-      CREATE TABLE IF NOT EXISTS dispositivos_notificacion (
-        id BIGSERIAL PRIMARY KEY,
-        token TEXT NOT NULL UNIQUE,
-        plataforma VARCHAR(20) NOT NULL,
-        tipo_usuario VARCHAR(20) NOT NULL,
-        id_usuario BIGINT NOT NULL,
-        activo BOOLEAN NOT NULL DEFAULT TRUE,
-        creado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-  }
-  return tablasListas;
-};
-
 const credencialFirebase = () => {
   if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
     return JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
@@ -44,7 +24,6 @@ const mensajeria = () => {
 };
 
 const registrarDispositivo = async ({ token, plataforma, tipoUsuario, idUsuario }) => {
-  await prepararTablas();
   if (plataforma === 'web') {
     await pool.query(
       `UPDATE dispositivos_notificacion SET activo=FALSE, actualizado_en=CURRENT_TIMESTAMP
@@ -64,7 +43,6 @@ const registrarDispositivo = async ({ token, plataforma, tipoUsuario, idUsuario 
 };
 
 const tokensPara = async (tipoUsuario, idUsuario = null) => {
-  await prepararTablas();
   const parametros = [tipoUsuario];
   let filtro = 'tipo_usuario=$1 AND activo=TRUE';
   if (idUsuario !== null && idUsuario !== undefined) {

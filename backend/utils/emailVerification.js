@@ -15,29 +15,11 @@ const primeraFila = (resultado) => Array.isArray(resultado)
   ? resultado[0] || null
   : resultado?.rows?.[0] || null;
 
-const prepararTabla = async () => {
-  await ejecutar(`
-    CREATE TABLE IF NOT EXISTS verificacion_acceso (
-      tipo_cuenta VARCHAR(20) NOT NULL,
-      id_cuenta BIGINT NOT NULL,
-      requiere_verificacion BOOLEAN NOT NULL DEFAULT TRUE,
-      correo_verificado_en TIMESTAMP NULL,
-      ultimo_acceso TIMESTAMP NULL,
-      otp_hash VARCHAR(64) NULL,
-      otp_expires_at TIMESTAMP NULL,
-      otp_attempts INTEGER NOT NULL DEFAULT 0,
-      actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (tipo_cuenta, id_cuenta)
-    )
-  `);
-};
-
 const hashCodigo = (tipo, id, codigo) => crypto.createHash('sha256')
   .update(`${tipo}:${id}:${String(codigo)}:${variables.JWT_SECRET}`)
   .digest('hex');
 
 const obtenerEstado = async (tipo, id) => {
-  await prepararTabla();
   return primeraFila(await ejecutar(
     `SELECT * FROM verificacion_acceso WHERE tipo_cuenta = ? AND id_cuenta = ? LIMIT 1`,
     [tipo, id]
@@ -51,7 +33,6 @@ const necesitaVerificacion = async (tipo, id) => {
 };
 
 const marcarRequerida = async (tipo, id) => {
-  await prepararTabla();
   await ejecutar(
     `INSERT INTO verificacion_acceso (tipo_cuenta, id_cuenta, requiere_verificacion, actualizado_en)
      VALUES (?, ?, TRUE, CURRENT_TIMESTAMP)
@@ -63,7 +44,6 @@ const marcarRequerida = async (tipo, id) => {
 };
 
 const registrarAcceso = async (tipo, id, verificado = false) => {
-  await prepararTabla();
   await ejecutar(
     `INSERT INTO verificacion_acceso
       (tipo_cuenta, id_cuenta, requiere_verificacion, correo_verificado_en, ultimo_acceso, actualizado_en)
@@ -77,7 +57,6 @@ const registrarAcceso = async (tipo, id, verificado = false) => {
 };
 
 const enviarCodigo = async ({ tipo, id, correo, nombre }) => {
-  await prepararTabla();
   const codigo = String(crypto.randomInt(100000, 1000000));
   const vence = new Date(Date.now() + MINUTOS_CODIGO * 60000);
   await ejecutar(

@@ -39,42 +39,6 @@ const verificarClave = async (claveIngresada, claveGuardada) => {
   return claveIngresada === claveGuardada;
 };
 
-const prepararTablaRecuperacion = async () => {
-  await ejecutar(`
-    CREATE TABLE IF NOT EXISTS recuperacion_password (
-      id_recuperacion BIGSERIAL PRIMARY KEY,
-      tipo_cuenta VARCHAR(20) NOT NULL,
-      id_cuenta BIGINT NOT NULL,
-      token_hash VARCHAR(64) NOT NULL UNIQUE,
-      fecha_expiracion TIMESTAMP NOT NULL,
-      fecha_uso TIMESTAMP NULL,
-      fecha_creacion TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await ejecutar(`
-    CREATE INDEX IF NOT EXISTS idx_recuperacion_password_cuenta
-    ON recuperacion_password (tipo_cuenta, id_cuenta)
-  `);
-};
-
-const prepararTablaSeguridad = async () => {
-  await ejecutar(`
-    CREATE TABLE IF NOT EXISTS usuario_seguridad (
-      id_usuario BIGINT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
-      two_factor_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-      two_factor_secret TEXT NULL,
-      two_factor_pending_secret TEXT NULL,
-      recovery_codes JSONB NOT NULL DEFAULT '[]'::jsonb,
-      es_sandbox BOOLEAN NOT NULL DEFAULT FALSE,
-      actualizado_en TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-  await ejecutar(`ALTER TABLE usuario_seguridad ADD COLUMN IF NOT EXISTS otp_hash VARCHAR(64) NULL`);
-  await ejecutar(`ALTER TABLE usuario_seguridad ADD COLUMN IF NOT EXISTS otp_expires_at TIMESTAMP NULL`);
-  await ejecutar(`ALTER TABLE usuario_seguridad ADD COLUMN IF NOT EXISTS otp_attempts INTEGER NOT NULL DEFAULT 0`);
-};
-
 const crearCodigoCorreo = () => String(crypto.randomInt(100000, 1000000));
 const hashCodigoCorreo = (idUsuario, codigo) => crypto
   .createHash('sha256')
@@ -84,7 +48,6 @@ const hashCodigoCorreo = (idUsuario, codigo) => crypto
 const guardarYEnviarCodigo = async (usuario) => {
   const codigo = crearCodigoCorreo();
   const vence = new Date(Date.now() + MINUTOS_CODIGO_2FA * 60 * 1000);
-  await prepararTablaSeguridad();
   await ejecutar(
     `INSERT INTO usuario_seguridad (id_usuario, otp_hash, otp_expires_at, otp_attempts, actualizado_en)
      VALUES (?, ?, ?, 0, CURRENT_TIMESTAMP)
@@ -122,7 +85,6 @@ const validarCodigoCorreo = async (idUsuario, codigo) => {
 };
 
 const obtenerSeguridad = async (idUsuario) => {
-  await prepararTablaSeguridad();
   return obtenerPrimero(await ejecutar(
     `SELECT * FROM usuario_seguridad WHERE id_usuario = ? LIMIT 1`,
     [idUsuario]
@@ -375,7 +337,6 @@ router.post('/2fa/activar', async (req, res) => {
     if (!(await validarCodigoCorreo(usuario.id_usuario, req.body?.codigo))) {
       return res.status(400).json({ mensaje: 'El código es incorrecto o ya venció.' });
     }
-    await prepararTablaSeguridad();
     await ejecutar(
       `UPDATE usuario_seguridad SET
         two_factor_enabled = TRUE,
@@ -410,7 +371,6 @@ router.post('/sandbox-login', async (req, res) => {
     if (String(process.env.SANDBOX_ENABLED || '').toLowerCase() !== 'true') {
       return res.status(404).json({ mensaje: 'El modo demostración no está habilitado.' });
     }
-    await prepararTablaSeguridad();
     let usuario = obtenerPrimero(await ejecutar(
       `SELECT u.*, u.id AS id_usuario FROM usuarios u
        JOIN usuario_seguridad s ON s.id_usuario = u.id
@@ -449,7 +409,6 @@ router.post('/recuperar-password', async (req, res) => {
   }
 
   try {
-    await prepararTablaRecuperacion();
 
     let tipoCuenta = 'admin';
     let cuenta = obtenerPrimero(
@@ -565,7 +524,6 @@ router.post('/restablecer-password', async (req, res) => {
   }
 
   try {
-    await prepararTablaRecuperacion();
     const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
     const recuperacion = obtenerPrimero(
       await ejecutar(

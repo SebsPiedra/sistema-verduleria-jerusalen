@@ -10,20 +10,6 @@ const query = util.promisify(conexion.query).bind(conexion);
 const beginTransaction = util.promisify(conexion.beginTransaction).bind(conexion);
 const commit = util.promisify(conexion.commit).bind(conexion);
 const rollback = util.promisify(conexion.rollback).bind(conexion);
-let preparacionEnvio = null;
-
-const prepararEsquemaEnvio = () => {
-  if (!preparacionEnvio) {
-    preparacionEnvio = (async () => {
-      await query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS subtotal_productos NUMERIC(14,2) NOT NULL DEFAULT 0');
-      await query('ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS costo_envio NUMERIC(14,2) NOT NULL DEFAULT 0');
-      await query('CREATE TABLE IF NOT EXISTS configuracion_sistema (clave VARCHAR(80) PRIMARY KEY, valor NUMERIC(14,2) NOT NULL, actualizado_en TIMESTAMPTZ NOT NULL DEFAULT now())');
-      await query("INSERT INTO configuracion_sistema(clave,valor) VALUES ('umbral_envio_gratis',15000),('costo_envio_base',1500) ON CONFLICT (clave) DO NOTHING");
-    })().catch((error) => { preparacionEnvio = null; throw error; });
-  }
-  return preparacionEnvio;
-};
-
 const estadosPermitidos = [
   'Pendiente',
   'Aceptado',
@@ -122,7 +108,6 @@ const cargarDetallesPorPedidos = async (pedidos) => {
 };
 
 const cargarPedidosConDetalles = async (condicion = '', parametros = [], paginacion = null) => {
-  await prepararEsquemaEnvio();
   const resultadoPedidos = await query(
     `
       SELECT
@@ -527,7 +512,6 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    await prepararEsquemaEnvio();
     await beginTransaction();
 
     let total = 0;
@@ -889,7 +873,6 @@ router.patch('/:id/costo-envio', async (req, res) => {
   }
 
   try {
-    await prepararEsquemaEnvio();
     const pedido = obtenerPrimero(await query('SELECT id_pedido, estado, tipo_entrega, subtotal_productos, costo_envio, total FROM pedidos WHERE id_pedido = ?', [id]));
     if (!pedido) return res.status(404).json({ mensaje: 'Pedido no encontrado.' });
     if (pedido.estado !== 'Pendiente') return res.status(409).json({ mensaje: 'El costo de envío solo puede ajustarse mientras el pedido esté pendiente.' });
