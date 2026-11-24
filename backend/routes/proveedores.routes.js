@@ -3,6 +3,24 @@ const conexion = require('../db');
 
 const router = express.Router();
 
+const validarProveedor = ({ nombre, telefono, direccion }) => {
+  const nombreFinal = String(nombre || '').trim();
+  const telefonoFinal = String(telefono || '').trim();
+  const direccionFinal = String(direccion || '').trim();
+
+  if (nombreFinal.length < 2 || nombreFinal.length > 100) {
+    return { error: 'El nombre del proveedor debe tener entre 2 y 100 caracteres.' };
+  }
+  if (telefonoFinal && !/^\+?[0-9\s-]{8,20}$/.test(telefonoFinal)) {
+    return { error: 'Ingrese un teléfono válido.' };
+  }
+  if (direccionFinal.length > 300) {
+    return { error: 'La dirección no puede superar 300 caracteres.' };
+  }
+
+  return { nombreFinal, telefonoFinal: telefonoFinal || null, direccionFinal: direccionFinal || null };
+};
+
 // Listar proveedores
 router.get('/', (req, res) => {
   const sql = `
@@ -29,6 +47,9 @@ router.get('/', (req, res) => {
 // Obtener proveedor por ID
 router.get('/:id', (req, res) => {
   const { id } = req.params;
+  if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0) {
+    return res.status(400).json({ mensaje: 'Proveedor no válido.' });
+  }
 
   const sql = `
     SELECT 
@@ -59,13 +80,9 @@ router.get('/:id', (req, res) => {
 
 // Registrar proveedor
 router.post('/', (req, res) => {
-  const { nombre, telefono, direccion } = req.body;
-
-  if (!nombre) {
-    return res.status(400).json({
-      mensaje: 'Debe ingresar el nombre del proveedor'
-    });
-  }
+  const validacion = validarProveedor(req.body);
+  if (validacion.error) return res.status(400).json({ mensaje: validacion.error });
+  const { nombreFinal, telefonoFinal, direccionFinal } = validacion;
 
   const sql = `
     INSERT INTO proveedores
@@ -76,9 +93,9 @@ router.post('/', (req, res) => {
   conexion.query(
     sql,
     [
-      nombre,
-      telefono || null,
-      direccion || null
+      nombreFinal,
+      telefonoFinal,
+      direccionFinal
     ],
     (error, resultado) => {
       if (error) {
@@ -98,13 +115,12 @@ router.post('/', (req, res) => {
 // Editar proveedor
 router.put('/:id', (req, res) => {
   const { id } = req.params;
-  const { nombre, telefono, direccion } = req.body;
-
-  if (!nombre) {
-    return res.status(400).json({
-      mensaje: 'Debe ingresar el nombre del proveedor'
-    });
+  if (!Number.isSafeInteger(Number(id)) || Number(id) <= 0) {
+    return res.status(400).json({ mensaje: 'Proveedor no válido.' });
   }
+  const validacion = validarProveedor(req.body);
+  if (validacion.error) return res.status(400).json({ mensaje: validacion.error });
+  const { nombreFinal, telefonoFinal, direccionFinal } = validacion;
 
   const sql = `
     UPDATE proveedores
@@ -118,10 +134,10 @@ router.put('/:id', (req, res) => {
   conexion.query(
     sql,
     [
-      nombre,
-      telefono || null,
-      direccion || null,
-      id
+      nombreFinal,
+      telefonoFinal,
+      direccionFinal,
+      Number(id)
     ],
     (error, resultado) => {
       if (error) {

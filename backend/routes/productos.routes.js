@@ -7,6 +7,10 @@ const {
 const { cantidadValidaParaUnidad } = require('../utils/unidades');
 
 const router = express.Router();
+const UNIDADES_PERMITIDAS = new Set(['kg', 'unidad', 'bolsa', 'caja', 'litro', 'paquete']);
+const ESTADOS_PERMITIDOS = new Set(['Activo', 'Inactivo']);
+const LIMITE_CANTIDAD = 1000000;
+const LIMITE_PRECIO = 100000000;
 
 const normalizarNumero = (valor, defecto = 0) => {
   const numero = Number(valor);
@@ -20,6 +24,79 @@ const normalizarId = (valor) => {
 
   return Number(valor);
 };
+
+const validarDatosProducto = ({
+  nombre,
+  cantidad,
+  precio_compra,
+  precio_venta,
+  stock_minimo,
+  unidad_medida,
+  id_proveedor,
+  imagen_url,
+  estado,
+}) => {
+  const nombreFinal = String(nombre || '').trim();
+  const unidadFinal = String(unidad_medida || 'kg').trim().toLowerCase();
+  const estadoFinal = String(estado || 'Activo').trim();
+  const precioCompra = Number(precio_compra);
+  const precioVenta = Number(precio_venta);
+  const proveedorFinal = normalizarId(id_proveedor);
+  const imagenUrlFinal = String(imagen_url || '').trim();
+
+  if (nombreFinal.length < 2 || nombreFinal.length > 100) {
+    return { error: 'El nombre del producto debe tener entre 2 y 100 caracteres.' };
+  }
+  if (!UNIDADES_PERMITIDAS.has(unidadFinal)) {
+    return { error: 'Debe seleccionar una unidad de medida válida.' };
+  }
+  if (
+    !cantidadValidaParaUnidad(cantidad, unidadFinal, true) ||
+    !cantidadValidaParaUnidad(stock_minimo, unidadFinal, true) ||
+    Number(cantidad) > LIMITE_CANTIDAD ||
+    Number(stock_minimo) > LIMITE_CANTIDAD
+  ) {
+    return { error: `La cantidad y el stock mínimo no son válidos para ${unidadFinal}.` };
+  }
+  if (
+    !Number.isFinite(precioCompra) || precioCompra < 0 || precioCompra > LIMITE_PRECIO ||
+    !Number.isFinite(precioVenta) || precioVenta <= 0 || precioVenta > LIMITE_PRECIO
+  ) {
+    return { error: 'Ingrese precios válidos y mayores que cero para la venta.' };
+  }
+  if (precioVenta < precioCompra) {
+    return { error: 'El precio de venta no puede ser menor que el precio de compra.' };
+  }
+  if (proveedorFinal !== null && (!Number.isSafeInteger(proveedorFinal) || proveedorFinal <= 0)) {
+    return { error: 'El proveedor seleccionado no es válido.' };
+  }
+  if (imagenUrlFinal && (imagenUrlFinal.length > 2048 || !/^https:\/\//i.test(imagenUrlFinal))) {
+    return { error: 'La imagen debe ser un enlace HTTPS válido.' };
+  }
+  if (!ESTADOS_PERMITIDOS.has(estadoFinal)) {
+    return { error: 'El estado del producto no es válido.' };
+  }
+
+  return {
+    datos: {
+      nombreFinal,
+      unidadFinal,
+      precioCompra,
+      precioVenta,
+      proveedorFinal,
+      imagenUrlFinal: imagenUrlFinal || null,
+      estadoFinal,
+    },
+  };
+};
+
+const cantidadAjusteValida = (valor) => {
+  const numero = Number(valor);
+  return Number.isFinite(numero) && numero > 0 && numero <= LIMITE_CANTIDAD &&
+    Math.abs(numero * 100 - Math.round(numero * 100)) < 1e-8;
+};
+
+const idValido = (valor) => Number.isSafeInteger(Number(valor)) && Number(valor) > 0;
 
 // Listar productos
 router.get('/', (req, res) => {
@@ -115,6 +192,9 @@ router.get('/alertas', (req, res) => {
 // Obtener producto por ID
 router.get('/:id', (req, res) => {
   const { id } = req.params;
+  if (!idValido(id)) {
+    return res.status(400).json({ mensaje: 'El producto indicado no es válido.' });
+  }
 
   const sql = `
     SELECT
@@ -165,23 +245,9 @@ router.post('/', (req, res) => {
     estado
   } = req.body;
 
-  const nombreFinal = String(nombre || '').trim();
-
-  if (!nombreFinal) {
-    return res.status(400).json({
-      mensaje: 'Debe ingresar el nombre del producto'
-    });
-  }
-
-  const unidadFinal = unidad_medida || 'kg';
-  if (
-    !cantidadValidaParaUnidad(cantidad, unidadFinal, true) ||
-    !cantidadValidaParaUnidad(stock_minimo, unidadFinal, true)
-  ) {
-    return res.status(400).json({
-      mensaje: `La cantidad y el stock mínimo no son válidos para ${unidadFinal}`
-    });
-  }
+  const validacion = validarDatosProducto(req.body);
+  if (validacion.error) return res.status(400).json({ mensaje: validacion.error });
+  const { nombreFinal, unidadFinal, precioCompra, precioVenta, proveedorFinal, imagenUrlFinal, estadoFinal } = validacion.datos;
 
   const sql = `
     INSERT INTO productos (
@@ -198,8 +264,6 @@ router.post('/', (req, res) => {
     )
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
-
-  const imagenUrlFinal = imagen_url || null;
 
   conexion.query(
     'SELECT id_producto FROM productos WHERE LOWER(TRIM(nombre)) = LOWER(?) LIMIT 1',
@@ -220,14 +284,14 @@ router.post('/', (req, res) => {
         [
           nombreFinal,
           normalizarNumero(cantidad, 0),
-          normalizarNumero(precio_compra, 0),
-          normalizarNumero(precio_venta, 0),
+          precioCompra,
+          precioVenta,
           normalizarNumero(stock_minimo, 5),
           unidadFinal,
-          normalizarId(id_proveedor),
+          proveedorFinal,
           imagenUrlFinal,
           imagenUrlFinal,
-          estado || 'Activo'
+          estadoFinal
         ],
         (error, resultado) => {
           if (error) {
@@ -263,26 +327,13 @@ router.put('/:id', (req, res) => {
     estado
   } = req.body;
 
-  const nombreFinal = String(nombre || '').trim();
-
-  if (!nombreFinal) {
-    return res.status(400).json({
-      mensaje: 'Debe ingresar el nombre del producto'
-    });
+  const idProducto = Number(id);
+  if (!Number.isSafeInteger(idProducto) || idProducto <= 0) {
+    return res.status(400).json({ mensaje: 'El producto indicado no es válido.' });
   }
-
-
-  const unidadFinal = unidad_medida || 'kg';
-  if (
-    !cantidadValidaParaUnidad(cantidad, unidadFinal, true) ||
-    !cantidadValidaParaUnidad(stock_minimo, unidadFinal, true)
-  ) {
-    return res.status(400).json({
-      mensaje: `La cantidad y el stock mínimo no son válidos para ${unidadFinal}`
-    });
-  }
-
-  const imagenUrlFinal = imagen_url || null;
+  const validacion = validarDatosProducto(req.body);
+  if (validacion.error) return res.status(400).json({ mensaje: validacion.error });
+  const { nombreFinal, unidadFinal, precioCompra, precioVenta, proveedorFinal, imagenUrlFinal, estadoFinal } = validacion.datos;
 
   const sql = `
     UPDATE productos
@@ -302,7 +353,7 @@ router.put('/:id', (req, res) => {
 
   conexion.query(
     'SELECT id_producto FROM productos WHERE LOWER(TRIM(nombre)) = LOWER(?) AND id_producto <> ? LIMIT 1',
-    [nombreFinal, id],
+    [nombreFinal, idProducto],
     (errorDuplicado, duplicados) => {
       if (errorDuplicado) {
         return res.status(500).json({ mensaje: 'Error al validar el producto' });
@@ -319,15 +370,15 @@ router.put('/:id', (req, res) => {
         [
           nombreFinal,
           normalizarNumero(cantidad, 0),
-          normalizarNumero(precio_compra, 0),
-          normalizarNumero(precio_venta, 0),
+          precioCompra,
+          precioVenta,
           normalizarNumero(stock_minimo, 5),
           unidadFinal,
-          normalizarId(id_proveedor),
+          proveedorFinal,
           imagenUrlFinal,
           imagenUrlFinal,
-          estado || 'Activo',
-          id
+          estadoFinal,
+          idProducto
         ],
         (error, resultado) => {
           if (error) {
@@ -357,7 +408,7 @@ router.patch('/:id/aumentar', (req, res) => {
   const { id } = req.params;
   const { cantidad } = req.body;
 
-  if (!cantidad || Number(cantidad) <= 0) {
+  if (!idValido(id) || !cantidadAjusteValida(cantidad)) {
     return res.status(400).json({
       mensaje: 'Debe ingresar una cantidad válida'
     });
@@ -393,7 +444,7 @@ router.patch('/:id/disminuir', (req, res) => {
   const { id } = req.params;
   const { cantidad } = req.body;
 
-  if (!cantidad || Number(cantidad) <= 0) {
+  if (!idValido(id) || !cantidadAjusteValida(cantidad)) {
     return res.status(400).json({
       mensaje: 'Debe ingresar una cantidad válida'
     });
