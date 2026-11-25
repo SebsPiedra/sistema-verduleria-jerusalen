@@ -477,12 +477,26 @@ export default function PedidosAdminScreen() {
     const { pedido, nuevoEstado } = cambioPendiente;
     const idPedido = obtenerIdPedido(pedido);
 
+    // Chrome solo permite abrir la pestaña de WhatsApp durante el clic del
+    // usuario. Si se espera primero la respuesta del servidor, la considera
+    // una ventana emergente y la bloquea.
+    const ventanaWhatsApp =
+      nuevoEstado === 'En entrega' && Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.open('about:blank', '_blank')
+        : null;
+
     const actualizado = await enviarCambioEstado(idPedido, nuevoEstado);
-    if (actualizado) setCambioPendiente(null);
+    if (!actualizado) {
+      if (ventanaWhatsApp && !ventanaWhatsApp.closed) ventanaWhatsApp.close();
+      return;
+    }
+
+    setCambioPendiente(null);
     if (actualizado && nuevoEstado === 'En entrega') {
       await abrirWhatsAppCliente(
         pedido,
-        `Hola ${obtenerCliente(pedido)}. Su pedido #${idPedido} de Verdulería Jerusalén ya va en camino. Por favor, esté pendiente para recibirlo.`
+        `Hola ${obtenerCliente(pedido)}. Su pedido #${idPedido} de Verdulería Jerusalén ya va en camino. Por favor, esté pendiente para recibirlo.`,
+        ventanaWhatsApp
       );
     }
   };
