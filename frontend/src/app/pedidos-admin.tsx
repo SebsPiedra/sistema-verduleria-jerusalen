@@ -28,6 +28,8 @@ export default function PedidosAdminScreen() {
   const [pedidoAbierto, setPedidoAbierto] = useState<number | null>(null);
   const [cargando, setCargando] = useState(false);
   const [actualizando, setActualizando] = useState(false);
+  const [pedidoActualizando, setPedidoActualizando] = useState<number | null>(null);
+  const [historiales, setHistoriales] = useState<Record<number, any[]>>({});
   const [mensaje, setMensaje] = useState('');
   const [tipoMensaje, setTipoMensaje] = useState<'ok' | 'error' | 'info'>('info');
   const [pedidoParaRechazar, setPedidoParaRechazar] = useState<any | null>(null);
@@ -44,7 +46,7 @@ export default function PedidosAdminScreen() {
   const [pagina, setPagina] = useState(1);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [totalResultados, setTotalResultados] = useState(0);
-  const [resumen, setResumen] = useState({ total_pedidos: 0, pendientes: 0, aceptados: 0, entregados: 0, monto_total: 0 });
+  const [resumen, setResumen] = useState({ total_pedidos: 0, pendientes: 0, aceptados: 0, en_preparacion: 0, en_entrega: 0, entregados: 0, rechazados: 0, cancelados: 0, monto_total: 0 });
   const LIMITE_POR_PAGINA = 20;
 
   useEffect(() => {
@@ -100,7 +102,11 @@ export default function PedidosAdminScreen() {
         total_pedidos: Number(respuesta.data?.resumen?.total_pedidos || 0),
         pendientes: Number(respuesta.data?.resumen?.pendientes || 0),
         aceptados: Number(respuesta.data?.resumen?.aceptados || 0),
+        en_preparacion: Number(respuesta.data?.resumen?.en_preparacion || 0),
+        en_entrega: Number(respuesta.data?.resumen?.en_entrega || 0),
         entregados: Number(respuesta.data?.resumen?.entregados || 0),
+        rechazados: Number(respuesta.data?.resumen?.rechazados || 0),
+        cancelados: Number(respuesta.data?.resumen?.cancelados || 0),
         monto_total: Number(respuesta.data?.resumen?.monto_total || 0),
       });
     } catch (error: any) {
@@ -269,6 +275,23 @@ export default function PedidosAdminScreen() {
     return obtenerCantidadDetalle(item) * obtenerPrecioDetalle(item);
   };
 
+  const abrirCerrarPedido = async (pedido: any) => {
+    const id = obtenerIdPedido(pedido);
+    if (pedidoAbierto === id) {
+      setPedidoAbierto(null);
+      return;
+    }
+    setPedidoAbierto(id);
+    if (!historiales[id]) {
+      try {
+        const { data } = await api.get(`/pedidos/${id}/historial`);
+        setHistoriales((actual) => ({ ...actual, [id]: Array.isArray(data) ? data : [] }));
+      } catch {
+        setHistoriales((actual) => ({ ...actual, [id]: [] }));
+      }
+    }
+  };
+
   const inventarioDescontado = (pedido: any) => {
     return Number(pedido.inventario_descontado || 0) === 1;
   };
@@ -334,19 +357,15 @@ export default function PedidosAdminScreen() {
     const tipoEntrega = obtenerTipoEntrega(pedido).trim().toLowerCase();
 
     return (
-      (estado === 'aceptado' || estado === 'en preparación') &&
+      estado === 'en preparación' &&
       tipoEntrega !== 'retiro en tienda'
     );
   };
 
   const puedeEntregar = (pedido: any) => {
     const estado = obtenerEstado(pedido).toLowerCase();
-
-    return (
-      estado === 'aceptado' ||
-      estado === 'en preparación' ||
-      estado === 'en entrega'
-    );
+    const retiro = obtenerTipoEntrega(pedido).trim().toLowerCase() === 'retiro en tienda';
+    return estado === 'en entrega' || (retiro && estado === 'en preparación');
   };
 
   const puedeRechazar = (pedido: any) => {
@@ -419,7 +438,7 @@ export default function PedidosAdminScreen() {
     const ventanaWhatsApp = Platform.OS === 'web' && typeof window !== 'undefined'
       ? window.open('about:blank', '_blank')
       : null;
-    const actualizado = await enviarCambioEstado(idPedido, 'Rechazado');
+    const actualizado = await enviarCambioEstado(idPedido, 'Rechazado', motivoRechazo.trim());
     if (!actualizado) {
       if (ventanaWhatsApp && !ventanaWhatsApp.closed) ventanaWhatsApp.close();
       return;
@@ -501,14 +520,15 @@ export default function PedidosAdminScreen() {
     }
   };
 
-  const enviarCambioEstado = async (idPedido: number, nuevoEstado: string) => {
+  const enviarCambioEstado = async (idPedido: number, nuevoEstado: string, motivo = '') => {
     try {
-      setActualizando(true);
+      setPedidoActualizando(idPedido);
       mostrarMensaje('Actualizando pedido...', 'info');
 
       try {
         await api.patch(`/pedidos/${idPedido}/estado`, {
           estado: nuevoEstado,
+          motivo: motivo || undefined,
         });
       } catch {
         const accion =
@@ -525,9 +545,9 @@ export default function PedidosAdminScreen() {
                     : 'cancelar';
 
         try {
-          await api.patch(`/pedidos/${idPedido}/${accion}`);
+          await api.patch(`/pedidos/${idPedido}/${accion}`, { motivo: motivo || undefined });
         } catch {
-          await api.put(`/pedidos/${idPedido}/${accion}`);
+          await api.put(`/pedidos/${idPedido}/${accion}`, { motivo: motivo || undefined });
         }
       }
 
@@ -546,7 +566,7 @@ export default function PedidosAdminScreen() {
       );
       return false;
     } finally {
-      setActualizando(false);
+      setPedidoActualizando(null);
     }
   };
 
@@ -630,7 +650,7 @@ export default function PedidosAdminScreen() {
           <View>
             <Text style={styles.tarjetaLabel}>Aceptados</Text>
             <Text style={styles.tarjetaNumero}>{totalAceptados}</Text>
-            
+            <Text style={styles.tarjetaDetalle}>{resumen.en_preparacion} en preparación · {resumen.en_entrega} en entrega</Text>
           </View>
         </View>
 
@@ -642,6 +662,7 @@ export default function PedidosAdminScreen() {
               {formatoColones(totalMontoPedidos)}
             </Text>
             <Text style={styles.tarjetaDetalle}>{totalEntregados} entregados</Text>
+            <Text style={styles.tarjetaDetalle}>{resumen.rechazados} rechazados · {resumen.cancelados} cancelados</Text>
           </View>
         </View>
       </View>
@@ -712,7 +733,7 @@ export default function PedidosAdminScreen() {
                     <View><Text style={styles.pedidoMovilLabel}>Total</Text><Text style={styles.pedidoMovilTotal}>{formatoColones(obtenerTotal(pedido))}</Text></View>
                   </View>
 
-                  <Pressable accessibilityRole="button" style={styles.botonDetalleMovil} onPress={() => setPedidoAbierto(abierto ? null : idPedido)}>
+                  <Pressable accessibilityRole="button" style={styles.botonDetalleMovil} onPress={() => abrirCerrarPedido(pedido)}>
                     <Text style={styles.textoDetalle}>{abierto ? 'Ocultar detalle' : 'Ver y gestionar pedido'}</Text>
                   </Pressable>
 
@@ -735,6 +756,10 @@ export default function PedidosAdminScreen() {
                         <View style={{ flex: 1 }}><Text style={styles.productoDetalleNombre}>{obtenerNombreProducto(item)}</Text><Text style={styles.productoDetalleInfo}>Cantidad: {obtenerCantidadDetalle(item)}</Text></View>
                         <Text style={styles.productoSubtotal}>{formatoColones(obtenerSubtotalDetalle(item))}</Text>
                       </View>)}
+                    </View>
+                    <View style={styles.desgloseEnvio}>
+                      <Text style={styles.configTitulo}>Historial de estados</Text>
+                      {(historiales[idPedido] || []).length === 0 ? <Text style={styles.detalleMovilLinea}>Sin cambios registrados todavía.</Text> : (historiales[idPedido] || []).map((item: any) => <Text key={item.id_historial} style={styles.detalleMovilLinea}>{item.estado_anterior || 'Inicio'} → {item.estado_nuevo}{item.motivo ? ` · ${item.motivo}` : ''}</Text>)}
                     </View>
                     <View style={styles.accionesMovil}>
                       {puedeAceptar(pedido) ? <Pressable style={[styles.accionMovil, styles.botonAceptar]} onPress={() => cambiarEstado(pedido, 'Aceptado')}><Text style={styles.textoBotonAccion}>Aceptar</Text></Pressable> : null}
@@ -826,7 +851,7 @@ export default function PedidosAdminScreen() {
                   <View style={styles.colAccion}>
                     <Pressable accessibilityRole="button"
                       style={styles.botonDetalle}
-                      onPress={() => setPedidoAbierto(abierto ? null : idPedido)}
+                      onPress={() => abrirCerrarPedido(pedido)}
                     >
                       <Text style={styles.textoDetalle}>
                         {abierto ? 'Ocultar' : 'Ver'}
@@ -928,14 +953,19 @@ export default function PedidosAdminScreen() {
                       </View>
                     )}
 
+                    <View style={styles.desgloseEnvio}>
+                      <Text style={styles.configTitulo}>Historial de estados</Text>
+                      {(historiales[idPedido] || []).length === 0 ? <Text style={styles.detalleSubtitulo}>Sin cambios registrados todavía.</Text> : (historiales[idPedido] || []).map((item: any) => <Text key={item.id_historial} style={styles.detalleSubtitulo}>{item.estado_anterior || 'Inicio'} → {item.estado_nuevo}{item.motivo ? ` · Motivo: ${item.motivo}` : ''}</Text>)}
+                    </View>
+
                     <View style={styles.accionesPedido}>
                       <Pressable accessibilityRole="button"
                         style={[
                           styles.botonAceptar,
-                          (!puedeAceptar(pedido) || actualizando) && styles.botonDesactivado,
+                          (!puedeAceptar(pedido) || pedidoActualizando === idPedido) && styles.botonDesactivado,
                         ]}
                         onPress={() => cambiarEstado(pedido, 'Aceptado')}
-                        disabled={!puedeAceptar(pedido) || actualizando}
+                        disabled={!puedeAceptar(pedido) || pedidoActualizando === idPedido}
                       >
                         <Text style={styles.textoBotonAccion}>Aceptar</Text>
                       </Pressable>
@@ -943,10 +973,10 @@ export default function PedidosAdminScreen() {
                       <Pressable accessibilityRole="button"
                         style={[
                           styles.botonPreparar,
-                          (!puedePreparar(pedido) || actualizando) && styles.botonDesactivado,
+                          (!puedePreparar(pedido) || pedidoActualizando === idPedido) && styles.botonDesactivado,
                         ]}
                         onPress={() => cambiarEstado(pedido, 'En preparación')}
-                        disabled={!puedePreparar(pedido) || actualizando}
+                        disabled={!puedePreparar(pedido) || pedidoActualizando === idPedido}
                       >
                         <Text style={styles.textoBotonAccion}>Preparar</Text>
                       </Pressable>
@@ -954,10 +984,10 @@ export default function PedidosAdminScreen() {
                       <Pressable accessibilityRole="button"
                         style={[
                           styles.botonEnviar,
-                          (!puedeEnviar(pedido) || actualizando) && styles.botonDesactivado,
+                          (!puedeEnviar(pedido) || pedidoActualizando === idPedido) && styles.botonDesactivado,
                         ]}
                         onPress={() => cambiarEstado(pedido, 'En entrega')}
-                        disabled={!puedeEnviar(pedido) || actualizando}
+                        disabled={!puedeEnviar(pedido) || pedidoActualizando === idPedido}
                       >
                         <Text style={styles.textoBotonAccion}>En entrega</Text>
                       </Pressable>
@@ -965,10 +995,10 @@ export default function PedidosAdminScreen() {
                       <Pressable accessibilityRole="button"
                         style={[
                           styles.botonEntregar,
-                          (!puedeEntregar(pedido) || actualizando) && styles.botonDesactivado,
+                          (!puedeEntregar(pedido) || pedidoActualizando === idPedido) && styles.botonDesactivado,
                         ]}
                         onPress={() => cambiarEstado(pedido, 'Entregado')}
-                        disabled={!puedeEntregar(pedido) || actualizando}
+                        disabled={!puedeEntregar(pedido) || pedidoActualizando === idPedido}
                       >
                         <Text style={styles.textoBotonAccion}>Entregado</Text>
                       </Pressable>
@@ -978,10 +1008,10 @@ export default function PedidosAdminScreen() {
                       <Pressable accessibilityRole="button"
                         style={[
                           styles.botonRechazar,
-                          (!puedeRechazar(pedido) || actualizando) && styles.botonDesactivado,
+                          (!puedeRechazar(pedido) || pedidoActualizando === idPedido) && styles.botonDesactivado,
                         ]}
                         onPress={() => solicitarRechazo(pedido)}
-                        disabled={!puedeRechazar(pedido) || actualizando}
+                        disabled={!puedeRechazar(pedido) || pedidoActualizando === idPedido}
                       >
                         <Text style={styles.textoBotonAccion}>Rechazar</Text>
                       </Pressable>
@@ -989,10 +1019,10 @@ export default function PedidosAdminScreen() {
                       <Pressable accessibilityRole="button"
                         style={[
                           styles.botonCancelar,
-                          (!puedeCancelar(pedido) || actualizando) && styles.botonDesactivado,
+                          (!puedeCancelar(pedido) || pedidoActualizando === idPedido) && styles.botonDesactivado,
                         ]}
                         onPress={() => cambiarEstado(pedido, 'Cancelado')}
-                        disabled={!puedeCancelar(pedido) || actualizando}
+                        disabled={!puedeCancelar(pedido) || pedidoActualizando === idPedido}
                       >
                         <Text style={styles.textoBotonAccion}>Cancelar</Text>
                       </Pressable>
@@ -1022,7 +1052,7 @@ export default function PedidosAdminScreen() {
         visible={cambioPendiente !== null}
         transparent
         animationType="fade"
-        onRequestClose={() => { if (!actualizando) setCambioPendiente(null); }}
+        onRequestClose={() => { if (pedidoActualizando === null) setCambioPendiente(null); }}
       >
         <View style={styles.modalFondo}>
           <View style={styles.modalCaja}>
@@ -1036,11 +1066,11 @@ export default function PedidosAdminScreen() {
               </Text>
             ) : null}
             <View style={styles.modalAcciones}>
-              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => setCambioPendiente(null)} disabled={actualizando}>
+              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => setCambioPendiente(null)} disabled={pedidoActualizando !== null}>
                 <Text style={styles.modalCancelarTexto}>Volver</Text>
               </Pressable>
-              <Pressable accessibilityRole="button" style={styles.modalConfirmarEstado} onPress={confirmarCambioEstado} disabled={actualizando}>
-                <Text style={styles.textoBotonAccion}>{actualizando ? 'Actualizando...' : 'Confirmar'}</Text>
+              <Pressable accessibilityRole="button" style={styles.modalConfirmarEstado} onPress={confirmarCambioEstado} disabled={pedidoActualizando !== null}>
+                <Text style={styles.textoBotonAccion}>{pedidoActualizando !== null ? 'Actualizando...' : 'Confirmar'}</Text>
               </Pressable>
             </View>
           </View>
@@ -1072,16 +1102,16 @@ export default function PedidosAdminScreen() {
             />
             {errorRechazo ? <Text style={styles.modalError}>{errorRechazo}</Text> : null}
             <View style={styles.modalAcciones}>
-              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => { setPedidoParaRechazar(null); setErrorRechazo(''); }} disabled={actualizando}>
+              <Pressable accessibilityRole="button" style={styles.modalCancelar} onPress={() => { setPedidoParaRechazar(null); setErrorRechazo(''); }} disabled={pedidoActualizando !== null}>
                 <Text style={styles.modalCancelarTexto}>Volver</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
-                style={[styles.modalConfirmar, (actualizando || motivoRechazo.trim().length < 5) && styles.botonDesactivado]}
+                style={[styles.modalConfirmar, (pedidoActualizando !== null || motivoRechazo.trim().length < 5) && styles.botonDesactivado]}
                 onPress={confirmarRechazo}
-                disabled={actualizando || motivoRechazo.trim().length < 5}
+                disabled={pedidoActualizando !== null || motivoRechazo.trim().length < 5}
               >
-                <Text style={styles.textoBotonAccion}>{actualizando ? 'Actualizando...' : 'Rechazar y avisar'}</Text>
+                <Text style={styles.textoBotonAccion}>{pedidoActualizando !== null ? 'Actualizando...' : 'Rechazar y avisar'}</Text>
               </Pressable>
             </View>
           </View>

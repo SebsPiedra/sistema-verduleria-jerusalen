@@ -27,6 +27,16 @@ const estadosQueGeneranVenta = [
   'Entregado',
 ];
 
+const transicionesPermitidas = {
+  Pendiente: ['Aceptado', 'Rechazado', 'Cancelado'],
+  Aceptado: ['En preparación', 'Rechazado', 'Cancelado'],
+  'En preparación': ['En entrega', 'Entregado', 'Rechazado', 'Cancelado'],
+  'En entrega': ['Entregado', 'Rechazado', 'Cancelado'],
+  Entregado: [],
+  Rechazado: [],
+  Cancelado: [],
+};
+
 const formatoNumero = (valor) => {
   const numero = Number(valor || 0);
   return Number.isNaN(numero) ? 0 : numero;
@@ -229,6 +239,7 @@ const crearVentaDesdePedido = async (pedido, detalles) => {
 
 const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
   const { id } = req.params;
+  const motivo = String(req.body?.motivo || '').trim();
 
   if (!estadoNuevo || !estadosPermitidos.includes(estadoNuevo)) {
     return res.status(400).json({
@@ -249,6 +260,7 @@ const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
       p.total,
       p.metodo_pago,
       p.observacion,
+      p.tipo_entrega,
       COALESCE(p.inventario_descontado, 0) AS inventario_descontado,
       COALESCE(c.nombre, 'Cliente general') AS cliente
     FROM pedidos p
@@ -266,6 +278,35 @@ const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
       return res.status(404).json({
         mensaje: 'Pedido no encontrado',
       });
+    }
+
+    const estadoAnterior = pedido.estado || 'Pendiente';
+    if (estadoAnterior === estadoNuevo) {
+      await rollbackSeguro();
+      return res.status(409).json({ mensaje: `El pedido ya está en estado ${estadoNuevo}.` });
+    }
+
+    const permitidos = transicionesPermitidas[estadoAnterior] || [];
+    if (!permitidos.includes(estadoNuevo)) {
+      await rollbackSeguro();
+      return res.status(409).json({
+        mensaje: `No se puede pasar de ${estadoAnterior} a ${estadoNuevo}. Siga el orden del proceso del pedido.`,
+      });
+    }
+
+    if (estadoNuevo === 'En entrega' && String(pedido.tipo_entrega || 'Entrega') === 'Retiro en tienda') {
+      await rollbackSeguro();
+      return res.status(409).json({ mensaje: 'Un pedido para retirar en tienda no puede marcarse como En entrega.' });
+    }
+
+    if (estadoNuevo === 'Entregado' && estadoAnterior === 'En preparación' && String(pedido.tipo_entrega || 'Entrega') !== 'Retiro en tienda') {
+      await rollbackSeguro();
+      return res.status(409).json({ mensaje: 'Antes de entregar un pedido a domicilio, márquelo como En entrega.' });
+    }
+
+    if (estadoNuevo === 'Rechazado' && motivo.length < 5) {
+      await rollbackSeguro();
+      return res.status(400).json({ mensaje: 'Indique el motivo del rechazo (mínimo 5 caracteres).' });
     }
 
     const resultadoDetalles = await query(
@@ -399,6 +440,13 @@ const cambiarEstadoPedido = async (req, res, estadoNuevo) => {
         ]
       );
     }
+
+    await query(
+      `INSERT INTO historial_estados_pedidos
+       (id_pedido, estado_anterior, estado_nuevo, motivo, id_usuario, fecha_cambio)
+       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)`,
+      [id, estadoAnterior, estadoNuevo, motivo || null, req.usuarioSesion?.id_usuario || null]
+    );
 
     await commit();
 
@@ -731,7 +779,11 @@ router.get('/', async (req, res) => {
             COUNT(*) AS total_pedidos,
             COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'pendiente') AS pendientes,
             COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'aceptado') AS aceptados,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'en preparación') AS en_preparacion,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'en entrega') AS en_entrega,
             COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'entregado') AS entregados,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'rechazado') AS rechazados,
+            COUNT(*) FILTER (WHERE LOWER(COALESCE(estado, 'Pendiente')) = 'cancelado') AS cancelados,
             COALESCE(SUM(total), 0) AS monto_total
           FROM pedidos
         `),
@@ -751,7 +803,11 @@ router.get('/', async (req, res) => {
           total_pedidos: Number(resumen.total_pedidos || 0),
           pendientes: Number(resumen.pendientes || 0),
           aceptados: Number(resumen.aceptados || 0),
+          en_preparacion: Number(resumen.en_preparacion || 0),
+          en_entrega: Number(resumen.en_entrega || 0),
           entregados: Number(resumen.entregados || 0),
+          rechazados: Number(resumen.rechazados || 0),
+          cancelados: Number(resumen.cancelados || 0),
           monto_total: Number(resumen.monto_total || 0),
         },
       });
@@ -805,6 +861,24 @@ router.get('/cliente/:id_cliente', async (req, res) => {
     res.status(500).json({
       mensaje: 'Error al obtener pedidos del cliente',
     });
+  }
+});
+
+router.get('/:id/historial', async (req, res) => {
+  try {
+    const resultado = await query(
+      `SELECT h.id_historial, h.estado_anterior, h.estado_nuevo, h.motivo,
+              h.fecha_cambio, COALESCE(u.nombre, 'Sistema') AS usuario
+       FROM historial_estados_pedidos h
+       LEFT JOIN usuarios u ON u.id = h.id_usuario
+       WHERE h.id_pedido = ?
+       ORDER BY h.fecha_cambio DESC, h.id_historial DESC`,
+      [req.params.id]
+    );
+    return res.json(obtenerFilas(resultado));
+  } catch (error) {
+    console.log('Error al obtener historial del pedido:', error);
+    return res.status(500).json({ mensaje: 'No se pudo obtener el historial del pedido.' });
   }
 });
 
